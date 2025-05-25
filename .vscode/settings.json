@@ -1,0 +1,34 @@
+{
+  "stylelint.validate": ["css", "scss"],
+  "stylelint.lintDirtyFilesOnly": true,
+  "json.schemaDownload.enable": false,
+  "files.associations": {
+    "*.config.ts": "typescript",
+    "*.config.js": "javascript"
+  },
+
+  "tailwindCSS.experimental.classRegex": [
+    "clsx\\(([^)]*)\\)",
+    "cn\\(([^)]*)\\)",
+    "cva\\(([^)]*)\\)"
+  ],
+
+  "tailwindCSS.includeLanguages": {
+    "typescript": "html",
+    "typescriptreact": "html"
+  },
+
+  "tailwindCSS.experimental.configFile": "./tailwind.config.ts",
+  
+  "css.validate": false,
+  "scss.validate": false,
+  "less.validate": false,
+
+  "editor.quickSuggestions": {
+    "strings": true
+  },
+
+  "tailwindCSS.emmetCompletions": true,
+
+  "prettier.ignorePath": ".prettierignore"
+}
