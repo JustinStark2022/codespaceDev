@@ -3,6 +3,8 @@ import { useLocation, Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/components/ui/theme-provider";
+import Castle from "@/components/ui/castle";
+
 import { 
   LayoutDashboard, 
   Clock, 
@@ -32,6 +34,7 @@ export default function ParentLayout({ children, title }: ParentLayoutProps) {
   const { theme, setTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   
+
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
   const closeSidebar = () => setSidebarOpen(false);
   
@@ -56,42 +59,37 @@ export default function ParentLayout({ children, title }: ParentLayoutProps) {
     { path: "/support", label: "Support", icon: <HelpCircle className="mr-3 h-5 w-5" /> },
   ];
 
+  // Define the profile image variable
+  const parentProfileImage = "/images/Justin-faithfortress.png";
+
   return (
     <div className="flex h-screen overflow-hidden">
-      {/* Sidebar for larger screens and mobile when toggled */}
-      <div 
-        className={`fixed inset-y-0 left-0 z-30 w-64 bg-white dark:bg-gray-800 shadow-lg transform transition-all duration-300 ease-in-out ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        } lg:translate-x-0 lg:static lg:inset-0`}
-      >
-        <div className="flex items-center justify-between h-16 px-4 border-b dark:border-gray-700">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 rounded-full overflow-hidden bg-primary-50">
-              <img 
-                src="https://images.unsplash.com/photo-1535957998253-26ae1ef29506?ixlib=rb-1.2.1&auto=format&fit=crop&w=40&h=40&q=80" 
-                alt="Logo" 
-                className="w-full h-full object-cover"
-              />
-            </div>
-            <span className="text-lg font-semibold text-primary">Kingdom Kids</span>
-          </div>
-          <button onClick={closeSidebar} className="text-gray-500 lg:hidden">
-            <X className="h-5 w-5" />
+      {/* Sidebar */}
+      <div className={`fixed inset-y-0 left-0 z-30 w-48 bg-white dark:bg-gray-800 shadow-lg transform transition-all duration-300 ease-in-out ${
+        sidebarOpen ? "translate-x-0" : "-translate-x-full"
+      } lg:translate-x-0 lg:static lg:inset-0`}>
+        <div className="w-36 h-36 relative border-b dark:border-gray-700 bg-white dark:bg-gray-800 p-0 m-0 overflow-hidden">
+          <Castle />
+          <button onClick={closeSidebar} className="absolute top-4 right-4 text-gray-500 lg:hidden">
+            <X className="h-6 w-6" />
           </button>
         </div>
-        
+
         <div className="overflow-y-auto h-full scrollbar-hide py-4">
           <div className="px-4 mb-4">
             <div className="flex items-center space-x-3 mb-3">
-              <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200">
-                <img 
-                  src="https://images.unsplash.com/photo-1531123897727-8f129e1688ce?ixlib=rb-1.2.1&auto=format&fit=crop&w=48&h=48&q=80" 
-                  alt="Profile" 
-                  className="w-full h-full object-cover"
-                />
+              <div className="relative">
+                {/* Profile Picture */}
+                <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-200 border-2 border-white shadow flex items-center justify-center">
+                  <img
+                    src={parentProfileImage}
+                    alt={`${user?.first_name} ${user?.last_name} Profile`}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
               </div>
               <div>
-                <div className="font-medium text-sm">{user?.first_name} {user?.last_name}</div>
+                <div className="font-small text-base">{user?.first_name} {user?.last_name}</div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">Parent Account</div>
               </div>
             </div>
@@ -117,8 +115,7 @@ export default function ParentLayout({ children, title }: ParentLayoutProps) {
           
           <div className="px-4 mt-6">
             <Button
-              variant="ghost"
-              className="w-full justify-start"
+              className="w-full justify-center bg-primary-500 hover:bg-primary-600 text-white text-base py-3 rounded-lg shadow"
               onClick={handleLogout}
             >
               <LogOut className="mr-3 h-5 w-5" />

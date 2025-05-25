@@ -1,12 +1,12 @@
 import React from "react";
 
-const Logo: React.FC = () => (
+const Castle: React.FC = () => (
   <img
-    src="/images/mfflogobig.png"
+    src="/images/faithfortresscastlelogo.png"
     alt="My Faith Fortress Logo"
     className="w-full h-full object-contain block"
     draggable={false}
   />
 );
 
-export default Logo;
+export default Castle;

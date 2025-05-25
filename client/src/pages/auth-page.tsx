@@ -34,6 +34,9 @@ export default function AuthPage() {
     if (mode === "login") {
       try {
         const user = await login(form.username, form.password);
+        if (user.token) {
+          localStorage.setItem("token", user.token);
+        }
         setUser(user);
         navigate(user.role === "parent" ? "/dashboard" : "/child-dashboard");
       } catch (err: any) {
@@ -50,6 +53,9 @@ export default function AuthPage() {
 
         if (!response.ok) throw new Error("Registration failed");
         const user = await response.json();
+        if (user.token) {
+          localStorage.setItem("token", user.token);
+        }
         setUser(user);
         navigate("/dashboard");
       } catch (err: any) {
@@ -60,12 +66,13 @@ export default function AuthPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4 font-poppins">
-      <Card className="w-full max-w-md shadow-xl rounded-2xl border-0">
-        <CardContent className="p-8 space-y-6">
-          <div className="text-center">
-            <Logo />
+      <Card className="w-full max-w-xl shadow-xl rounded-2xl border-0"> {/* Increased max-w-xl */}
+        <CardContent className="py-14 px-10 space-y-8"> {/* More padding */}
+          <div className="w-full flex justify-center items-center">
+            <div className="w-48 h-48 flex items-center justify-center"> {/* Larger container */}
+              <Logo />
+            </div>
           </div>
-
           {/* Tabs */}
           <div className="flex items-center justify-center bg-muted rounded-lg p-1">
             <button
@@ -91,7 +98,6 @@ export default function AuthPage() {
               Register
             </button>
           </div>
-
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             {mode === "register" && (
