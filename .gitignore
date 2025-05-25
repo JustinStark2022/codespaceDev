@@ -1,2 +1,4 @@
 .qodo
 node_backend/.env
+node_backend/node_modules
+client/node_modules
