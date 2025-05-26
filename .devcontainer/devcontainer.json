@@ -3,9 +3,11 @@
   "image": "mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm",
   "dockerComposeFile": "../docker-compose.yml",
   "service": "backend",
-  "workspaceFolder": "codespaceDev",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
   "forwardPorts": [5173, 5000],
-  "postCreateCommand": "npm install",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
   "customizations": {
     "vscode": {
       "extensions": [
