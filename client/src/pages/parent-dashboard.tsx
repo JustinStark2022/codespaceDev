@@ -241,39 +241,35 @@ export default function ParentDashboard() {
               </CardContent>
             </Card>
           </div>
-          <div className="xl:col-span-10 flex flex-row gap-2">
+          <div className="grid grid-cols-2 lg:grid-cols-8 gap-4">
           {/* Action Cards, Verse of the Day, and Chat Side-by-Side */}
-          <div className="flex flex-row gap-8 mt-2">
             {/* Left: Action Cards + Verse of the Day */}
-            <div className="flex-1 flex flex-col gap-2">
-              <div className="flex flex-col sm:flex-row gap-2">
-                <Card className="flex-1 h-20 min-h-0 max-w-[190px]">
+            <div className="xl:col-span-10 flex flex-col gap-2">
+              <div className="w-full max-h-[325px] xl:col-span-4 flex flex-row gap-4">
+                <Card className="flex-1 h-10 pb-2 max-w-[190px]">
                   <CardContent className="py-1 flex flex-col items-center justify-center">
-                    <span className="font-semibold text-xs mb-1 text-base text-center">Create New Child Account</span>
-                    <Button asChild className="w-full max-w-[120px] h-5 mt-1 text-xs">
-                      <Link href="/children">Create Account</Link>
+                    <Button asChild className="w-full h-10 min-w-[190px] text-black-600 text-xs">
+                      <Link href="/children">Create Child Account</Link>
                     </Button>
                   </CardContent>
                 </Card>
-                <Card className="flex-1 h-20 min-h-0 max-w-[190px]">
+                <Card className="flex-1 h-10 pb-2  max-w-[190px]">
                   <CardContent className="py-1 flex flex-col items-center justify-center">
-                    <span className="font-semibold mb-1 text-xs text-base text-center">Bible Education Control Center</span>
-                    <Button asChild className="w-full max-w-[120px] h-5 mt-1 text-xs">
-                      <Link href="/monitoring">Adjust Filters</Link>
+                    <Button asChild className="w-full h-10 min-w-[190px] text-black-600 text-xs">
+                      <Link href="/monitoring">Bible Lesson Center</Link>
                     </Button>
                   </CardContent>
                 </Card>
-                <Card className="flex-1 h-20 min-h-0 max-w-[190px]">
+                <Card className="flex-1 h-10 pb-2 max-w-[190px]">
                   <CardContent className="py-1 flex flex-col items-center justify-center">
-                    <span className="font-semibold mb-1 text-xs text-base text-center">Parental Controls Center</span>
-                    <Button asChild className="w-full max-w-[120px] h-5 mt-1 text-xs">
-                      <Link href="/lessons">Open Controls</Link>
+                    <Button asChild className="w-full h-10 min-w-[190px] text-black-600 text-xs">
+                      <Link href="/lessons">Parental Controls</Link>
                     </Button>
                   </CardContent>
                 </Card>
               </div>
               {/* Verse of the Day */}
-              <Card className="h-[100px] max-w-[585px]">
+              <Card className="h-[100px] mt-4 max-w-[585px]">
                 <CardContent className="pt-2">
                   <div className="flex justify-between items-center mb-2">
                     <h2 className="text-md font-bold">Verse of the Day</h2>
@@ -291,7 +287,7 @@ export default function ParentDashboard() {
               </Card>
             </div>
             {/* Right: Chatbot */}
-            <Card className="min-w-[630] h-[180px] flex flex-col">
+            <Card className="max-w-[600px] w-full">
               <CardContent className="p-0 flex-1 flex flex-col">
                 <div className="flex items-center gap-2 px-4 py-3 border-b bg-blue-50 rounded-t-2xl">
                   <MessageCircle className="text-blue-500" />
@@ -336,8 +332,7 @@ export default function ParentDashboard() {
             </Card>
           </div>
         </div>
-        </div>        
-      </div>
+      </div>        
     </ParentLayout>
   );
 }
