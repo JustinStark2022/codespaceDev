@@ -287,7 +287,8 @@ export default function ParentDashboard() {
               </Card>
             </div>
             {/* Right: Chatbot */}
-            <Card className="max-w-[600px] w-full">
+            <Card className="h-[180px] flex flex-col flex-1">
+
               <CardContent className="p-0 flex-1 flex flex-col">
                 <div className="flex items-center gap-2 px-4 py-3 border-b bg-blue-50 rounded-t-2xl">
                   <MessageCircle className="text-blue-500" />
