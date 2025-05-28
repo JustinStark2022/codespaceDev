@@ -1,8 +1,10 @@
+// Import this first!
+import "./instrument";
 import dotenv from "dotenv";
 
 // Load environment variables
 dotenv.config({ path: "../.env.node_backend" });
-
+import * as Sentry from "@sentry/node";
 import express from "express";
 import cors from "cors";
 import morgan from "morgan";
@@ -43,6 +45,19 @@ try {
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// API routes
+app.use("/api", authRoutes);
+app.use("/api/user", userRoutes);
+app.use("/api/bible", bibleRoutes);
+app.use("/api/lessons", lessonsRoutes);
+app.use("/api/alerts", alertsRoutes);
+app.use("/api/chat", chatRoutes);
+app.use("/api/friends", friendsRoutes);
+app.use("/api/location", locationRoutes);
+app.use("/api/screentime", screenTimeRoutes);
+app.use("/api/child-dashboard", childDashboardRoutes);
+app.use("/api/games", gamesRoutes);
+Sentry.setupExpressErrorHandler(app)
 // Security middleware
 app.use(helmet());
 
@@ -61,20 +76,6 @@ app.use(cookieParser());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(morgan("dev"));
-
-// API routes
-app.use("/api", authRoutes);
-app.use("/api/user", userRoutes);
-app.use("/api/bible", bibleRoutes);
-app.use("/api/lessons", lessonsRoutes);
-app.use("/api/alerts", alertsRoutes);
-app.use("/api/chat", chatRoutes);
-app.use("/api/friends", friendsRoutes);
-app.use("/api/location", locationRoutes);
-app.use("/api/screentime", screenTimeRoutes);
-app.use("/api/child-dashboard", childDashboardRoutes);
-app.use("/api/games", gamesRoutes);
-
 // Error handling middleware
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   logger.error(err.stack);
