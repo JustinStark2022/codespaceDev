@@ -1,10 +1,7 @@
-// Import this first!
-import "./instrument";
 import dotenv from "dotenv";
 
 // Load environment variables
 dotenv.config({ path: "../.env.node_backend" });
-import * as Sentry from "@sentry/node";
 import express from "express";
 import cors from "cors";
 import morgan from "morgan";
@@ -57,8 +54,7 @@ app.use("/api/location", locationRoutes);
 app.use("/api/screentime", screenTimeRoutes);
 app.use("/api/child-dashboard", childDashboardRoutes);
 app.use("/api/games", gamesRoutes);
-Sentry.setupExpressErrorHandler(app)
-// Security middleware
+
 app.use(helmet());
 
 // CORS configuration
