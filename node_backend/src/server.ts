@@ -42,21 +42,6 @@ try {
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// API routes
-app.use("/api", authRoutes);
-app.use("/api/user", userRoutes);
-app.use("/api/bible", bibleRoutes);
-app.use("/api/lessons", lessonsRoutes);
-app.use("/api/alerts", alertsRoutes);
-app.use("/api/chat", chatRoutes);
-app.use("/api/friends", friendsRoutes);
-app.use("/api/location", locationRoutes);
-app.use("/api/screentime", screenTimeRoutes);
-app.use("/api/child-dashboard", childDashboardRoutes);
-app.use("/api/games", gamesRoutes);
-
-app.use(helmet());
-
 // CORS configuration
 app.use(cors({
   origin: process.env.NODE_ENV === "development"
@@ -79,6 +64,23 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
     error: process.env.NODE_ENV === "production" ? "Internal server error" : err.message,
   });
 });
+
+// API routes
+app.use("/api", authRoutes);
+app.use("/api/user", userRoutes);
+app.use("/api/bible", bibleRoutes);
+app.use("/api/lessons", lessonsRoutes);
+app.use("/api/alerts", alertsRoutes);
+app.use("/api/chat", chatRoutes);
+app.use("/api/friends", friendsRoutes);
+app.use("/api/location", locationRoutes);
+app.use("/api/screentime", screenTimeRoutes);
+app.use("/api/child-dashboard", childDashboardRoutes);
+app.use("/api/games", gamesRoutes);
+
+app.use(helmet());
+
+
 
 // Start server
 app.listen(PORT, () => {
