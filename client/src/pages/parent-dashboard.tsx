@@ -38,7 +38,7 @@ function FamilySummary() {
         <b>2. Family Devotions:</b> Set aside time each week to read, discuss, and pray together as a family.
       </li>
       <li>
-        <b>3. Serve Others:</b> Find ways to serve together, showing Christ’s love in action.
+        <b>3. Serve Others:</b> Find ways to serve together, showing Christ's love in action.
       </li>
     </ul>
   );
@@ -241,40 +241,43 @@ export default function ParentDashboard() {
               </CardContent>
             </Card>
           </div>
-          <div className="grid grid-cols-2 lg:grid-cols-8 gap-4">
-          {/* Action Cards, Verse of the Day, and Chat Side-by-Side */}
-            {/* Left: Action Cards + Verse of the Day */}
-            <div className="xl:col-span-10 flex flex-col gap-2">
-              <div className="w-full max-h-[325px] xl:col-span-4 flex flex-row gap-4">
-                <Card className="flex-1 h-10 pb-2 max-w-[190px]">
-                  <CardContent className="py-1 flex flex-col items-center justify-center">
-                    <Button asChild className="w-full h-10 min-w-[190px] text-black-600 text-xs">
+          
+          {/* Bottom Row: Action Cards + Verse of the Day + Chatbot */}
+          <div className="w-full flex flex-row gap-4">
+            {/* Left side: Action Cards + Verse of the Day */}
+            <div className="flex flex-col gap-4" style={{width: '585px'}}>
+              {/* Action Cards Row */}
+              <div className="flex flex-row">
+                <Card className="flex-1 h-16 pb-2">
+                  <CardContent className="py-2  items-center justify-center h-full">
+                    <Button asChild className="w-full h-12 text-black-600 text-sm">
                       <Link href="/children">Create Child Account</Link>
                     </Button>
                   </CardContent>
                 </Card>
-                <Card className="flex-1 h-10 pb-2  max-w-[190px]">
-                  <CardContent className="py-1 flex flex-col items-center justify-center">
-                    <Button asChild className="w-full h-10 min-w-[190px] text-black-600 text-xs">
+                <Card className="flex-1 h-16 pb-2">
+                  <CardContent className="py-2  items-center justify-center h-full">
+                    <Button asChild className="w-full h-12 text-black-600 text-sm">
                       <Link href="/monitoring">Bible Lesson Center</Link>
                     </Button>
                   </CardContent>
                 </Card>
-                <Card className="flex-1 h-10 pb-2 max-w-[190px]">
-                  <CardContent className="py-1 flex flex-col items-center justify-center">
-                    <Button asChild className="w-full h-10 min-w-[190px] text-black-600 text-xs">
+                <Card className="flex-1 h-16 pb-2">
+                  <CardContent className="py-2 items-center justify-center h-full">
+                    <Button asChild className="w-full h-12 text-black-600 text-sm">
                       <Link href="/lessons">Parental Controls</Link>
                     </Button>
                   </CardContent>
                 </Card>
               </div>
+              
               {/* Verse of the Day */}
-              <Card className="h-[100px] mt-4 max-w-[585px]">
-                <CardContent className="pt-2">
-                  <div className="flex justify-between items-center mb-2">
-                    <h2 className="text-md font-bold">Verse of the Day</h2>
+              <Card className="h-[200px]">
+                <CardContent className="pt-4 h-full">
+                  <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-lg font-bold">Verse of the Day</h2>
                     <select
-                      className="border rounded px-2 py-1 text-sm"
+                      className="border rounded px-3 py-2 text-sm"
                       value={verseMode}
                       onChange={e => setVerseMode(e.target.value as "auto" | "manual")}
                     >
@@ -286,15 +289,15 @@ export default function ParentDashboard() {
                 </CardContent>
               </Card>
             </div>
-            {/* Right: Chatbot */}
-            <Card className="h-[180px] flex flex-col flex-1">
-
-              <CardContent className="p-0 flex-1 flex flex-col">
+            
+            {/* Right side: Chatbot */}
+            <Card className="h-[280px] flex-1 flex flex-col">
+              <CardContent className="p-0 flex flex-col">
                 <div className="flex items-center gap-2 px-4 py-3 border-b bg-blue-50 rounded-t-2xl">
                   <MessageCircle className="text-blue-500" />
                   <span className="font-semibold text-blue-900 text-lg">Faith Fortress Chat</span>
                 </div>
-                <div className="flex-1 overflow-y-auto px-4 py-2 space-y-2 bg-blue-50">
+                <div className="overflow-y-auto px-4 py-2 space-y-2 bg-blue-50">
                   {messages.map((msg, idx) => (
                     <div
                       key={idx}
