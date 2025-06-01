@@ -9,12 +9,11 @@ import BibleReader from "@/pages/bible-reader";
 import Lessons from "@/pages/lessons";
 import Settings from "@/pages/settings";
 import Support from "@/pages/support";
-import ContentMonitoring from "@/pages/content-monitoring";
-import ScreenTime from "@/pages/screen-time";
 import LocationTracking from "@/pages/location-tracking";
 import ChildAccounts from "@/pages/child-accounts";
 import { ProtectedRoute }  from "@/lib/protected-route";
 import { useAuth } from "@/hooks/use-auth";
+import ParentalControlCenter from "@/pages/parental-control-center";
 
 function Router() {
   const { user } = useAuth();
@@ -32,8 +31,7 @@ function Router() {
       <ProtectedRoute path="/" component={() => <Redirect to="/dashboard" />} />
       <ProtectedRoute path="/dashboard" component={ParentDashboard} requireParent />
       <ProtectedRoute path="/children" component={ChildAccounts} requireParent />
-      <ProtectedRoute path="/screentime" component={ScreenTime} requireParent />
-      <ProtectedRoute path="/monitoring" component={ContentMonitoring} requireParent />
+      <ProtectedRoute path="/parental-control-center" component={ParentalControlCenter} requireParent />
       <ProtectedRoute path="/location" component={LocationTracking} requireParent />
       <ProtectedRoute path="/settings" component={Settings} requireParent />
 

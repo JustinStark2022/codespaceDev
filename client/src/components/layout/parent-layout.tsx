@@ -50,8 +50,7 @@ export default function ParentLayout({ children, title }: ParentLayoutProps) {
   const navItems = [
     { path: "/dashboard", label: "Dashboard", icon: <LayoutDashboard className="mr-3 h-5 w-5" /> },
     { path: "/children", label: "Child Accounts", icon: <Users className="mr-3 h-5 w-5" /> },
-    { path: "/screentime", label: "Screen Time", icon: <Clock className="mr-3 h-5 w-5" /> },
-    { path: "/monitoring", label: "Content Monitoring", icon: <ShieldAlert className="mr-3 h-5 w-5" /> },
+    { path: "/parental-control-center", label: "Control Center", icon: <ShieldAlert className="mr-3 h-5 w-5" /> },
     { path: "/bible", label: "Bible Reader", icon: <BookOpen className="mr-3 h-5 w-5" /> },
     { path: "/lessons", label: "Bible Lessons", icon: <BookMarked className="mr-3 h-5 w-5" /> },
     { path: "/location", label: "Location Tracking", icon: <MapPin className="mr-3 h-5 w-5" /> },
