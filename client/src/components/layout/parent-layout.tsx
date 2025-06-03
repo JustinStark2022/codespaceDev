@@ -117,7 +117,7 @@ export default function ParentLayout({ children, title }: ParentLayoutProps) {
               className="w-full justify-center bg-primary-500 hover:bg-primary-600 text-white text-base py-3 rounded-lg shadow"
               onClick={handleLogout}
             >
-              <LogOut className="mr-3 h-5 w-5" />
+              <LogOut className="mr-3 text-black h-5 w-5" />
               Logout
             </Button>
           </div>
