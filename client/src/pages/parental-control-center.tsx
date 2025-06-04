@@ -647,7 +647,7 @@ export default function ParentalControlCenter() {
 
         {/* Right side - Faith Fortress Chatbot (1/4 width) */}
         <div className="lg:col-span-1">
-          <Card className="h-[500px] flex flex-col">
+          <Card className="h-[400px] flex flex-col">
             <CardContent className="p-0 h-full flex flex-col">
               <div className="flex items-center gap-2 px-4 py-3 border-b bg-blue-50 rounded-t-lg">
                 <MessageCircle className="text-blue-500" />

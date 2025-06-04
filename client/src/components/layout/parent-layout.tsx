@@ -62,19 +62,19 @@ export default function ParentLayout({ children, title }: ParentLayoutProps) {
   const parentProfileImage = "/images/Justin-faithfortress.png";
 
   return (
-    <div className="flex h-screen">
+    <div className="flex h-screen dark:bg-gray-900">
       {/* Sidebar */}
       <div className={`fixed inset-y-0 left-0 z-30 w-48 bg-white dark:bg-gray-800 shadow-lg transform transition-all duration-300 ease-in-out ${
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       } lg:translate-x-0 lg:static lg:inset-0 lg:flex lg:flex-col`}>
-        <div className="w-36 h-36 relative border-b dark:border-gray-700 bg-white dark:bg-gray-800 p-0 m-0 overflow-hidden">
+        <div className="w-36 h-36 relative border-b dark:border-gray-700 bg-white dark:bg-gray-800 p-0 m-0 overflow-hidden flex-shrink-0">
           <Castle />
           <button onClick={closeSidebar} className="absolute top-4 right-4 text-gray-500 lg:hidden">
             <X className="h-6 w-6" />
           </button>
         </div>
 
-        <div className="overflow-y-auto h-full scrollbar-hide py-4">
+        <div className="flex-1 overflow-y-auto scrollbar-hide py-4">
           <div className="px-4 mb-4">
             <div className="flex items-center space-x-3 mb-3">
               <div className="relative">
@@ -125,7 +125,7 @@ export default function ParentLayout({ children, title }: ParentLayoutProps) {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-h-0 lg:ml-0">
+      <div className="flex-1 flex flex-col min-h-0">
         {/* Top Navigation */}
         <header className="bg-white dark:bg-gray-800 shadow-sm z-10 flex-shrink-0">
           <div className="flex items-center justify-between h-16 px-4 border-b dark:border-gray-700">
@@ -163,7 +163,7 @@ export default function ParentLayout({ children, title }: ParentLayoutProps) {
         </header>
 
         {/* Content Area */}
-        <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 p-4 lg:p-6">
+        <main className="flex-1 bg-gray-50 dark:bg-gray-900 p-4 lg:p-6 overflow-hidden">
           {children}
         </main>
       </div>

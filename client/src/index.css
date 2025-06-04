@@ -45,14 +45,13 @@
     color: var(--foreground);
     background-color: var(--background);
     font-family: 'Poppins', sans-serif;
-    line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   body,
   #root {
-    min-height: 100vh;
+    max-height: 100vh;
     margin: 0;
     padding: 0;
   }
