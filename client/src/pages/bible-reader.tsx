@@ -207,50 +207,27 @@ export default function BibleReader() {
   };
 
   return (
-    <Layout title="Bible Reader">
+    <Layout title="My Faith Fortress Bible Reader">
       <div className="h-full flex flex-col max-w-6xl mx-auto overflow-hidden">
-        {/* Header Card with Navigation - Compact */}
-        <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 flex-shrink-0">
-          <CardHeader className="pb-2 pt-3">
-            <CardTitle className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-blue-100 rounded-lg">
-                  <BookOpen className="w-5 h-5 text-blue-600" />
-                </div>
-                <div>
-                  <h1 className="text-lg font-bold text-blue-900">Bible Reader</h1>
-                  <p className="text-blue-600 text-xs">Read and listen to God's Word</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" className="h-7 text-xs">
-                  <Heart className="w-3 h-3 mr-1" />
-                  Favorite
-                </Button>
-                <Button variant="outline" size="sm" className="h-7 text-xs">
-                  <Share2 className="w-3 h-3 mr-1" />
-                  Share
-                </Button>
-              </div>
-            </CardTitle>
-          </CardHeader>
-          
-          <CardContent className="py-3 space-y-3">
-            {/* Bible Navigation - Compact */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Page Header with Favorite and Share */}
+        <div className="flex items-center justify-between mb-4 flex-shrink-0">
+        </div>
+
+        {/* Compact Navigation Controls */}
+        <Card className="bg-white border-gray-200 flex-shrink-0">
+          <CardContent className="py-2 px-4">
+            {/* Bible Navigation - Very Compact */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
               <div className="space-y-1">
                 <label className="text-xs font-medium text-gray-700">Version</label>
                 <Select value={selectedBible} onValueChange={setSelectedBible}>
-                  <SelectTrigger className="bg-white border-gray-300 focus:border-blue-500 h-8 text-sm">
+                  <SelectTrigger className="bg-white border-gray-300 focus:border-blue-500 h-7 text-sm">
                     <SelectValue placeholder="Select Version" />
                   </SelectTrigger>
                   <SelectContent>
                     {bibles.map((bible: Bible) => (
                       <SelectItem key={bible.id} value={bible.id}>
-                        <div className="flex flex-col">
-                          <span className="font-medium text-sm">{bible.abbreviation}</span>
-                          <span className="text-xs text-gray-500">{bible.name}</span>
-                        </div>
+                        <span className="font-medium text-sm">{bible.name}</span>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -264,7 +241,7 @@ export default function BibleReader() {
                   onValueChange={setSelectedBook}
                   disabled={!selectedBible || books.length === 0}
                 >
-                  <SelectTrigger className="bg-white border-gray-300 focus:border-blue-500 h-8 text-sm">
+                  <SelectTrigger className="bg-white border-gray-300 focus:border-blue-500 h-7 text-sm">
                     <SelectValue placeholder={!selectedBible ? "Select Version First" : "Select Book"} />
                   </SelectTrigger>
                   <SelectContent>
@@ -284,7 +261,7 @@ export default function BibleReader() {
                   onValueChange={setSelectedChapter}
                   disabled={!selectedBook || chapters.length === 0}
                 >
-                  <SelectTrigger className="bg-white border-gray-300 focus:border-blue-500 h-8 text-sm">
+                  <SelectTrigger className="bg-white border-gray-300 focus:border-blue-500 h-7 text-sm">
                     <SelectValue placeholder={!selectedBook ? "Select Book First" : "Select Chapter"} />
                   </SelectTrigger>
                   <SelectContent>
@@ -304,7 +281,7 @@ export default function BibleReader() {
                   onValueChange={(val) => setSelectedVerse(val === "all" ? "" : val)}
                   disabled={!selectedChapter || verses.length === 0}
                 >
-                  <SelectTrigger className="bg-white border-gray-300 focus:border-blue-500 h-8 text-sm">
+                  <SelectTrigger className="bg-white border-gray-300 focus:border-blue-500 h-7 text-sm">
                     <SelectValue placeholder={!selectedChapter ? "Select Chapter First" : "All Verses"} />
                   </SelectTrigger>
                   <SelectContent>
@@ -319,14 +296,14 @@ export default function BibleReader() {
               </div>
             </div>
 
-            {/* Controls - Compact */}
+            {/* Controls - Super Compact */}
             {selectedChapter && (
-              <div className="flex items-center justify-between pt-2 border-t border-blue-200">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Button 
                     onClick={isPlaying ? stopTTS : playTTS} 
                     disabled={!chapterContent}
-                    className="bg-blue-600 hover:bg-blue-700 text-white h-8 text-sm"
+                    className="bg-blue-600 hover:bg-blue-700 text-white h-7 text-xs px-3"
                     size="sm"
                   >
                     {isPlaying ? (
@@ -348,7 +325,7 @@ export default function BibleReader() {
                       size="sm"
                       onClick={goToPreviousChapter}
                       disabled={getCurrentChapterIndex() <= 0}
-                      className="h-8 w-8 p-0"
+                      className="h-7 w-7 p-0"
                     >
                       <ChevronLeft className="w-3 h-3" />
                     </Button>
@@ -357,7 +334,7 @@ export default function BibleReader() {
                       size="sm"
                       onClick={goToNextChapter}
                       disabled={getCurrentChapterIndex() >= chapters.length - 1}
-                      className="h-8 w-8 p-0"
+                      className="h-7 w-7 p-0"
                     >
                       <ChevronRight className="w-3 h-3" />
                     </Button>
@@ -367,22 +344,22 @@ export default function BibleReader() {
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-1">
                     <Settings className="w-3 h-3 text-gray-500" />
-                    <label className="text-xs text-gray-600">Font:</label>
+                    <span className="text-xs text-gray-600">Font:</span>
                     <Select value={fontSize.toString()} onValueChange={(val) => setFontSize(Number(val))}>
-                      <SelectTrigger className="w-16 h-7 text-xs">
+                      <SelectTrigger className="w-14 h-6 text-xs">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="14">14px</SelectItem>
-                        <SelectItem value="16">16px</SelectItem>
-                        <SelectItem value="18">18px</SelectItem>
-                        <SelectItem value="20">20px</SelectItem>
-                        <SelectItem value="24">24px</SelectItem>
+                        <SelectItem value="14">14</SelectItem>
+                        <SelectItem value="16">16</SelectItem>
+                        <SelectItem value="18">18</SelectItem>
+                        <SelectItem value="20">20</SelectItem>
+                        <SelectItem value="24">24</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   
-                  <Button variant="outline" size="sm" className="h-7 text-xs">
+                  <Button variant="outline" size="sm" className="h-6 text-xs px-2">
                     <Bookmark className="w-3 h-3 mr-1" />
                     Save
                   </Button>
@@ -392,8 +369,8 @@ export default function BibleReader() {
           </CardContent>
         </Card>
 
-        {/* Content Display - More Space */}
-        <Card className="flex-1 flex flex-col min-h-0 mt-2">
+        {/* Content Display - Maximum Space */}
+        <Card className="flex-1 flex flex-col min-h-0 mt-3">
           <CardContent className="p-6 flex-1 overflow-y-auto">
             {!selectedBible ? (
               <div className="text-center py-12">
