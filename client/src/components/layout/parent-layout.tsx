@@ -62,11 +62,11 @@ export default function ParentLayout({ children, title }: ParentLayoutProps) {
   const parentProfileImage = "/images/Justin-faithfortress.png";
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen">
       {/* Sidebar */}
       <div className={`fixed inset-y-0 left-0 z-30 w-48 bg-white dark:bg-gray-800 shadow-lg transform transition-all duration-300 ease-in-out ${
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
-      } lg:translate-x-0 lg:static lg:inset-0`}>
+      } lg:translate-x-0 lg:static lg:inset-0 lg:flex lg:flex-col`}>
         <div className="w-36 h-36 relative border-b dark:border-gray-700 bg-white dark:bg-gray-800 p-0 m-0 overflow-hidden">
           <Castle />
           <button onClick={closeSidebar} className="absolute top-4 right-4 text-gray-500 lg:hidden">
@@ -125,9 +125,9 @@ export default function ParentLayout({ children, title }: ParentLayoutProps) {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col min-h-0 lg:ml-0">
         {/* Top Navigation */}
-        <header className="bg-white dark:bg-gray-800 shadow-sm z-10">
+        <header className="bg-white dark:bg-gray-800 shadow-sm z-10 flex-shrink-0">
           <div className="flex items-center justify-between h-16 px-4 border-b dark:border-gray-700">
             <div className="flex items-center">
               <button onClick={toggleSidebar} className="text-gray-500 lg:hidden">
