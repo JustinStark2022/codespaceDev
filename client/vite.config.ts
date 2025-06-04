@@ -8,9 +8,13 @@ export default defineConfig(({ mode }) => {
 
   return {
     server: {
-      host: true, // Expose the server to the local network
-      port: parseInt(env.PORT || "5173"), // Use the port from .env.client or default to 5173
-      strictPort: true, // Fail if the port is already in use
+      host: "0.0.0.0",
+      port: 5173,
+      strictPort: true,
+      hmr: {
+        host: "localhost",
+        port: 5173,
+      },
       proxy: {
         "/api": {
           target: env.VITE_API_URL || "http://backend:5000", // Proxy API requests to the backend
