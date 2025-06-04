@@ -181,14 +181,19 @@ export default function ParentalControlCenter() {
 
   // Helper functions
   const formatMinutes = (minutes: number) => {
+    // Handle invalid or undefined values
+    if (!minutes || isNaN(minutes) || minutes < 0) {
+      return "0h 0m";
+    }
+    
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     return `${hours}h ${mins}m`;
   };
 
   const calculateTimeUsedPercentage = () => {
-    if (!screenTime) return 0;
-    const total = screenTime.allowedTimeMinutes + screenTime.additionalRewardMinutes;
+    if (!screenTime || !screenTime.allowedTimeMinutes || !screenTime.usedTimeMinutes) return 0;
+    const total = screenTime.allowedTimeMinutes + (screenTime.additionalRewardMinutes || 0);
     return total > 0 ? Math.min(100, Math.round((screenTime.usedTimeMinutes / total) * 100)) : 0;
   };
 
@@ -209,9 +214,9 @@ export default function ParentalControlCenter() {
   };
 
   const getRemainingTime = () => {
-    if (!screenTime) return "No data";
-    const total = screenTime.allowedTimeMinutes + screenTime.additionalRewardMinutes;
-    const remaining = total - screenTime.usedTimeMinutes;
+    if (!screenTime || !screenTime.allowedTimeMinutes) return "No data";
+    const total = (screenTime.allowedTimeMinutes || 0) + (screenTime.additionalRewardMinutes || 0);
+    const remaining = total - (screenTime.usedTimeMinutes || 0);
     return remaining > 0 ? formatMinutes(remaining) : "0m";
   };
 
@@ -354,15 +359,19 @@ export default function ParentalControlCenter() {
                     ) : screenTime ? (
                       <div>
                         <div className="text-2xl font-bold text-blue-900">
-                          {formatMinutes(screenTime.usedTimeMinutes)}
+                          {formatMinutes(screenTime.usedTimeMinutes || 0)}
                         </div>
                         <div className="text-sm text-blue-600">
-                          of {formatMinutes(screenTime.allowedTimeMinutes + screenTime.additionalRewardMinutes)} allowed
+                          of {formatMinutes((screenTime.allowedTimeMinutes || 0) + (screenTime.additionalRewardMinutes || 0))} allowed
                         </div>
                         <Progress value={calculateTimeUsedPercentage()} className="mt-2 h-2" />
                       </div>
                     ) : (
-                      <div className="text-blue-600">No data available</div>
+                      <div>
+                        <div className="text-2xl font-bold text-blue-900">0h 0m</div>
+                        <div className="text-sm text-blue-600">of 2h 0m allowed</div>
+                        <Progress value={0} className="mt-2 h-2" />
+                      </div>
                     )}
                   </CardContent>
                 </Card>
@@ -590,53 +599,127 @@ export default function ParentalControlCenter() {
 
             {/* Monitoring Tab */}
             <TabsContent value="monitoring" className="space-y-6">
-              <Card>
-                <CardContent className="pt-6">
+              <Card className="border-slate-200">
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center justify-between">
+                    <span className="flex items-center text-slate-800">
+                      <Shield className="h-5 w-5 mr-2 text-blue-600" />
+                      Content Monitoring Dashboard
+                    </span>
+                    <div className="flex items-center space-x-2">
+                      <div className="flex w-[300px]">
+                        <Input
+                          placeholder="Search flagged content..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="w-full border-slate-300 focus:border-blue-500"
+                        />
+                        <Button variant="ghost" className="ml-1" size="icon">
+                          <Search className="h-4 w-4 text-slate-500" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardTitle>
+                  <CardDescription className="text-slate-600">
+                    Review and manage flagged content to keep your family safe
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-2">
                   {isLoadingFlagged ? (
-                    <div className="text-center py-8">
-                      <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-600 mb-2" />
-                      <p>Loading flagged content...</p>
+                    <div className="text-center py-12">
+                      <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-600 mb-3" />
+                      <p className="text-slate-600">Loading flagged content...</p>
                     </div>
                   ) : filteredContent.length === 0 ? (
-                    <div className="text-center py-8">
-                      <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-3" />
-                      <h3 className="text-lg font-medium text-green-800">All Clear!</h3>
-                      <p className="text-green-600">No flagged content requires your attention</p>
+                    <div className="text-center py-12 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border border-green-200">
+                      <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-4" />
+                      <h3 className="text-xl font-semibold text-green-800 mb-2">All Clear!</h3>
+                      <p className="text-green-600 text-lg">No flagged content requires your attention</p>
+                      <p className="text-green-500 text-sm mt-2">Your family's digital environment is secure</p>
                     </div>
                   ) : (
-                    <div className="space-y-3">
-                      {filteredContent.map((flag) => (
-                        <div key={flag.id} className="p-4 border-l-4 border-amber-400 bg-amber-50 rounded-r-lg">
+                    <div className="space-y-4">
+                      {filteredContent.map((flag, index) => (
+                        <div 
+                          key={flag.id} 
+                          className={`group p-5 rounded-xl border-l-4 transition-all duration-200 hover:shadow-lg ${
+                            index % 2 === 0 
+                              ? "border-l-red-500 bg-gradient-to-r from-red-50 to-rose-50 border border-red-200"
+                              : "border-l-orange-500 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200"
+                          }`}
+                        >
                           <div className="flex justify-between items-start">
                             <div className="flex-1">
-                              <h4 className="font-medium text-amber-900">{flag.name}</h4>
-                              <p className="text-sm text-amber-700 mt-1">
-                                <Badge variant="outline" className="mr-2">{flag.contentType}</Badge>
-                                {flag.flagReason}
+                              <div className="flex items-center mb-3">
+                                {flag.contentType === 'game' && <Gamepad2 className="h-5 w-5 mr-2 text-slate-600" />}
+                                {flag.contentType === 'video' && <Youtube className="h-5 w-5 mr-2 text-slate-600" />}
+                                {flag.contentType === 'website' && <Globe className="h-5 w-5 mr-2 text-slate-600" />}
+                                {flag.contentType === 'app' && <Shield className="h-5 w-5 mr-2 text-slate-600" />}
+                                <h4 className="font-semibold text-lg text-slate-800">{flag.name}</h4>
+                              </div>
+                              
+                              <div className="mb-3">
+                                <Badge 
+                                  variant="outline" 
+                                  className={`mr-3 font-medium ${
+                                    flag.contentType === 'game' ? 'bg-purple-100 text-purple-800 border-purple-300' :
+                                    flag.contentType === 'video' ? 'bg-red-100 text-red-800 border-red-300' :
+                                    flag.contentType === 'website' ? 'bg-blue-100 text-blue-800 border-blue-300' :
+                                    'bg-gray-100 text-gray-800 border-gray-300'
+                                  }`}
+                                >
+                                  {flag.contentType.toUpperCase()}
+                                </Badge>
+                                <span className="text-sm text-slate-500 font-medium">
+                                  Platform: {flag.platform}
+                                </span>
+                              </div>
+                              
+                              <p className={`text-sm font-medium ${
+                                index % 2 === 0 ? 'text-red-700' : 'text-orange-700'
+                              }`}>
+                                ⚠️ {flag.flagReason}
                               </p>
                             </div>
-                            <div className="flex space-x-2 ml-4">
+                            
+                            <div className="flex flex-col space-y-2 ml-6">
                               <Button 
                                 size="sm" 
-                                variant="outline"
                                 onClick={() => approveContentMutation.mutate(flag.id)}
-                                className="text-green-700 border-green-300 hover:bg-green-50"
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white border-none shadow-sm min-w-[100px]"
+                                disabled={approveContentMutation.isPending}
                               >
-                                <CheckCircle2 className="h-4 w-4 mr-1" />
+                                <CheckCircle2 className="h-4 w-4 mr-2" />
                                 Approve
                               </Button>
                               <Button 
                                 size="sm" 
-                                variant="destructive"
                                 onClick={() => blockContentMutation.mutate(flag.id)}
+                                className="bg-red-600 hover:bg-red-700 text-white border-none shadow-sm min-w-[100px]"
+                                disabled={blockContentMutation.isPending}
                               >
-                                <Shield className="h-4 w-4 mr-1" />
+                                <Shield className="h-4 w-4 mr-2" />
                                 Block
                               </Button>
                             </div>
                           </div>
                         </div>
                       ))}
+                      
+                      {/* Summary Footer */}
+                      <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center">
+                            <AlertCircle className="h-5 w-5 text-blue-600 mr-2" />
+                            <span className="text-blue-800 font-medium">
+                              {filteredContent.length} item{filteredContent.length !== 1 ? 's' : ''} requiring attention
+                            </span>
+                          </div>
+                          <div className="text-sm text-blue-600">
+                            Review each item carefully before making a decision
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </CardContent>
