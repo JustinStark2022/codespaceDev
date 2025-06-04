@@ -208,47 +208,47 @@ export default function BibleReader() {
 
   return (
     <Layout title="Bible Reader">
-      <div className="max-w-6xl mx-auto space-y-6">
-        {/* Header Card with Navigation */}
-        <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
-          <CardHeader className="pb-4">
+      <div className="h-full flex flex-col max-w-6xl mx-auto overflow-hidden">
+        {/* Header Card with Navigation - Compact */}
+        <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 flex-shrink-0">
+          <CardHeader className="pb-2 pt-3">
             <CardTitle className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <BookOpen className="w-6 h-6 text-blue-600" />
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-blue-100 rounded-lg">
+                  <BookOpen className="w-5 h-5 text-blue-600" />
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold text-blue-900">Bible Reader</h1>
-                  <p className="text-blue-600 text-sm">Read and listen to God's Word</p>
+                  <h1 className="text-lg font-bold text-blue-900">Bible Reader</h1>
+                  <p className="text-blue-600 text-xs">Read and listen to God's Word</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm">
-                  <Heart className="w-4 h-4 mr-2" />
+                <Button variant="outline" size="sm" className="h-7 text-xs">
+                  <Heart className="w-3 h-3 mr-1" />
                   Favorite
                 </Button>
-                <Button variant="outline" size="sm">
-                  <Share2 className="w-4 h-4 mr-2" />
+                <Button variant="outline" size="sm" className="h-7 text-xs">
+                  <Share2 className="w-3 h-3 mr-1" />
                   Share
                 </Button>
               </div>
             </CardTitle>
           </CardHeader>
           
-          <CardContent className="space-y-4">
-            {/* Bible Navigation */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Version</label>
+          <CardContent className="py-3 space-y-3">
+            {/* Bible Navigation - Compact */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-700">Version</label>
                 <Select value={selectedBible} onValueChange={setSelectedBible}>
-                  <SelectTrigger className="bg-white border-gray-300 focus:border-blue-500">
-                    <SelectValue placeholder="Select Bible Version" />
+                  <SelectTrigger className="bg-white border-gray-300 focus:border-blue-500 h-8 text-sm">
+                    <SelectValue placeholder="Select Version" />
                   </SelectTrigger>
                   <SelectContent>
                     {bibles.map((bible: Bible) => (
                       <SelectItem key={bible.id} value={bible.id}>
                         <div className="flex flex-col">
-                          <span className="font-medium">{bible.abbreviation}</span>
+                          <span className="font-medium text-sm">{bible.abbreviation}</span>
                           <span className="text-xs text-gray-500">{bible.name}</span>
                         </div>
                       </SelectItem>
@@ -257,14 +257,14 @@ export default function BibleReader() {
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Book</label>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-700">Book</label>
                 <Select 
                   value={selectedBook} 
                   onValueChange={setSelectedBook}
                   disabled={!selectedBible || books.length === 0}
                 >
-                  <SelectTrigger className="bg-white border-gray-300 focus:border-blue-500">
+                  <SelectTrigger className="bg-white border-gray-300 focus:border-blue-500 h-8 text-sm">
                     <SelectValue placeholder={!selectedBible ? "Select Version First" : "Select Book"} />
                   </SelectTrigger>
                   <SelectContent>
@@ -277,14 +277,14 @@ export default function BibleReader() {
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Chapter</label>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-700">Chapter</label>
                 <Select 
                   value={selectedChapter} 
                   onValueChange={setSelectedChapter}
                   disabled={!selectedBook || chapters.length === 0}
                 >
-                  <SelectTrigger className="bg-white border-gray-300 focus:border-blue-500">
+                  <SelectTrigger className="bg-white border-gray-300 focus:border-blue-500 h-8 text-sm">
                     <SelectValue placeholder={!selectedBook ? "Select Book First" : "Select Chapter"} />
                   </SelectTrigger>
                   <SelectContent>
@@ -297,14 +297,14 @@ export default function BibleReader() {
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Verse</label>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-700">Verse</label>
                 <Select 
                   value={selectedVerse || "all"} 
                   onValueChange={(val) => setSelectedVerse(val === "all" ? "" : val)}
                   disabled={!selectedChapter || verses.length === 0}
                 >
-                  <SelectTrigger className="bg-white border-gray-300 focus:border-blue-500">
+                  <SelectTrigger className="bg-white border-gray-300 focus:border-blue-500 h-8 text-sm">
                     <SelectValue placeholder={!selectedChapter ? "Select Chapter First" : "All Verses"} />
                   </SelectTrigger>
                   <SelectContent>
@@ -319,54 +319,57 @@ export default function BibleReader() {
               </div>
             </div>
 
-            {/* Controls */}
+            {/* Controls - Compact */}
             {selectedChapter && (
-              <div className="flex items-center justify-between pt-4 border-t border-blue-200">
-                <div className="flex items-center gap-3">
+              <div className="flex items-center justify-between pt-2 border-t border-blue-200">
+                <div className="flex items-center gap-2">
                   <Button 
                     onClick={isPlaying ? stopTTS : playTTS} 
                     disabled={!chapterContent}
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                    className="bg-blue-600 hover:bg-blue-700 text-white h-8 text-sm"
+                    size="sm"
                   >
                     {isPlaying ? (
                       <>
-                        <VolumeX className="w-4 h-4 mr-2" />
-                        Stop Audio
+                        <VolumeX className="w-3 h-3 mr-1" />
+                        Stop
                       </>
                     ) : (
                       <>
-                        <Volume2 className="w-4 h-4 mr-2" />
-                        Play Audio
+                        <Volume2 className="w-3 h-3 mr-1" />
+                        Play
                       </>
                     )}
                   </Button>
                   
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
                     <Button 
                       variant="outline" 
                       size="sm"
                       onClick={goToPreviousChapter}
                       disabled={getCurrentChapterIndex() <= 0}
+                      className="h-8 w-8 p-0"
                     >
-                      <ChevronLeft className="w-4 h-4" />
+                      <ChevronLeft className="w-3 h-3" />
                     </Button>
                     <Button 
                       variant="outline" 
                       size="sm"
                       onClick={goToNextChapter}
                       disabled={getCurrentChapterIndex() >= chapters.length - 1}
+                      className="h-8 w-8 p-0"
                     >
-                      <ChevronRight className="w-4 h-4" />
+                      <ChevronRight className="w-3 h-3" />
                     </Button>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2">
-                    <Settings className="w-4 h-4 text-gray-500" />
-                    <label className="text-sm text-gray-600">Font Size:</label>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
+                    <Settings className="w-3 h-3 text-gray-500" />
+                    <label className="text-xs text-gray-600">Font:</label>
                     <Select value={fontSize.toString()} onValueChange={(val) => setFontSize(Number(val))}>
-                      <SelectTrigger className="w-20 h-8">
+                      <SelectTrigger className="w-16 h-7 text-xs">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -379,9 +382,9 @@ export default function BibleReader() {
                     </Select>
                   </div>
                   
-                  <Button variant="outline" size="sm">
-                    <Bookmark className="w-4 h-4 mr-2" />
-                    Bookmark
+                  <Button variant="outline" size="sm" className="h-7 text-xs">
+                    <Bookmark className="w-3 h-3 mr-1" />
+                    Save
                   </Button>
                 </div>
               </div>
@@ -389,46 +392,46 @@ export default function BibleReader() {
           </CardContent>
         </Card>
 
-        {/* Content Display */}
-        <Card className="min-h-[600px]">
-          <CardContent className="p-8">
+        {/* Content Display - More Space */}
+        <Card className="flex-1 flex flex-col min-h-0 mt-2">
+          <CardContent className="p-6 flex-1 overflow-y-auto">
             {!selectedBible ? (
-              <div className="text-center py-16">
-                <BookOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-gray-600 mb-2">Welcome to Bible Reader</h3>
+              <div className="text-center py-12">
+                <BookOpen className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <h3 className="text-lg font-semibold text-gray-600 mb-2">Welcome to Bible Reader</h3>
                 <p className="text-gray-500">Please select a Bible version to begin reading God's Word.</p>
               </div>
             ) : !selectedBook ? (
-              <div className="text-center py-16">
-                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <BookOpen className="w-8 h-8 text-blue-600" />
+              <div className="text-center py-12">
+                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <BookOpen className="w-6 h-6 text-blue-600" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-600 mb-2">Choose a Book</h3>
+                <h3 className="text-lg font-semibold text-gray-600 mb-2">Choose a Book</h3>
                 <p className="text-gray-500">Select a book from the Bible to continue reading.</p>
               </div>
             ) : !selectedChapter ? (
-              <div className="text-center py-16">
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <BookOpen className="w-8 h-8 text-green-600" />
+              <div className="text-center py-12">
+                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <BookOpen className="w-6 h-6 text-green-600" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-600 mb-2">Select a Chapter</h3>
+                <h3 className="text-lg font-semibold text-gray-600 mb-2">Select a Chapter</h3>
                 <p className="text-gray-500">Choose a chapter from {getSelectedBookName()} to read.</p>
               </div>
             ) : contentLoading ? (
-              <div className="text-center py-16">
-                <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-gray-600 mb-2">Loading Scripture</h3>
+              <div className="text-center py-12">
+                <Loader2 className="w-6 h-6 animate-spin text-blue-600 mx-auto mb-3" />
+                <h3 className="text-lg font-semibold text-gray-600 mb-2">Loading Scripture</h3>
                 <p className="text-gray-500">Please wait while we prepare God's Word for you...</p>
               </div>
             ) : chapterContent ? (
               <div className="max-w-4xl mx-auto">
-                {/* Chapter Header */}
-                <div className="mb-8 pb-6 border-b border-gray-200">
-                  <h1 className="text-3xl font-bold text-gray-800 mb-2">
+                {/* Chapter Header - Compact */}
+                <div className="mb-6 pb-4 border-b border-gray-200">
+                  <h1 className="text-2xl font-bold text-gray-800 mb-2">
                     {chapterContent.reference}
                   </h1>
-                  <div className="flex items-center gap-4 text-sm text-gray-600">
-                    <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-medium">
+                  <div className="flex items-center gap-3 text-sm text-gray-600">
+                    <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-medium text-xs">
                       {bibles.find((b: Bible) => b.id === selectedBible)?.abbreviation || 'Bible'}
                     </span>
                     <span>{verses.length} verses</span>
@@ -441,27 +444,28 @@ export default function BibleReader() {
                   </div>
                 </div>
 
-                {/* Scripture Content */}
+                {/* Scripture Content - Main Focus */}
                 <div 
-                  className="prose prose-lg max-w-none leading-relaxed text-gray-800"
+                  className="prose prose-lg max-w-none leading-relaxed text-gray-800 mb-8"
                   style={{ fontSize: `${fontSize}px`, lineHeight: '1.8' }}
                   dangerouslySetInnerHTML={{ __html: chapterContent.content }}
                 />
 
-                {/* Chapter Navigation Footer */}
-                <div className="mt-12 pt-6 border-t border-gray-200 flex justify-between items-center">
+                {/* Chapter Navigation Footer - Compact */}
+                <div className="pt-4 border-t border-gray-200 flex justify-between items-center">
                   <Button 
                     variant="outline"
                     onClick={goToPreviousChapter}
                     disabled={getCurrentChapterIndex() <= 0}
-                    className="flex items-center gap-2"
+                    className="flex items-center gap-2 h-8"
+                    size="sm"
                   >
                     <ChevronLeft className="w-4 h-4" />
-                    Previous Chapter
+                    Previous
                   </Button>
                   
                   <div className="text-center">
-                    <p className="text-sm text-gray-500">
+                    <p className="text-xs text-gray-500">
                       Chapter {chapters.find((ch: Chapter) => ch.id === selectedChapter)?.number} of {chapters.length}
                     </p>
                   </div>
@@ -470,19 +474,20 @@ export default function BibleReader() {
                     variant="outline"
                     onClick={goToNextChapter}
                     disabled={getCurrentChapterIndex() >= chapters.length - 1}
-                    className="flex items-center gap-2"
+                    className="flex items-center gap-2 h-8"
+                    size="sm"
                   >
-                    Next Chapter
+                    Next
                     <ChevronRight className="w-4 h-4" />
                   </Button>
                 </div>
               </div>
             ) : (
-              <div className="text-center py-16">
-                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <BookOpen className="w-8 h-8 text-red-600" />
+              <div className="text-center py-12">
+                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <BookOpen className="w-6 h-6 text-red-600" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-600 mb-2">Content Not Available</h3>
+                <h3 className="text-lg font-semibold text-gray-600 mb-2">Content Not Available</h3>
                 <p className="text-gray-500">This chapter content is currently unavailable. Please try another chapter.</p>
               </div>
             )}
