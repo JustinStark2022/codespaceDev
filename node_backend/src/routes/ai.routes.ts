@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { analyzeGame } from "../controllers/ai.controller";
+import { analyzeGame } from "@/controllers/ai.controller";
 import { verifyToken } from "@/middleware/auth.middleware";
 
 const router = Router();

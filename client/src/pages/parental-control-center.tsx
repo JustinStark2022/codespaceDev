@@ -7,7 +7,6 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
-  CardFooter
 } from "@/components/ui/card";
 import {
   Tabs,
@@ -266,22 +265,8 @@ export default function ParentalControlCenter() {
 
   return (
     <ParentLayout title="Parental Control Center">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center">
-          <Shield className="h-8 w-8 text-blue-600 mr-3" />
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Family Protection Center</h1>
-            <p className="text-gray-600">Guarding your family's digital journey with wisdom and love</p>
-          </div>
-        </div>
-        <div className="flex items-center space-x-2 text-sm text-gray-500">
-          <Heart className="h-4 w-4 text-red-500" />
-          <span>"Train up a child in the way he should go" - Proverbs 22:6</span>
-        </div>
-      </div>
-
-      {/* Controls */}
+      
+      {/* Controls Section */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div>
           <label htmlFor="child-selector" className="block text-sm font-medium text-gray-700 mb-1">
@@ -329,7 +314,7 @@ export default function ParentalControlCenter() {
         </div>
       </div>
 
-      {/* Main Content */}
+      {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Left side - Main controls (3/4 width) */}
         <div className="lg:col-span-3">
@@ -353,91 +338,91 @@ export default function ParentalControlCenter() {
               </TabsTrigger>
             </TabsList>
 
+            {/* Overview Tab */}
             <TabsContent value="overview" className="space-y-6">
-              {/* Quick Stats */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Card className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
+                <Card className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
                   <CardHeader className="pb-2">
-                      <CardTitle className="text-lg flex items-center text-blue-800">
+                    <CardTitle className="text-lg flex items-center text-blue-800">
                       <Clock className="h-5 w-5 mr-2" />
                       Today's Usage
-                      </CardTitle>
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
-                      {screenTimeLoading ? (
+                    {screenTimeLoading ? (
                       <div className="animate-pulse">Loading...</div>
-                      ) : screenTime ? (
+                    ) : screenTime ? (
                       <div>
-                          <div className="text-2xl font-bold text-blue-900">
+                        <div className="text-2xl font-bold text-blue-900">
                           {formatMinutes(screenTime.usedTimeMinutes)}
-                          </div>
-                          <div className="text-sm text-blue-600">
+                        </div>
+                        <div className="text-sm text-blue-600">
                           of {formatMinutes(screenTime.allowedTimeMinutes + screenTime.additionalRewardMinutes)} allowed
-                          </div>
-                          <Progress value={calculateTimeUsedPercentage()} className="mt-2 h-2" />
+                        </div>
+                        <Progress value={calculateTimeUsedPercentage()} className="mt-2 h-2" />
                       </div>
-                      ) : (
+                    ) : (
                       <div className="text-blue-600">No data available</div>
-                      )}
+                    )}
                   </CardContent>
-                  </Card>
+                </Card>
 
-                  <Card className="bg-gradient-to-r from-green-50 to-green-100 border-green-200">
+                <Card className="bg-gradient-to-r from-green-50 to-green-100 border-green-200">
                   <CardHeader className="pb-2">
-                      <CardTitle className="text-lg flex items-center text-green-800">
+                    <CardTitle className="text-lg flex items-center text-green-800">
                       <CheckCircle2 className="h-5 w-5 mr-2" />
                       Content Status
-                      </CardTitle>
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
-                      <div className="text-2xl font-bold text-green-900">
+                    <div className="text-2xl font-bold text-green-900">
                       {flaggedContent.length}
-                      </div>
-                      <div className="text-sm text-green-600">items need review</div>
+                    </div>
+                    <div className="text-sm text-green-600">items need review</div>
                   </CardContent>
-                  </Card>
+                </Card>
 
-                  <Card className="bg-gradient-to-r from-amber-50 to-amber-100 border-amber-200">
+                <Card className="bg-gradient-to-r from-amber-50 to-amber-100 border-amber-200">
                   <CardHeader className="pb-2">
-                      <CardTitle className="text-lg flex items-center text-amber-800">
+                    <CardTitle className="text-lg flex items-center text-amber-800">
                       <AlertCircle className="h-5 w-5 mr-2" />
                       Family Wellness
-                      </CardTitle>
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
-                      <div className="text-2xl font-bold text-amber-900">Good</div>
-                      <div className="text-sm text-amber-600">healthy digital habits</div>
+                    <div className="text-2xl font-bold text-amber-900">Good</div>
+                    <div className="text-sm text-amber-600">healthy digital habits</div>
                   </CardContent>
-                  </Card>
+                </Card>
               </div>
 
-              {/* Recent Family Activity */}
               <Card className="min-h-[200px] flex flex-col">
-                  <CardHeader>
+                <CardHeader>
                   <CardTitle className="flex items-center">
-                      <RefreshCw className="h-5 w-5 mr-2" />
-                      Recent Family Activity
+                    <RefreshCw className="h-5 w-5 mr-2" />
+                    Recent Family Activity
                   </CardTitle>
-                  </CardHeader>
-                  <CardContent className="flex-1 flex flex-col">
+                </CardHeader>
+                <CardContent className="flex-1 flex flex-col">
                   <div className="flex-1 flex items-center justify-center">
-                      {selectedChild ? (
+                    {selectedChild ? (
                       <div className="text-center text-gray-500">
-                          <Book className="h-12 w-12 mx-auto mb-3 text-gray-400" />
-                          <p>Activity monitoring for {getSelectedChildName()}</p>
-                          <p className="text-sm">Choose the Screen Time or Content tabs for detailed management</p>
+                        <Book className="h-12 w-12 mx-auto mb-3 text-gray-400" />
+                        <p>Activity monitoring for {getSelectedChildName()}</p>
+                        <p className="text-sm">Choose the Screen Time or Content tabs for detailed management</p>
                       </div>
-                      ) : (
+                    ) : (
                       <div className="text-center text-gray-500">
-                          <User className="h-12 w-12 mx-auto mb-3 text-gray-400" />
-                          <p>Select a child to view their activity</p>
+                        <User className="h-12 w-12 mx-auto mb-3 text-gray-400" />
+                        <p>Select a child to view their activity</p>
                       </div>
-                      )}
+                    )}
                   </div>
-                  </CardContent>
+                </CardContent>
               </Card>
-              </TabsContent>
+            </TabsContent>
 
+            {/* Screen Time Tab */}
             <TabsContent value="screentime" className="space-y-6">
               {!selectedChild ? (
                 <Card>
@@ -533,6 +518,7 @@ export default function ParentalControlCenter() {
               )}
             </TabsContent>
 
+            {/* Content Tab */}
             <TabsContent value="content" className="space-y-6">
               <Card>
                 <CardHeader>
@@ -602,123 +588,59 @@ export default function ParentalControlCenter() {
               </Card>
             </TabsContent>
 
+            {/* Monitoring Tab */}
             <TabsContent value="monitoring" className="space-y-6">
-              <Tabs defaultValue="flagged" className="w-full">
-                <TabsList className="grid grid-cols-4 w-full">
-                  <TabsTrigger value="flagged" className="flex items-center">
-                    <AlertCircle className="h-4 w-4 mr-2" />
-                    Flagged
-                  </TabsTrigger>
-                  <TabsTrigger value="games" className="flex items-center">
-                    <Gamepad2 className="h-4 w-4 mr-2" />
-                    Games
-                  </TabsTrigger>
-                  <TabsTrigger value="videos" className="flex items-center">
-                    <Youtube className="h-4 w-4 mr-2" />
-                    Videos
-                  </TabsTrigger>
-                  <TabsTrigger value="websites" className="flex items-center">
-                    <Globe className="h-4 w-4 mr-2" />
-                    Websites
-                  </TabsTrigger>
-                </TabsList>
-
-                <Card className="mt-4">
-                  <CardContent className="pt-6">
-                    <TabsContent value="flagged">
-                      {isLoadingFlagged ? (
-                        <div className="text-center py-8">
-                          <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-600 mb-2" />
-                          <p>Loading flagged content...</p>
-                        </div>
-                      ) : filteredContent.length === 0 ? (
-                        <div className="text-center py-8">
-                          <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-3" />
-                          <h3 className="text-lg font-medium text-green-800">All Clear!</h3>
-                          <p className="text-green-600">No flagged content requires your attention</p>
-                        </div>
-                      ) : (
-                        <div className="space-y-3">
-                          {filteredContent.map((flag) => (
-                            <div key={flag.id} className="p-4 border-l-4 border-amber-400 bg-amber-50 rounded-r-lg">
-                              <div className="flex justify-between items-start">
-                                <div className="flex-1">
-                                  <h4 className="font-medium text-amber-900">{flag.name}</h4>
-                                  <p className="text-sm text-amber-700 mt-1">
-                                    <Badge variant="outline" className="mr-2">{flag.contentType}</Badge>
-                                    {flag.flagReason}
-                                  </p>
-                                </div>
-                                <div className="flex space-x-2 ml-4">
-                                  <Button 
-                                    size="sm" 
-                                    variant="outline"
-                                    onClick={() => approveContentMutation.mutate(flag.id)}
-                                    className="text-green-700 border-green-300 hover:bg-green-50"
-                                  >
-                                    <CheckCircle2 className="h-4 w-4 mr-1" />
-                                    Approve
-                                  </Button>
-                                  <Button 
-                                    size="sm" 
-                                    variant="destructive"
-                                    onClick={() => blockContentMutation.mutate(flag.id)}
-                                  >
-                                    <Shield className="h-4 w-4 mr-1" />
-                                    Block
-                                  </Button>
-                                </div>
-                              </div>
+              <Card>
+                <CardContent className="pt-6">
+                  {isLoadingFlagged ? (
+                    <div className="text-center py-8">
+                      <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-600 mb-2" />
+                      <p>Loading flagged content...</p>
+                    </div>
+                  ) : filteredContent.length === 0 ? (
+                    <div className="text-center py-8">
+                      <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-3" />
+                      <h3 className="text-lg font-medium text-green-800">All Clear!</h3>
+                      <p className="text-green-600">No flagged content requires your attention</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {filteredContent.map((flag) => (
+                        <div key={flag.id} className="p-4 border-l-4 border-amber-400 bg-amber-50 rounded-r-lg">
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <h4 className="font-medium text-amber-900">{flag.name}</h4>
+                              <p className="text-sm text-amber-700 mt-1">
+                                <Badge variant="outline" className="mr-2">{flag.contentType}</Badge>
+                                {flag.flagReason}
+                              </p>
                             </div>
-                          ))}
-                        </div>
-                      )}
-                    </TabsContent>
-
-                    {['games', 'videos', 'websites'].map((contentType) => (
-                      <TabsContent key={contentType} value={contentType}>
-                        <div className="space-y-3">
-                          {filteredContent.filter(c => c.contentType === contentType).length === 0 ? (
-                            <div className="text-center py-8 text-gray-500">
-                              <p>No {contentType} requiring review</p>
+                            <div className="flex space-x-2 ml-4">
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => approveContentMutation.mutate(flag.id)}
+                                className="text-green-700 border-green-300 hover:bg-green-50"
+                              >
+                                <CheckCircle2 className="h-4 w-4 mr-1" />
+                                Approve
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="destructive"
+                                onClick={() => blockContentMutation.mutate(flag.id)}
+                              >
+                                <Shield className="h-4 w-4 mr-1" />
+                                Block
+                              </Button>
                             </div>
-                          ) : (
-                            filteredContent.filter(c => c.contentType === contentType).map((flag) => (
-                              <div key={flag.id} className="p-4 border rounded-lg bg-white shadow-sm">
-                                <div className="flex justify-between items-center">
-                                  <div>
-                                    <h4 className="font-medium">{flag.name}</h4>
-                                    <p className="text-sm text-gray-600 mt-1">{flag.flagReason}</p>
-                                  </div>
-                                  <div className="flex space-x-2">
-                                    <Button 
-                                      size="sm" 
-                                      variant="outline"
-                                      onClick={() => approveContentMutation.mutate(flag.id)}
-                                      className="text-green-700 border-green-300 hover:bg-green-50"
-                                    >
-                                      <CheckCircle2 className="h-4 w-4 mr-1" />
-                                      Approve
-                                    </Button>
-                                    <Button 
-                                      size="sm" 
-                                      variant="destructive"
-                                      onClick={() => blockContentMutation.mutate(flag.id)}
-                                    >
-                                      <Shield className="h-4 w-4 mr-1" />
-                                      Block
-                                    </Button>
-                                  </div>
-                                </div>
-                              </div>
-                            ))
-                          )}
+                          </div>
                         </div>
-                      </TabsContent>
-                    ))}
-                  </CardContent>
-                </Card>
-              </Tabs>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </TabsContent>
           </Tabs>
         </div>
@@ -727,7 +649,7 @@ export default function ParentalControlCenter() {
         <div className="lg:col-span-1">
           <Card className="h-[500px] flex flex-col">
             <CardContent className="p-0 h-full flex flex-col">
-              <div className="flex items-center gap-2 px-4 py-3 border-b bg-blue-50 rounded-t-2xl">
+              <div className="flex items-center gap-2 px-4 py-3 border-b bg-blue-50 rounded-t-lg">
                 <MessageCircle className="text-blue-500" />
                 <span className="font-semibold text-blue-900 text-lg">Faith Fortress Chat</span>
               </div>
@@ -750,7 +672,7 @@ export default function ParentalControlCenter() {
                 ))}
                 <div ref={chatEndRef} />
               </div>
-              <div className="flex items-center gap-2 px-3 py-2 border-t bg-white rounded-b-2xl">
+              <div className="flex items-center gap-2 px-3 py-2 border-t bg-white rounded-b-lg">
                 <input
                   className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
                   placeholder="Type your message..."

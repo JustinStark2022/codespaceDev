@@ -19,6 +19,7 @@ import locationRoutes from "./routes/location.routes";
 import screenTimeRoutes from "./routes/screenTime.routes";
 import childDashboardRoutes from "@/routes/childDashboard.routes";
 import gamesRoutes from "./routes/games.routes";
+import aiRoutes from "./routes/ai.routes";
 
 import { logger } from "./utils/logger";
 
@@ -77,6 +78,7 @@ app.use("/api/location", locationRoutes);
 app.use("/api/screentime", screenTimeRoutes);
 app.use("/api/child-dashboard", childDashboardRoutes);
 app.use("/api/games", gamesRoutes);
+app.use("/api/ai", aiRoutes);
 
 app.use(helmet());
 
