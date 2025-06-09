@@ -1,13 +1,16 @@
 // src/utils/logger.ts
-import pino from "pino";
+import pino from 'pino';
+import pinoPretty from 'pino-pretty';
 
-// create a pretty‐printing transport
-export const logger = pino({
-  transport: {
-    target: "pino-pretty",   // matches the package name
-    options: {
-      colorize: true,         // turn on colors
-      translateTime: "SYS:standard"
-    }
-  }
-});
+const logger = pino(
+  {
+    level: process.env.LOG_LEVEL || 'info',
+  },
+  pinoPretty({
+    colorize: true,
+    translateTime: 'SYS:standard',
+    ignore: 'pid,hostname',
+  })
+);
+
+export default logger;
