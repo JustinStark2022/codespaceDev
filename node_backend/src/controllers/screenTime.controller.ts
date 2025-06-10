@@ -1,7 +1,14 @@
 import { Request, Response } from "express";
 import { db } from "../db/db";
 import { screen_time as screenTimeTable } from "../db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
+
+interface AuthenticatedRequest extends Request {
+  user?: {
+    id: number;
+    role: string;
+  };
+}
 
 export const getScreenTimeData = async (_req: Request, res: Response) => {
   res.json({
@@ -30,43 +37,132 @@ export const getScreenTimeData = async (_req: Request, res: Response) => {
   });
 };
 
-// New: get screen time for any user by ID
-export const getScreenTimeForUser = async (req: Request, res: Response) => {
+// Get screen time for any user by ID - now using real database
+export const getScreenTimeForUser = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = parseInt(req.query.userId as string);
-    const [record] = await db
+    const date = req.query.date as string;
+
+    if (!userId) {
+      return res.status(400).json({ message: "userId is required" });
+    }
+
+    // Query the actual database for screen time data
+    const [screenTime] = await db
       .select()
       .from(screenTimeTable)
-      .where(eq(screenTimeTable.user_id, userId));
-    res.json(record || null);
-  } catch (err) {
-    res.status(500).json({ message: "Failed to fetch screen time for user", error: err });
+      .where(eq(screenTimeTable.user_id, userId))
+      .limit(1);
+
+    if (screenTime) {
+      // Calculate total reward minutes from available fields
+      const totalRewards = (screenTime.time_rewards_scripture || 0) + 
+                          (screenTime.time_rewards_lessons || 0) + 
+                          (screenTime.time_rewards_chores || 0);
+
+      // Return real data from database
+      res.json({
+        allowedTimeMinutes: screenTime.daily_limits_total || 120,
+        additionalRewardMinutes: totalRewards,
+        usedTimeMinutes: screenTime.usage_today_total || 0,
+        date: date || new Date().toISOString().split('T')[0],
+        userId: userId
+      });
+    } else {
+      // Return default values if no screen time record exists
+      res.json({
+        allowedTimeMinutes: 120,
+        additionalRewardMinutes: 0,
+        usedTimeMinutes: 0,
+        date: date || new Date().toISOString().split('T')[0],
+        userId: userId
+      });
+    }
+  } catch (error) {
+    console.error("Error fetching screen time:", error);
+    res.status(500).json({ message: "Failed to fetch screen time data" });
   }
 };
 
-// New: update screen time limits for a user
-export const updateScreenTime = async (req: Request, res: Response) => {
+// Update screen time limits for a user - now using real database
+export const updateScreenTime = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    let { userId, allowedTimeMinutes } = req.body as { userId: number; allowedTimeMinutes: number | string };
+    const { userId, date, allowedTimeMinutes } = req.body as { 
+      userId: number; 
+      date?: string; 
+      allowedTimeMinutes: number | string 
+    };
 
-    // Convert to number and validate
-    userId = Number(userId);
-    allowedTimeMinutes = Number(allowedTimeMinutes);
-
-    if (isNaN(userId) || isNaN(allowedTimeMinutes)) {
-      return res.status(400).json({ message: "Invalid userId or allowedTimeMinutes" });
+    if (!userId || !allowedTimeMinutes) {
+      return res.status(400).json({ message: "userId and allowedTimeMinutes are required" });
     }
 
-    const [updated] = await db
-      .update(screenTimeTable)
-      .set({ daily_limits_total: allowedTimeMinutes })
-      .where(eq(screenTimeTable.user_id, userId))
-      .returning();
+    const newAllowedTime = Number(allowedTimeMinutes);
 
-    if (!updated) return res.status(404).json({ message: "Screen time record not found" });
-    res.json(updated);
-  } catch (err) {
-    res.status(500).json({ message: "Failed to update screen time", error: err });
+    // Check if record exists
+    const [existingRecord] = await db
+      .select()
+      .from(screenTimeTable)
+      .where(eq(screenTimeTable.user_id, userId))
+      .limit(1);
+
+    if (existingRecord) {
+      // Update existing record
+      const [updated] = await db
+        .update(screenTimeTable)
+        .set({ 
+          daily_limits_total: newAllowedTime
+        })
+        .where(eq(screenTimeTable.user_id, userId))
+        .returning();
+
+      const totalRewards = (updated.time_rewards_scripture || 0) + 
+                          (updated.time_rewards_lessons || 0) + 
+                          (updated.time_rewards_chores || 0);
+
+      res.json({
+        allowedTimeMinutes: updated.daily_limits_total,
+        additionalRewardMinutes: totalRewards,
+        usedTimeMinutes: updated.usage_today_total || 0,
+        date: date || new Date().toISOString().split('T')[0],
+        userId: userId
+      });
+    } else {
+      // Create new record
+      const [created] = await db
+        .insert(screenTimeTable)
+        .values({
+          user_id: userId,
+          daily_limits_total: newAllowedTime,
+          daily_limits_gaming: Math.floor(newAllowedTime * 0.5),
+          daily_limits_social: Math.floor(newAllowedTime * 0.25),
+          daily_limits_educational: Math.floor(newAllowedTime * 0.25),
+          usage_today_total: 0,
+          usage_today_gaming: 0,
+          usage_today_social: 0,
+          usage_today_educational: 0,
+          time_rewards_scripture: 0,
+          time_rewards_lessons: 0,
+          time_rewards_chores: 0,
+          created_at: new Date()
+        })
+        .returning();
+
+      const totalRewards = (created.time_rewards_scripture || 0) + 
+                          (created.time_rewards_lessons || 0) + 
+                          (created.time_rewards_chores || 0);
+
+      res.json({
+        allowedTimeMinutes: created.daily_limits_total,
+        additionalRewardMinutes: totalRewards,
+        usedTimeMinutes: created.usage_today_total || 0,
+        date: date || new Date().toISOString().split('T')[0],
+        userId: userId
+      });
+    }
+  } catch (error) {
+    console.error("Error updating screen time:", error);
+    res.status(500).json({ message: "Failed to update screen time" });
   }
 };
 

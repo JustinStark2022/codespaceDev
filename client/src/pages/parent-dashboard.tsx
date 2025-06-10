@@ -38,7 +38,7 @@ function FamilySummary() {
         <b>2. Family Devotions:</b> Set aside time each week to read, discuss, and pray together as a family.
       </li>
       <li>
-        <b>3. Serve Others:</b> Find ways to serve together, showing Christ’s love in action.
+        <b>3. Serve Others:</b> Find ways to serve together, showing Christ's love in action.
       </li>
     </ul>
   );
@@ -130,14 +130,14 @@ export default function ParentDashboard() {
         <div className="xl:col-span-10 flex flex-col gap-2">
           <div className="w-full max-h-[325px] xl:col-span-4 flex flex-row gap-4">
             <Card className="max-w-[600px] w-full ">
-              <CardContent className="pt-2">
+              <CardContent className="pt-2 h-full flex flex-col">
                 <h2 className="text-md font-semibold mb-2">Children Overview</h2>
                 {isLoadingChildren ? (
                   <p className="text-gray-500">Loading children...</p>
                 ) : childError ? (
                   <p className="text-red-500">Failed to load children.</p>
                 ) : children.length === 0 ? (
-                  <div className="text-center">
+                  <div className="text-center flex-1 flex flex-col justify-center items-center">
                     <UserPlus className="mx-auto h-10 w-10 text-gray-400" />
                     <p className="mt-2">No child accounts found.</p>
                     <Button asChild className="mt-4">
@@ -148,7 +148,7 @@ export default function ParentDashboard() {
                     </Button>
                   </div>
                 ) : (
-                  <table className="w-full table-auto text-sm">
+                  <table className="w-full table-auto text-sm flex-1">
                     <thead>
                       <tr>
                         <th className=" mr-0 text-left">Child</th>
@@ -202,7 +202,7 @@ export default function ParentDashboard() {
               </CardContent>
             </Card>
             {/* Family Content Summary & Recommendation */}
-            <Card className="max-h-[325px] max-w-[450px]">
+            <Card className="max-h-[325px] max-w-[480px]">
               <CardContent className="pt-6">
                 <h2 className="text-xl font-bold mb-4">Family Content Summary & Recommendation</h2>
                 <FamilySummary />
@@ -241,44 +241,43 @@ export default function ParentDashboard() {
               </CardContent>
             </Card>
           </div>
-          <div className="xl:col-span-10 flex flex-row gap-2">
-          {/* Action Cards, Verse of the Day, and Chat Side-by-Side */}
-          <div className="flex flex-row gap-8 mt-2">
-            {/* Left: Action Cards + Verse of the Day */}
-            <div className="flex-1 flex flex-col gap-2">
-              <div className="flex flex-col sm:flex-row gap-2">
-                <Card className="flex-1 h-20 min-h-0 max-w-[190px]">
-                  <CardContent className="py-1 flex flex-col items-center justify-center">
-                    <span className="font-semibold text-xs mb-1 text-base text-center">Create New Child Account</span>
-                    <Button asChild className="w-full max-w-[120px] h-5 mt-1 text-xs">
-                      <Link href="/children">Create Account</Link>
+          
+          {/* Bottom Row: Action Cards + Verse of the Day + Chatbot */}
+          <div className="w-full flex flex-row gap-4 h-full mt-2">
+            {/* Left side: Action Cards + Verse of the Day */}
+            <div className="flex-1 flex-col gap-2 h-full" style={{width: '545px'}}>
+              {/* Action Cards Row */}
+              <div className="flex flex-row min-w-[545px] h-16 mb-4 gap-2">
+                <Card className="flex-1 h-full w-full">
+                  <CardContent className="py-2 items-center justify-center h-full flex">
+                    <Button asChild className="w-full h-full text-black-600 text-sm border-none">
+                      <Link href="/children">Create Child</Link>
                     </Button>
                   </CardContent>
                 </Card>
-                <Card className="flex-1 h-20 min-h-0 max-w-[190px]">
-                  <CardContent className="py-1 flex flex-col items-center justify-center">
-                    <span className="font-semibold mb-1 text-xs text-base text-center">Bible Education Control Center</span>
-                    <Button asChild className="w-full max-w-[120px] h-5 mt-1 text-xs">
-                      <Link href="/monitoring">Adjust Filters</Link>
+                <Card className="flex-1 h-full">
+                  <CardContent className="py-2  items-center justify-center h-full flex">
+                    <Button asChild className="w-full h-full text-black-600 text-sm border-none">
+                      <Link href="/monitoring">Lesson Center</Link>
                     </Button>
                   </CardContent>
                 </Card>
-                <Card className="flex-1 h-20 min-h-0 max-w-[190px]">
-                  <CardContent className="py-1 flex flex-col items-center justify-center">
-                    <span className="font-semibold mb-1 text-xs text-base text-center">Parental Controls Center</span>
-                    <Button asChild className="w-full max-w-[120px] h-5 mt-1 text-xs">
-                      <Link href="/lessons">Open Controls</Link>
+                <Card className="flex-1 h-full">
+                  <CardContent className="py-2 items-center justify-center h-full flex">
+                    <Button asChild className="w-full h-full text-black-600 text-sm border-none">
+                      <Link href="/lessons">Parental Controls</Link>
                     </Button>
                   </CardContent>
                 </Card>
               </div>
+              
               {/* Verse of the Day */}
-              <Card className="h-[100px] max-w-[585px]">
-                <CardContent className="pt-2">
-                  <div className="flex justify-between items-center mb-2">
-                    <h2 className="text-md font-bold">Verse of the Day</h2>
+              <Card className="h-[200px] flex-1">
+                <CardContent className="pt-4 h-full flex flex-col justify-between">
+                  <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-lg font-bold">Verse of the Day</h2>
                     <select
-                      className="border rounded px-2 py-1 text-sm"
+                      className="border rounded px-3 py-2 text-sm"
                       value={verseMode}
                       onChange={e => setVerseMode(e.target.value as "auto" | "manual")}
                     >
@@ -290,14 +289,15 @@ export default function ParentDashboard() {
                 </CardContent>
               </Card>
             </div>
-            {/* Right: Chatbot */}
-            <Card className="min-w-[630] h-[180px] flex flex-col">
-              <CardContent className="p-0 flex-1 flex flex-col">
+            
+            {/* Right side: Chatbot */}
+            <Card className="h-[280px] flex-1 h-full">
+              <CardContent className="p-0 h-full flex flex-col">
                 <div className="flex items-center gap-2 px-4 py-3 border-b bg-blue-50 rounded-t-2xl">
                   <MessageCircle className="text-blue-500" />
                   <span className="font-semibold text-blue-900 text-lg">Faith Fortress Chat</span>
                 </div>
-                <div className="flex-1 overflow-y-auto px-4 py-2 space-y-2 bg-blue-50">
+                <div className="overflow-y-auto px-4 py-2 space-y-2 bg-blue-50 flex-1">
                   {messages.map((msg, idx) => (
                     <div
                       key={idx}
@@ -336,8 +336,7 @@ export default function ParentDashboard() {
             </Card>
           </div>
         </div>
-        </div>        
-      </div>
+      </div>        
     </ParentLayout>
   );
 }

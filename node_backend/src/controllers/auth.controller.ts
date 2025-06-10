@@ -2,6 +2,7 @@
 import { db } from "@/db/db";
 import { users } from "@/db/schema";
 import { generateToken } from "@/utils/token";
+import logger from "@/utils/logger";
 
 import { Request, Response } from "express";
 
@@ -58,6 +59,7 @@ export const registerUser = async (req: Request, res: Response) => {
       .where(eq(users.username, username));
 
     if (existingUser.length > 0) {
+      logger.warn({ username }, "Username already taken during registration.");
       return res.status(400).json({ message: "Username already taken." });
     }
 
@@ -68,6 +70,7 @@ export const registerUser = async (req: Request, res: Response) => {
       .where(eq(users.email, email));
 
     if (existingEmail.length > 0) {
+      logger.warn({ email }, "Email already registered.");
       return res.status(400).json({ message: "Email already registered." });
     }
 
@@ -89,6 +92,8 @@ export const registerUser = async (req: Request, res: Response) => {
     const createdUser = inserted[0];
     const token = generateToken(createdUser.id, createdUser.role);
 
+    logger.info({ userId: createdUser.id, username: createdUser.username }, "User registered successfully.");
+
     res
       .cookie("token", token, COOKIE_OPTS)
       .status(201)
@@ -98,6 +103,7 @@ export const registerUser = async (req: Request, res: Response) => {
         isParent: createdUser.role === "parent",
       });
   } catch (err: any) {
+    logger.error(err, "Error during user registration.");
     if (err instanceof z.ZodError) {
       return res.status(400).json({ message: err.errors[0].message });
     }
@@ -115,15 +121,18 @@ export const loginUser = async (req: Request, res: Response) => {
       .where(eq(users.username, username));
 
     if (!user) {
+      logger.warn({ username }, "Login attempt failed: user not found.");
       return res.status(401).json({ message: "Invalid username or password." });
     }
 
     const isValidPassword = await bcrypt.compare(password, user.password);
     if (!isValidPassword) {
+      logger.warn({ username }, "Login attempt failed: invalid password.");
       return res.status(401).json({ message: "Invalid username or password." });
     }
 
     const token = generateToken(user.id, user.role);
+    logger.info({ userId: user.id, username: user.username }, "User logged in successfully.");
 
     res
       .cookie("token", token, COOKIE_OPTS)
@@ -140,6 +149,7 @@ export const loginUser = async (req: Request, res: Response) => {
         isParent: user.role === "parent",
       });
   } catch (err: any) {
+    logger.error(err, "Error during user login.");
     if (err instanceof z.ZodError) {
       return res.status(400).json({ message: err.errors[0].message });
     }
@@ -147,24 +157,37 @@ export const loginUser = async (req: Request, res: Response) => {
   }
 };
 
-export const logoutUser = (_req: Request, res: Response) => {
+export const logoutUser = (req: Request & { user?: { id: number } }, res: Response) => {
+  // Assuming verifyToken middleware adds user to req
+  const userId = req.user?.id;
+  logger.info({ userId }, "User logged out successfully.");
   res.clearCookie("token").json({ message: "Logged out successfully." });
 };
 
 export const getMe = async (req: Request & { user?: { id: number } }, res: Response) => {
-  if (!req.user) {
+  const userId = req.user?.id;
+  if (!userId) {
+    // This case should ideally be caught by verifyToken middleware
+    logger.warn("getMe called without authenticated user.");
     return res.status(401).json({ message: "Not authenticated." });
   }
 
-  const [found] = await db
-    .select()
-    .from(users)
-    .where(eq(users.id, req.user.id));
+  try {
+    const [found] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId));
 
-  if (!found) {
-    return res.status(404).json({ message: "User not found." });
+    if (!found) {
+      logger.warn({ userId }, "Authenticated user not found in DB for getMe.");
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    const { password, ...safeUser } = found;
+    logger.debug({ userId }, "Successfully fetched user details for getMe.");
+    res.json(safeUser);
+  } catch (err: any) {
+    logger.error(err, { userId }, "Error in getMe.");
+    return res.status(500).json({ message: "Failed to fetch user details." });
   }
-
-  const { password, ...safeUser } = found;
-  res.json(safeUser);
 };

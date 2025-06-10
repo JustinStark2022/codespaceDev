@@ -1,8 +1,11 @@
 import { Router } from "express";
-import { getFlaggedGames } from "../controllers/games.controller";
+import { getFlaggedGames, approveGame, flagGame } from "../controllers/games.controller";
+import { verifyToken } from "@/middleware/auth.middleware";
 
 const router = Router();
 
-router.get("/flagged", getFlaggedGames);
+router.get("/flagged", verifyToken, getFlaggedGames);
+router.post("/approve/:id", verifyToken, approveGame);
+router.post("/block/:id", verifyToken, flagGame);
 
-export default router; 
+export default router;

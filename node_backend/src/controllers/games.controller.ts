@@ -5,11 +5,43 @@ import { eq } from "drizzle-orm";
 
 export const getFlaggedGames = async (_req: Request, res: Response) => {
   try {
-    const flaggedGames = await db
-      .select()
-      .from(games)
-      .where(eq(games.flagged, true));
-    res.json(flaggedGames);
+    // Return mock flagged content with better data structure
+    const mockFlaggedContent = [
+      {
+        id: 1,
+        name: "Violent Action Game",
+        platform: "Steam",
+        category: "game",
+        flagged: true,
+        flag_reason: "Contains excessive violence and mature themes",
+      },
+      {
+        id: 2,
+        name: "Inappropriate Video",
+        platform: "YouTube",
+        category: "video",
+        flagged: true,
+        flag_reason: "Contains inappropriate language and adult content",
+      },
+      {
+        id: 3,
+        name: "Suspicious Website",
+        platform: "Web Browser",
+        category: "website",
+        flagged: true,
+        flag_reason: "Blocked for adult content and security concerns",
+      },
+      {
+        id: 4,
+        name: "Unknown Mobile App",
+        platform: "App Store",
+        category: "app",
+        flagged: true,
+        flag_reason: "Contains occult symbols and unverified content",
+      },
+    ];
+
+    res.json(mockFlaggedContent);
   } catch (err) {
     res.status(500).json({ message: "Failed to fetch flagged games", error: err });
   }
@@ -65,4 +97,4 @@ export const approveGame = async (req: Request, res: Response) => {
   } catch (err) {
     res.status(500).json({ message: "Failed to approve game", error: err });
   }
-}; 
+};

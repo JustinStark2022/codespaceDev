@@ -2,7 +2,6 @@ import dotenv from "dotenv";
 
 // Load environment variables
 dotenv.config({ path: "../.env.node_backend" });
-
 import express from "express";
 import cors from "cors";
 import morgan from "morgan";
@@ -20,8 +19,9 @@ import locationRoutes from "./routes/location.routes";
 import screenTimeRoutes from "./routes/screenTime.routes";
 import childDashboardRoutes from "@/routes/childDashboard.routes";
 import gamesRoutes from "./routes/games.routes";
+import aiRoutes from "./routes/ai.routes";
 
-import { logger } from "./utils/logger";
+import logger from "./utils/logger";
 
 
 // Environment variable validation
@@ -43,9 +43,6 @@ try {
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Security middleware
-app.use(helmet());
-
 // CORS configuration
 app.use(cors({
   origin: process.env.NODE_ENV === "development"
@@ -61,6 +58,13 @@ app.use(cookieParser());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(morgan("dev"));
+// Error handling middleware
+app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  logger.error(err.stack);
+  res.status(500).json({
+    error: process.env.NODE_ENV === "production" ? "Internal server error" : err.message,
+  });
+});
 
 // API routes
 app.use("/api", authRoutes);
@@ -74,14 +78,11 @@ app.use("/api/location", locationRoutes);
 app.use("/api/screentime", screenTimeRoutes);
 app.use("/api/child-dashboard", childDashboardRoutes);
 app.use("/api/games", gamesRoutes);
+app.use("/api/ai", aiRoutes);
 
-// Error handling middleware
-app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  logger.error(err.stack);
-  res.status(500).json({
-    error: process.env.NODE_ENV === "production" ? "Internal server error" : err.message,
-  });
-});
+app.use(helmet());
+
+
 
 // Start server
 app.listen(PORT, () => {
