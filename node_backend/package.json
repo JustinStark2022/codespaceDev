@@ -9,19 +9,19 @@
     "build": "tsc"
   },
   "dependencies": {
-    "bcrypt": "^5.1.1", // Keeping as is, major update needed
+    "bcrypt": "^5.1.1",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "drizzle-orm": "^0.44.2",
     "drizzle-zod": "^0.8.2",
-    "express": "^4.21.2", // Keeping as is, major update needed
+    "express": "^4.21.2", 
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
-    "node-fetch": "^3.3.2", // Already at wanted version
+    "node-fetch": "^3.3.2",
     "pg": "^8.15.5",
-    "pino": "^8.21.0", // Keeping as is, major update needed
+    "pino": "^8.21.0",
     "pino-pretty": "^13.0.0",
     "zod": "^3.25.56"
   },
@@ -29,13 +29,13 @@
     "@types/bcrypt": "^5.0.2",
     "@types/cookie-parser": "^1.4.9",
     "@types/cors": "^2.8.19",
-    "@types/express": "^4.17.21", // Keeping as is, major update needed
+    "@types/express": "^4.17.21",
     "@types/jsonwebtoken": "^9.0.9",
     "@types/morgan": "^1.9.10",
     "@types/node": "^22.15.30",
     "@types/node-fetch": "^2.6.12",
     "@types/pg": "^8.15.4",
-    "drizzle-kit": "^0.18.1", // Keeping as is, major update needed
+    "drizzle-kit": "^0.18.1",
     "tsx": "^4.19.3",
     "typescript": "^5.8.3"
   },
