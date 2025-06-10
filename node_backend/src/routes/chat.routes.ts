@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { getFlaggedChatMessages } from "@/controllers/chat.controller";
-import { verifyToken } from "@/middleware/auth.middleware";
+import { getFlaggedChatMessages } from "../controllers/chat.controller";
+import { verifyToken } from "../middleware/auth.middleware";
 
 const router = Router();
 

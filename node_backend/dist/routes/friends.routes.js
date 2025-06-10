@@ -1,9 +1,6 @@
 import { Router } from "express";
-import { getAlerts } from "../controllers/alert.controller";
+import { getFriendRequests } from "../controllers/friend.controller";
 import { verifyToken } from "../middleware/auth.middleware";
-
 const router = Router();
-
-router.get("/recent", verifyToken, getAlerts);
-
+router.get("/friend-requests", verifyToken, getFriendRequests);
 export default router;

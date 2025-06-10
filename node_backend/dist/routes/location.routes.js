@@ -1,9 +1,6 @@
 import { Router } from "express";
-import { getAlerts } from "../controllers/alert.controller";
+import { getUserLocation } from "../controllers/location.controller";
 import { verifyToken } from "../middleware/auth.middleware";
-
 const router = Router();
-
-router.get("/recent", verifyToken, getAlerts);
-
+router.get("/location", verifyToken, getUserLocation);
 export default router;
