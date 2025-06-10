@@ -14,6 +14,7 @@ import ChildAccounts from "@/pages/child-accounts";
 import { ProtectedRoute }  from "@/lib/protected-route";
 import { useAuth } from "@/hooks/use-auth";
 import ParentalControlCenter from "@/pages/parental-control-center";
+import ErrorBoundary from './components/ErrorBoundary';
 
 function Router() {
   const { user } = useAuth();
@@ -53,10 +54,12 @@ function Redirect({ to }: { to: string }) {
 
 function App() {
   return (
-    <TooltipProvider>
-      <Toaster />
-      <Router />
-    </TooltipProvider>
+    <ErrorBoundary fallbackUI={<div><h1>Application Error</h1><p>Something went terribly wrong. Please try again later.</p></div>}>
+      <TooltipProvider>
+        <Toaster />
+        <Router />
+      </TooltipProvider>
+    </ErrorBoundary>
   );
 }
 

@@ -1,4 +1,19 @@
 .qodo
-node_backend/.env
+
+# Environment variables
+.env
+.env.*
+!.env.example
+!.env.example.*
+
+# Node modules
 node_backend/node_modules
 client/node_modules
+
+# Other specific .env files if any (though covered by .env.*)
+# Example: client/.env, node_backend/.env (if they were still per-service)
+# For this project, .env files are now at the root.
+# The per-service .env files (e.g. client/.env) are no longer the primary ones used by docker-compose
+# but might be created by users for other purposes, so ignoring them generally is fine.
+client/.env
+node_backend/.env

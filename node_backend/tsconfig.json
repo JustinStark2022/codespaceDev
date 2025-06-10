@@ -4,8 +4,8 @@
     "module": "ESNext",
     "moduleResolution": "Node",
     "lib": ["ES2022"],
-    "outDir": "dist",
-    "rootDir": ".",
+    "outDir": "./dist",
+    "rootDir": "./src",
     "baseUrl": "./",
     "paths": {
       "@/*": ["./src/*"]
@@ -20,6 +20,6 @@
     "allowJs": true,
     "noEmit": false
   },
-  "include": ["src", "drizzle.config.ts"],    
+  "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
 }
