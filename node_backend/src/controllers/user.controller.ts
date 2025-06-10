@@ -82,7 +82,6 @@ export const getChildren = async (req: AuthenticatedRequest, res: Response) => {
 };
 
 export const createChild = async (req: AuthenticatedRequest, res: Response) => {
-  const {
   const { username, password, email, display_name, first_name, last_name } =
     req.body;
   // Role is implicitly 'child' when created by a parent
