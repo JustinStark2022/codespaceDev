@@ -21,7 +21,7 @@ import childDashboardRoutes from "@/routes/childDashboard.routes";
 import gamesRoutes from "./routes/games.routes";
 import aiRoutes from "./routes/ai.routes";
 
-import { logger } from "./utils/logger";
+import logger from "./utils/logger";
 
 
 // Environment variable validation
