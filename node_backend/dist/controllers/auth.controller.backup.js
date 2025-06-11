@@ -1,8 +1,8 @@
 // src/controllers/auth.controller.ts
-import { db } from "../db/db";
-import { users } from "../db/schema";
-import { generateToken } from "../utils/token";
-import logger from "../utils/logger";
+import { db } from "@/db/db";
+import { users } from "@/db/schema";
+import { generateToken } from "@/utils/token";
+import logger from "@/utils/logger";
 import bcrypt from "bcrypt";
 import { eq } from "drizzle-orm";
 import { z } from "zod";

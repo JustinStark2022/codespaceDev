@@ -30,7 +30,7 @@ const envSchema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   JWT_SECRET: z.string().min(1, "JWT_SECRET is required"),
-  FRONTEND_URL: z.string().default("http://localhost:5173"),
+  FRONTEND_URL: z.string().default("http://client:5173"),
 });
 
 try {
@@ -43,23 +43,18 @@ try {
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// CORS configuration - Fixed for localhost
+// CORS configuration
 app.use(cors({
-  origin: [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173", 
-    "http://client:5173",
-    process.env.FRONTEND_URL || "http://localhost:5173"
-  ],
+  origin: process.env.NODE_ENV === "development"
+    ? process.env.FRONTEND_URL || "http://client:5173" // Allow localhost during development
+    : process.env.FRONTEND_URL, // Use the environment variable in production
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Cookie"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
 }));
 
 // Basic middleware
-app.use(helmet({
-  crossOriginEmbedderPolicy: false,
-}));
+app.use(helmet());
 app.use(cookieParser());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
@@ -86,6 +81,8 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
     error: process.env.NODE_ENV === "production" ? "Internal server error" : err.message,
   });
 });
+
+
 
 // Start server
 app.listen(PORT, () => {
