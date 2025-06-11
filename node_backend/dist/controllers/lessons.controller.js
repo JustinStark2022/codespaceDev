@@ -21,6 +21,42 @@ export const updateLessonProgress = async (req, res) => {
     });
     res.status(200).json({ message: "Lesson updated" });
 };
+// Complete a lesson - new endpoint for frontend compatibility
+export const completeLessonProgress = async (req, res) => {
+    const { lessonId, userId } = req.body;
+    const targetUserId = userId || req.user.id;
+    try {
+        // Check if progress already exists
+        const existing = await db
+            .select()
+            .from(lesson_progress)
+            .where(and(eq(lesson_progress.user_id, targetUserId), eq(lesson_progress.lesson_id, lessonId)));
+        if (existing.length > 0) {
+            // Update existing progress
+            await db
+                .update(lesson_progress)
+                .set({
+                completed: true,
+                completed_at: new Date()
+            })
+                .where(and(eq(lesson_progress.user_id, targetUserId), eq(lesson_progress.lesson_id, lessonId)));
+        }
+        else {
+            // Create new progress entry
+            await db.insert(lesson_progress).values({
+                user_id: targetUserId,
+                lesson_id: lessonId,
+                completed: true,
+                completed_at: new Date()
+            });
+        }
+        res.status(200).json({ message: "Lesson completed successfully" });
+    }
+    catch (error) {
+        console.error("Error completing lesson:", error);
+        res.status(500).json({ message: "Failed to complete lesson" });
+    }
+};
 export const getUserLessonsWithProgress = async (req, res) => {
     const userId = req.user?.id;
     if (!userId) {
