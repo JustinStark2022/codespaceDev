@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => {
       },
       proxy: {
         "/api": {
-          target: env.VITE_API_URL || "http://localhost:3001", // Updated: Use port 3001 as default
+          target: env.VITE_API_URL || "http://localhost:5000", // Fixed: Use localhost instead of backend
           changeOrigin: true,
           secure: false,
           ws: true,
@@ -26,7 +26,7 @@ export default defineConfig(({ mode }) => {
               console.log("proxy error", err);
             });
             proxy.on("proxyReq", (proxyReq) => {
-              proxyReq.setHeader("Origin", env.VITE_FRONTEND_URL || "http://localhost:5173");
+              proxyReq.setHeader("Origin", env.VITE_FRONTEND_URL || "http://localhost:5173"); // Fixed: Use localhost
             });
           },
         },
