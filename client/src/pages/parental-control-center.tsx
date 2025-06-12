@@ -281,9 +281,10 @@ export default function ParentalControlCenter() {
 
   return (
     <ParentLayout title="Parental Control Center">
-      
-      {/* Controls Section */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <ScrollArea className="h-full w-full">
+        <div className="pb-6">
+          {/* Controls Section */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div>
           <label htmlFor="child-selector" className="block text-sm font-medium text-gray-700 mb-1">
             Select Child
@@ -1330,6 +1331,8 @@ export default function ParentalControlCenter() {
           </Card>
         </div>
       </div>
+        </div>
+      </ScrollArea>
     </ParentLayout>
   );
 }
