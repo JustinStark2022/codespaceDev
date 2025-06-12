@@ -129,7 +129,7 @@ export default function ParentDashboard() {
         {/* Children Overview & Actions */}
         <div className="xl:col-span-10 flex flex-col gap-2">
           <div className="w-full max-h-[325px] xl:col-span-4 flex flex-row gap-4">
-            <Card className="max-w-[600px] w-full ">
+            <Card className="flex-1 min-w-0">
               <CardContent className="pt-2 h-full flex flex-col">
                 <h2 className="text-md font-semibold mb-2">Children Overview</h2>
                 {isLoadingChildren ? (
@@ -202,15 +202,15 @@ export default function ParentDashboard() {
               </CardContent>
             </Card>
             {/* Family Content Summary & Recommendation */}
-            <Card className="max-h-[325px] max-w-[480px]">
+            <Card className="max-h-[325px] w-[380px] flex-shrink-0">
               <CardContent className="pt-6">
                 <h2 className="text-xl font-bold mb-4">Family Content Summary & Recommendation</h2>
                 <FamilySummary />
               </CardContent>
             </Card>
             {/* Recent Alerts */}
-            <Card className="max-h-[325px] max-w-[215px]">
-              <CardContent className="pt-3">
+            <Card className="max-h-[325px] w-[300px] flex-shrink-0">
+              <CardContent className="pt-3 overflow-hidden">
                 <h2 className="text-md font-semibold mb-4">Recent Alerts</h2>
                 {isLoadingFlagged ? (
                   <p className="text-gray-500">Loading alerts...</p>
@@ -220,23 +220,23 @@ export default function ParentDashboard() {
                     <p className="mt-1 text-sm">No flagged content.</p>
                   </div>
                 ) : (
-                  <ul className="space-y-2">
+                  <div className="space-y-2 overflow-y-auto max-h-[250px]">
                     {flaggedContent.map((flag) => (
-                      <li
+                      <div
                         key={flag.id}
-                        className={`p-1 border-l-4 rounded ${
+                        className={`p-2 border-l-4 rounded ${
                           flag.flagReason === "violence"
                             ? "border-red-500 bg-red-50 dark:bg-red-900/20"
                             : "border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20"
                         }`}
                       >
-                        <p className="text-sm font-medium">{flag.name}</p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-sm font-medium break-words leading-tight">{flag.name}</p>
+                        <p className="text-xs text-gray-500 break-words mt-1">
                           {flag.contentType} - {flag.flagReason}
                         </p>
-                      </li>
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 )}
               </CardContent>
             </Card>

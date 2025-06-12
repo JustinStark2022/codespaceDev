@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import ParentLayout from "@/components/layout/parent-layout";
 import {
   Card,
@@ -46,7 +47,9 @@ import {
   Minus,
   Heart,
   Book,
-  Home
+  Home,
+  Settings,
+  ExternalLink
 } from "lucide-react";
 import { Child } from "@/types/user";
 import { fetchChildren } from "@/api/children";
@@ -72,8 +75,9 @@ const initialMessages: ChatMessage[] = [
 
 export default function ParentalControlCenter() {
   const { toast } = useToast();
+  const [location, setLocation] = useLocation();
   const chatEndRef = useRef<HTMLDivElement>(null);
-  
+
   // State management
   const [selectedChild, setSelectedChild] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -82,6 +86,12 @@ export default function ParentalControlCenter() {
   const [adjustmentAmount, setAdjustmentAmount] = useState(15);
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [input, setInput] = useState("");
+
+  // Navigation helper
+  const navigateToSettings = (tab?: string) => {
+    const url = tab ? `/settings?tab=${tab}` : '/settings';
+    setLocation(url);
+  };
 
   // Data fetching
   const { data: children = [] } = useQuery<Child[]>({
@@ -320,110 +330,110 @@ export default function ParentalControlCenter() {
       </div>
 
       {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
         {/* Left side - Main controls (3/4 width) */}
         <div className="lg:col-span-3">
           <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid grid-cols-4 w-full mb-6">
-              <TabsTrigger value="overview" className="flex items-center">
-                <Home className="h-4 w-4 mr-2" />
+            <TabsList className="grid grid-cols-4 w-full mb-4">
+              <TabsTrigger value="overview" className="flex items-center text-xs px-2">
+                <Home className="h-3 w-3 mr-1" />
                 Overview
               </TabsTrigger>
-              <TabsTrigger value="screentime" className="flex items-center">
-                <Clock className="h-4 w-4 mr-2" />
+              <TabsTrigger value="screentime" className="flex items-center text-xs px-2">
+                <Clock className="h-3 w-3 mr-1" />
                 Screen Time
               </TabsTrigger>
-              <TabsTrigger value="content" className="flex items-center">
-                <Shield className="h-4 w-4 mr-2" />
+              <TabsTrigger value="content" className="flex items-center text-xs px-2">
+                <Shield className="h-3 w-3 mr-1" />
                 Content
               </TabsTrigger>
-              <TabsTrigger value="monitoring" className="flex items-center">
-                <AlertCircle className="h-4 w-4 mr-2" />
+              <TabsTrigger value="monitoring" className="flex items-center text-xs px-2">
+                <AlertCircle className="h-3 w-3 mr-1" />
                 Monitoring
               </TabsTrigger>
             </TabsList>
 
             {/* Overview Tab */}
-            <TabsContent value="overview" className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <TabsContent value="overview" className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <Card className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-lg flex items-center text-blue-800">
-                      <Clock className="h-5 w-5 mr-2" />
+                  <CardHeader className="pb-1">
+                    <CardTitle className="text-base flex items-center text-blue-800">
+                      <Clock className="h-4 w-4 mr-2" />
                       Today's Usage
                     </CardTitle>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="pt-0">
                     {screenTimeLoading ? (
-                      <div className="animate-pulse">Loading...</div>
+                      <div className="animate-pulse text-sm">Loading...</div>
                     ) : screenTime ? (
                       <div>
-                        <div className="text-2xl font-bold text-blue-900">
+                        <div className="text-xl font-bold text-blue-900">
                           {formatMinutes(screenTime.usedTimeMinutes || 0)}
                         </div>
-                        <div className="text-sm text-blue-600">
+                        <div className="text-xs text-blue-600">
                           of {formatMinutes((screenTime.allowedTimeMinutes || 0) + (screenTime.additionalRewardMinutes || 0))} allowed
                         </div>
-                        <Progress value={calculateTimeUsedPercentage()} className="mt-2 h-2" />
+                        <Progress value={calculateTimeUsedPercentage()} className="mt-1 h-1.5" />
                       </div>
                     ) : (
                       <div>
-                        <div className="text-2xl font-bold text-blue-900">0h 0m</div>
-                        <div className="text-sm text-blue-600">of 2h 0m allowed</div>
-                        <Progress value={0} className="mt-2 h-2" />
+                        <div className="text-xl font-bold text-blue-900">0h 0m</div>
+                        <div className="text-xs text-blue-600">of 2h 0m allowed</div>
+                        <Progress value={0} className="mt-1 h-1.5" />
                       </div>
                     )}
                   </CardContent>
                 </Card>
 
                 <Card className="bg-gradient-to-r from-green-50 to-green-100 border-green-200">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-lg flex items-center text-green-800">
-                      <CheckCircle2 className="h-5 w-5 mr-2" />
+                  <CardHeader className="pb-1">
+                    <CardTitle className="text-base flex items-center text-green-800">
+                      <CheckCircle2 className="h-4 w-4 mr-2" />
                       Content Status
                     </CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-green-900">
+                  <CardContent className="pt-0">
+                    <div className="text-xl font-bold text-green-900">
                       {flaggedContent.length}
                     </div>
-                    <div className="text-sm text-green-600">items need review</div>
+                    <div className="text-xs text-green-600">items need review</div>
                   </CardContent>
                 </Card>
 
                 <Card className="bg-gradient-to-r from-amber-50 to-amber-100 border-amber-200">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-lg flex items-center text-amber-800">
-                      <AlertCircle className="h-5 w-5 mr-2" />
+                  <CardHeader className="pb-1">
+                    <CardTitle className="text-base flex items-center text-amber-800">
+                      <AlertCircle className="h-4 w-4 mr-2" />
                       Family Wellness
                     </CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-amber-900">Good</div>
-                    <div className="text-sm text-amber-600">healthy digital habits</div>
+                  <CardContent className="pt-0">
+                    <div className="text-xl font-bold text-amber-900">Good</div>
+                    <div className="text-xs text-amber-600">healthy digital habits</div>
                   </CardContent>
                 </Card>
               </div>
 
-              <Card className="min-h-[200px] flex flex-col">
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <RefreshCw className="h-5 w-5 mr-2" />
+              <Card className="min-h-[120px] flex flex-col">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center text-base">
+                    <RefreshCw className="h-4 w-4 mr-2" />
                     Recent Family Activity
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="flex-1 flex flex-col">
+                <CardContent className="flex-1 flex flex-col pt-0">
                   <div className="flex-1 flex items-center justify-center">
                     {selectedChild ? (
                       <div className="text-center text-gray-500">
-                        <Book className="h-12 w-12 mx-auto mb-3 text-gray-400" />
-                        <p>Activity monitoring for {getSelectedChildName()}</p>
-                        <p className="text-sm">Choose the Screen Time or Content tabs for detailed management</p>
+                        <Book className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                        <p className="text-sm">Activity monitoring for {getSelectedChildName()}</p>
+                        <p className="text-xs">Choose the Screen Time or Content tabs for detailed management</p>
                       </div>
                     ) : (
                       <div className="text-center text-gray-500">
-                        <User className="h-12 w-12 mx-auto mb-3 text-gray-400" />
-                        <p>Select a child to view their activity</p>
+                        <User className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                        <p className="text-sm">Select a child to view their activity</p>
                       </div>
                     )}
                   </div>
@@ -432,173 +442,654 @@ export default function ParentalControlCenter() {
             </TabsContent>
 
             {/* Screen Time Tab */}
-            <TabsContent value="screentime" className="space-y-6">
+            <TabsContent value="screentime" className="space-y-3">
               {!selectedChild ? (
                 <Card>
-                  <CardContent className="text-center py-12">
-                    <User className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                    <h3 className="text-lg font-medium">Select a Child</h3>
-                    <p className="text-sm text-gray-600">Choose a child to manage their screen time</p>
+                  <CardContent className="text-center py-8">
+                    <User className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                    <h3 className="text-base font-medium">Select a Child</h3>
+                    <p className="text-xs text-gray-600">Choose a child to manage their screen time</p>
                   </CardContent>
                 </Card>
               ) : screenTimeLoading ? (
                 <Card>
-                  <CardContent className="text-center py-12">
-                    <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-600 mb-2" />
-                    <p className="text-gray-600">Loading screen time data...</p>
+                  <CardContent className="text-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-blue-600 mb-2" />
+                    <p className="text-sm text-gray-600">Loading screen time data...</p>
                   </CardContent>
                 </Card>
               ) : !screenTime ? (
                 <Card>
-                  <CardContent className="text-center py-12">
-                    <Clock className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                    <h3 className="text-lg font-medium">No Screen Time Data</h3>
-                    <p className="text-sm text-gray-600">No data available for {selectedDate}</p>
+                  <CardContent className="text-center py-8">
+                    <Clock className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                    <h3 className="text-base font-medium">No Screen Time Data</h3>
+                    <p className="text-xs text-gray-600">No data available for {selectedDate}</p>
                   </CardContent>
                 </Card>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <Card className="bg-white border-2 border-blue-100">
-                    <CardHeader>
-                      <CardTitle className="text-blue-800">Daily Usage</CardTitle>
-                      <CardDescription>
-                        {formatMinutes(screenTime.usedTimeMinutes)} of {formatMinutes(screenTime.allowedTimeMinutes + screenTime.additionalRewardMinutes)}
-                      </CardDescription>
+                <div className="space-y-3">
+                  {/* Top Row - Current Status Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <Card className="bg-white border-2 border-blue-100">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-blue-800 text-base">Daily Usage</CardTitle>
+                        <CardDescription className="text-xs">
+                          {formatMinutes(screenTime.usedTimeMinutes)} of {formatMinutes(screenTime.allowedTimeMinutes + screenTime.additionalRewardMinutes)}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="pt-0">
+                        <Progress value={calculateTimeUsedPercentage()} className="h-2 rounded-full" />
+                        <div className="mt-1 text-xs text-gray-600">
+                          {getRemainingTime()} remaining
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="bg-white border-2 border-green-100">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-green-800 text-base">Quick Adjust</CardTitle>
+                        <CardDescription className="text-xs">Modify time limits with wisdom</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-2 pt-0">
+                        <div className="flex space-x-2">
+                          <Button
+                            onClick={() => adjustAllowedTime(-adjustmentAmount)}
+                            variant="outline"
+                            className="flex-1 text-xs h-8"
+                          >
+                            <Minus className="h-3 w-3 mr-1" />
+                            -{adjustmentAmount}m
+                          </Button>
+                          <Button
+                            onClick={() => adjustAllowedTime(adjustmentAmount)}
+                            className="flex-1 bg-green-600 hover:bg-green-700 text-xs h-8"
+                          >
+                            <Plus className="h-3 w-3 mr-1" />
+                            +{adjustmentAmount}m
+                          </Button>
+                        </div>
+                        <Select value={adjustmentAmount.toString()} onValueChange={(value) => setAdjustmentAmount(parseInt(value))}>
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="15">15 minutes</SelectItem>
+                            <SelectItem value="30">30 minutes</SelectItem>
+                            <SelectItem value="60">1 hour</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="bg-white border-2 border-purple-100">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-purple-800 text-base">Rewards Earned</CardTitle>
+                        <CardDescription className="text-xs">Bonus time for good behavior</CardDescription>
+                      </CardHeader>
+                      <CardContent className="pt-0">
+                        <div className="text-2xl font-bold text-purple-900">
+                          {formatMinutes(screenTime.additionalRewardMinutes)}
+                        </div>
+                        <p className="text-xs text-purple-600 mt-1">
+                          Extra time through faithful choices
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Weekly Timeline Chart */}
+                  <Card className="bg-white">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="flex items-center text-base">
+                        <Calendar className="h-4 w-4 mr-2 text-blue-600" />
+                        Weekly Screen Time Timeline
+                      </CardTitle>
+                      <CardDescription className="text-xs">Track {getSelectedChildName()}'s daily usage patterns</CardDescription>
                     </CardHeader>
-                    <CardContent>
-                      <Progress value={calculateTimeUsedPercentage()} className="h-3 rounded-full" />
-                      <div className="mt-2 text-sm text-gray-600">
-                        {getRemainingTime()} remaining
+                    <CardContent className="pt-0">
+                      <div className="space-y-2">
+                        {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day, index) => {
+                          const dayUsage = Math.floor(Math.random() * 180) + 30; // Mock data
+                          const dayLimit = 120;
+                          const percentage = Math.min(100, (dayUsage / dayLimit) * 100);
+                          const isToday = index === new Date().getDay() - 1;
+
+                          return (
+                            <div key={day} className={`p-2 rounded-lg ${isToday ? 'bg-blue-50 border border-blue-200' : 'bg-gray-50'}`}>
+                              <div className="flex justify-between items-center mb-1">
+                                <span className={`font-medium text-sm ${isToday ? 'text-blue-800' : 'text-gray-700'}`}>
+                                  {day} {isToday && '(Today)'}
+                                </span>
+                                <span className="text-xs text-gray-600">
+                                  {formatMinutes(dayUsage)} / {formatMinutes(dayLimit)}
+                                </span>
+                              </div>
+                              <Progress value={percentage} className="h-1.5" />
+                            </div>
+                          );
+                        })}
                       </div>
                     </CardContent>
                   </Card>
 
-                  <Card className="bg-white border-2 border-green-100">
-                    <CardHeader>
-                      <CardTitle className="text-green-800">Quick Adjust</CardTitle>
-                      <CardDescription>Modify time limits with wisdom</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="flex space-x-2">
-                        <Button 
-                          onClick={() => adjustAllowedTime(-adjustmentAmount)} 
-                          variant="outline"
-                          className="flex-1"
-                        >
-                          <Minus className="h-4 w-4 mr-1" />
-                          -{adjustmentAmount}m
-                        </Button>
-                        <Button 
-                          onClick={() => adjustAllowedTime(adjustmentAmount)}
-                          className="flex-1 bg-green-600 hover:bg-green-700"
-                        >
-                          <Plus className="h-4 w-4 mr-1" />
-                          +{adjustmentAmount}m
-                        </Button>
-                      </div>
-                      <Select value={adjustmentAmount.toString()} onValueChange={(value) => setAdjustmentAmount(parseInt(value))}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="15">15 minutes</SelectItem>
-                          <SelectItem value="30">30 minutes</SelectItem>
-                          <SelectItem value="60">1 hour</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </CardContent>
-                  </Card>
+                  {/* App Usage Breakdown */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <Card className="bg-white">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="flex items-center text-base">
+                          <Gamepad2 className="h-4 w-4 mr-2 text-purple-600" />
+                          Top Apps Today
+                        </CardTitle>
+                        <CardDescription className="text-xs">Most used applications</CardDescription>
+                      </CardHeader>
+                      <CardContent className="pt-0">
+                        <div className="space-y-2">
+                          {[
+                            { name: 'Roblox', time: 45, icon: '🎮', color: 'bg-purple-100 text-purple-800' },
+                            { name: 'YouTube Kids', time: 30, icon: '📺', color: 'bg-red-100 text-red-800' },
+                            { name: 'Minecraft', time: 25, icon: '⛏️', color: 'bg-green-100 text-green-800' },
+                            { name: 'Bible App for Kids', time: 15, icon: '📖', color: 'bg-blue-100 text-blue-800' }
+                          ].map((app, index) => (
+                            <div key={app.name} className="flex items-center justify-between p-2 rounded-lg bg-gray-50">
+                              <div className="flex items-center">
+                                <span className="text-sm mr-2">{app.icon}</span>
+                                <span className="font-medium text-sm">{app.name}</span>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <Badge className={`${app.color} text-xs`}>{formatMinutes(app.time)}</Badge>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
 
-                  <Card className="bg-white border-2 border-purple-100">
-                    <CardHeader>
-                      <CardTitle className="text-purple-800">Rewards Earned</CardTitle>
-                      <CardDescription>Bonus time for good behavior</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-3xl font-bold text-purple-900">
-                        {formatMinutes(screenTime.additionalRewardMinutes)}
-                      </div>
-                      <p className="text-sm text-purple-600 mt-1">
-                        Extra time through faithful choices
-                      </p>
-                    </CardContent>
-                  </Card>
+                    <Card className="bg-white">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="flex items-center text-base">
+                          <Clock className="h-4 w-4 mr-2 text-orange-600" />
+                          Schedule Settings
+                        </CardTitle>
+                        <CardDescription className="text-xs">Quick schedule management</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-2 pt-0">
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center p-2 bg-gray-50 rounded-lg">
+                            <span className="font-medium text-sm">School Days</span>
+                            <div className="flex items-center space-x-2">
+                              <span className="text-xs text-gray-600">2h limit</span>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-6 text-xs"
+                                onClick={() => navigateToSettings('screentime')}
+                              >
+                                <Settings className="h-3 w-3 mr-1" />
+                                Edit
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="flex justify-between items-center p-2 bg-gray-50 rounded-lg">
+                            <span className="font-medium text-sm">Weekends</span>
+                            <div className="flex items-center space-x-2">
+                              <span className="text-xs text-gray-600">3h limit</span>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-6 text-xs"
+                                onClick={() => navigateToSettings('screentime')}
+                              >
+                                <Settings className="h-3 w-3 mr-1" />
+                                Edit
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="flex justify-between items-center p-2 bg-gray-50 rounded-lg">
+                            <span className="font-medium text-sm">Bedtime Block</span>
+                            <div className="flex items-center space-x-2">
+                              <span className="text-xs text-gray-600">9PM - 7AM</span>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-6 text-xs"
+                                onClick={() => navigateToSettings('screentime')}
+                              >
+                                <Settings className="h-3 w-3 mr-1" />
+                                Edit
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                        <Button
+                          className="w-full bg-orange-600 hover:bg-orange-700 h-8 text-xs"
+                          onClick={() => navigateToSettings('screentime')}
+                        >
+                          <Settings className="h-3 w-3 mr-1" />
+                          Advanced Settings
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </div>
                 </div>
               )}
             </TabsContent>
 
             {/* Content Tab */}
-            <TabsContent value="content" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <span className="flex items-center">
-                      <Shield className="h-5 w-5 mr-2" />
+            <TabsContent value="content" className="space-y-3">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                {/* Content Analysis Section */}
+                <Card className="bg-white">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="flex items-center text-base">
+                      <Shield className="h-4 w-4 mr-2 text-blue-600" />
                       Content Analysis
+                    </CardTitle>
+                    <CardDescription className="text-xs">Analyze new content with biblical wisdom</CardDescription>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <form onSubmit={handleAnalyzeSubmit} className="space-y-3">
+                      <div className="grid grid-cols-1 gap-3">
+                        <Input
+                          id="content-name"
+                          name="content-name"
+                          placeholder="e.g., Minecraft"
+                          required
+                          className="border-gray-300 h-8 text-sm"
+                        />
+                        <Select defaultValue="Roblox" name="content-platform">
+                          <SelectTrigger id="content-platform" className="h-8 text-sm">
+                            <SelectValue placeholder="Select platform" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Roblox">Roblox</SelectItem>
+                            <SelectItem value="YouTube">YouTube</SelectItem>
+                            <SelectItem value="Android">Android</SelectItem>
+                            <SelectItem value="iOS">iOS</SelectItem>
+                            <SelectItem value="Website">Website</SelectItem>
+                            <SelectItem value="Other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <textarea
+                        id="content-description"
+                        name="content-description"
+                        placeholder="Describe the content for biblical evaluation..."
+                        className="min-h-[60px] w-full rounded-md border border-gray-300 p-2 text-xs"
+                        rows={3}
+                      />
+                      <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 h-8 text-xs" disabled={analyzeContentMutation.isPending}>
+                        {analyzeContentMutation.isPending ? (
+                          <>
+                            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                            Analyzing with biblical wisdom...
+                          </>
+                        ) : (
+                          <>
+                            <Shield className="mr-1 h-3 w-3" />
+                            Analyze Content
+                          </>
+                        )}
+                      </Button>
+                    </form>
+                  </CardContent>
+                </Card>
+
+                {/* Content Categories */}
+                <Card className="bg-white">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="flex items-center text-base">
+                      <Book className="h-4 w-4 mr-2 text-green-600" />
+                      Content Categories
+                    </CardTitle>
+                    <CardDescription className="text-xs">Manage content by category</CardDescription>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <div className="space-y-2">
+                      {[
+                        { name: 'Educational', count: 12, color: 'bg-green-100 text-green-800', icon: '📚' },
+                        { name: 'Entertainment', count: 8, color: 'bg-blue-100 text-blue-800', icon: '🎬' },
+                        { name: 'Games', count: 15, color: 'bg-purple-100 text-purple-800', icon: '🎮' },
+                        { name: 'Faith-Based', count: 6, color: 'bg-yellow-100 text-yellow-800', icon: '✝️' },
+                        { name: 'Blocked', count: 3, color: 'bg-red-100 text-red-800', icon: '🚫' }
+                      ].map((category) => (
+                        <div key={category.name} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                          <div className="flex items-center">
+                            <span className="text-sm mr-2">{category.icon}</span>
+                            <span className="font-medium text-sm">{category.name}</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Badge className={`${category.color} text-xs`}>{category.count}</Badge>
+                            <Button size="sm" variant="outline" className="h-6 text-xs">Manage</Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Content Filters & Rules */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                <Card className="bg-white">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="flex items-center text-base">
+                      <AlertCircle className="h-4 w-4 mr-2 text-orange-600" />
+                      Content Filters
+                    </CardTitle>
+                    <CardDescription className="text-xs">Active filtering rules</CardDescription>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <div className="space-y-2">
+                      {[
+                        { name: 'Violence Filter', active: true, level: 'Strict' },
+                        { name: 'Language Filter', active: true, level: 'Moderate' },
+                        { name: 'Age Appropriateness', active: true, level: 'Auto' },
+                        { name: 'Biblical Values', active: true, level: 'Enabled' }
+                      ].map((filter) => (
+                        <div key={filter.name} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                          <div>
+                            <span className="font-medium text-xs">{filter.name}</span>
+                            <div className="text-xs text-gray-500">{filter.level}</div>
+                          </div>
+                          <div className={`w-2 h-2 rounded-full ${filter.active ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                        </div>
+                      ))}
+                    </div>
+                    <Button
+                      className="w-full mt-3 h-7 text-xs"
+                      variant="outline"
+                      onClick={() => navigateToSettings('content')}
+                    >
+                      <Settings className="h-3 w-3 mr-1" />
+                      Configure Filters
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-white">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="flex items-center text-base">
+                      <Heart className="h-4 w-4 mr-2 text-pink-600" />
+                      Approved Content
+                    </CardTitle>
+                    <CardDescription className="text-xs">Family-safe content</CardDescription>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <div className="space-y-1.5">
+                      {[
+                        { name: 'Bible App for Kids', platform: 'iOS' },
+                        { name: 'Minecraft Education', platform: 'PC' },
+                        { name: 'Khan Academy Kids', platform: 'Web' },
+                        { name: 'VeggieTales', platform: 'YouTube' }
+                      ].map((content) => (
+                        <div key={content.name} className="flex items-center justify-between p-2 bg-green-50 rounded">
+                          <div>
+                            <span className="font-medium text-xs">{content.name}</span>
+                            <div className="text-xs text-gray-500">{content.platform}</div>
+                          </div>
+                          <CheckCircle2 className="h-3 w-3 text-green-600" />
+                        </div>
+                      ))}
+                    </div>
+                    <Button className="w-full mt-3 h-7 text-xs" variant="outline">
+                      View All Approved
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-white">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="flex items-center text-base">
+                      <Search className="h-4 w-4 mr-2 text-blue-600" />
+                      Quick Actions
+                    </CardTitle>
+                    <CardDescription className="text-xs">Common content tasks</CardDescription>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <div className="space-y-1.5">
+                      <Button className="w-full justify-start h-7 text-xs" variant="outline">
+                        <Plus className="h-3 w-3 mr-2" />
+                        Add Trusted Website
+                      </Button>
+                      <Button className="w-full justify-start h-7 text-xs" variant="outline">
+                        <Shield className="h-3 w-3 mr-2" />
+                        Block New App
+                      </Button>
+                      <Button className="w-full justify-start h-7 text-xs" variant="outline">
+                        <RefreshCw className="h-3 w-3 mr-2" />
+                        Sync Content Rules
+                      </Button>
+                      <Button className="w-full justify-start h-7 text-xs" variant="outline">
+                        <Book className="h-3 w-3 mr-2" />
+                        Export Content Report
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Recent Content Activity */}
+              <Card className="bg-white">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center justify-between">
+                    <span className="flex items-center text-base">
+                      <RefreshCw className="h-4 w-4 mr-2 text-gray-600" />
+                      Recent Content Activity
                     </span>
-                    <div className="flex w-[300px]">
+                    <div className="flex w-[200px]">
                       <Input
                         placeholder="Search content..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full"
+                        className="w-full h-7 text-xs"
                       />
-                      <Button variant="ghost" className="ml-1" size="icon">
-                        <Search className="h-4 w-4" />
+                      <Button variant="ghost" className="ml-1 h-7 w-7 p-0">
+                        <Search className="h-3 w-3" />
                       </Button>
                     </div>
                   </CardTitle>
+                  <CardDescription className="text-xs">Track what content your children are accessing</CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <form onSubmit={handleAnalyzeSubmit} className="space-y-4 mb-6 p-4 bg-blue-50 rounded-lg">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <Input 
-                        id="content-name" 
-                        name="content-name" 
-                        placeholder="e.g., Minecraft" 
-                        required 
-                      />
-                      <Select defaultValue="Roblox" name="content-platform">
-                        <SelectTrigger id="content-platform">
-                          <SelectValue placeholder="Select platform" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Roblox">Roblox</SelectItem>
-                          <SelectItem value="YouTube">YouTube</SelectItem>
-                          <SelectItem value="Android">Android</SelectItem>
-                          <SelectItem value="iOS">iOS</SelectItem>
-                          <SelectItem value="Website">Website</SelectItem>
-                          <SelectItem value="Other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <textarea 
-                      id="content-description" 
-                      name="content-description" 
-                      placeholder="Describe the content for biblical evaluation..." 
-                      className="min-h-[80px] w-full rounded-md border p-3 text-sm"
-                      rows={3}
-                    />
-                    <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={analyzeContentMutation.isPending}>
-                      {analyzeContentMutation.isPending ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Analyzing with biblical wisdom...
-                        </>
-                      ) : (
-                        <>
-                          <Shield className="mr-2 h-4 w-4" />
-                          Analyze Content
-                        </>
-                      )}
-                    </Button>
-                  </form>
+                <CardContent className="pt-0">
+                  <div className="space-y-2">
+                    {[
+                      { name: 'Roblox: Adopt Me', time: '2 hours ago', child: 'Jimmy', status: 'approved', platform: 'Roblox' },
+                      { name: 'YouTube: Bible Stories', time: '4 hours ago', child: 'Sarah', status: 'approved', platform: 'YouTube' },
+                      { name: 'Minecraft: Creative Mode', time: '1 day ago', child: 'Jimmy', status: 'approved', platform: 'PC' },
+                      { name: 'TikTok Video', time: '2 days ago', child: 'Sarah', status: 'blocked', platform: 'TikTok' }
+                    ].map((activity, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                        <div className="flex items-center space-x-2">
+                          <div className={`w-2 h-2 rounded-full ${activity.status === 'approved' ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                          <div>
+                            <span className="font-medium text-sm">{activity.name}</span>
+                            <div className="text-xs text-gray-500">{activity.child} • {activity.platform} • {activity.time}</div>
+                          </div>
+                        </div>
+                        <Badge variant={activity.status === 'approved' ? 'default' : 'destructive'} className="text-xs">
+                          {activity.status}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
 
             {/* Monitoring Tab */}
-            <TabsContent value="monitoring" className="space-y-6">
+            <TabsContent value="monitoring" className="space-y-3">
+              {/* Monitoring Overview Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <Card className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
+                  <CardContent className="pt-3 pb-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-medium text-blue-800">Active Alerts</p>
+                        <p className="text-xl font-bold text-blue-900">{filteredContent.length}</p>
+                      </div>
+                      <AlertCircle className="h-6 w-6 text-blue-600" />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-gradient-to-r from-green-50 to-green-100 border-green-200">
+                  <CardContent className="pt-3 pb-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-medium text-green-800">Content Approved</p>
+                        <p className="text-xl font-bold text-green-900">24</p>
+                      </div>
+                      <CheckCircle2 className="h-6 w-6 text-green-600" />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-gradient-to-r from-red-50 to-red-100 border-red-200">
+                  <CardContent className="pt-3 pb-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-medium text-red-800">Content Blocked</p>
+                        <p className="text-xl font-bold text-red-900">7</p>
+                      </div>
+                      <Shield className="h-6 w-6 text-red-600" />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-gradient-to-r from-purple-50 to-purple-100 border-purple-200">
+                  <CardContent className="pt-3 pb-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-medium text-purple-800">Auto-Filtered</p>
+                        <p className="text-xl font-bold text-purple-900">156</p>
+                      </div>
+                      <RefreshCw className="h-6 w-6 text-purple-600" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Monitoring Tools */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                <Card className="bg-white">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="flex items-center text-base">
+                      <Clock className="h-4 w-4 mr-2 text-orange-600" />
+                      Real-Time Monitoring
+                    </CardTitle>
+                    <CardDescription className="text-xs">Live activity tracking</CardDescription>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between p-2 bg-green-50 rounded">
+                        <div className="flex items-center">
+                          <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                          <span className="text-xs font-medium">Jimmy</span>
+                        </div>
+                        <span className="text-xs text-gray-500">Playing Minecraft</span>
+                      </div>
+                      <div className="flex items-center justify-between p-2 bg-blue-50 rounded">
+                        <div className="flex items-center">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+                          <span className="text-xs font-medium">Sarah</span>
+                        </div>
+                        <span className="text-xs text-gray-500">Watching YouTube Kids</span>
+                      </div>
+                      <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                        <div className="flex items-center">
+                          <div className="w-2 h-2 bg-gray-400 rounded-full mr-2"></div>
+                          <span className="text-xs font-medium">Emma</span>
+                        </div>
+                        <span className="text-xs text-gray-500">Offline</span>
+                      </div>
+                    </div>
+                    <Button
+                      className="w-full mt-3 h-7 text-xs"
+                      variant="outline"
+                      onClick={() => navigateToSettings('monitoring')}
+                    >
+                      <Settings className="h-3 w-3 mr-1" />
+                      Configure Monitoring
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-white">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="flex items-center text-base">
+                      <Globe className="h-4 w-4 mr-2 text-blue-600" />
+                      Website Monitoring
+                    </CardTitle>
+                    <CardDescription className="text-xs">Track web browsing</CardDescription>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <div className="space-y-2">
+                      {[
+                        { site: 'youtube.com', visits: 12, status: 'allowed' },
+                        { site: 'roblox.com', visits: 8, status: 'allowed' },
+                        { site: 'inappropriate-site.com', visits: 1, status: 'blocked' },
+                        { site: 'bible.com', visits: 5, status: 'allowed' }
+                      ].map((site, index) => (
+                        <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                          <div>
+                            <span className="text-xs font-medium">{site.site}</span>
+                            <div className="text-xs text-gray-500">{site.visits} visits today</div>
+                          </div>
+                          <Badge variant={site.status === 'allowed' ? 'default' : 'destructive'} className="text-xs">
+                            {site.status}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                    <Button
+                      className="w-full mt-3 h-7 text-xs"
+                      variant="outline"
+                      onClick={() => navigateToSettings('content')}
+                    >
+                      <Settings className="h-3 w-3 mr-1" />
+                      Manage Website Rules
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-white">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="flex items-center text-base">
+                      <Gamepad2 className="h-4 w-4 mr-2 text-purple-600" />
+                      App Monitoring
+                    </CardTitle>
+                    <CardDescription className="text-xs">Application usage tracking</CardDescription>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <div className="space-y-2">
+                      {[
+                        { app: 'Roblox', time: '2h 15m', status: 'active' },
+                        { app: 'Minecraft', time: '1h 30m', status: 'active' },
+                        { app: 'TikTok', time: '0m', status: 'blocked' },
+                        { app: 'Bible App', time: '45m', status: 'active' }
+                      ].map((app, index) => (
+                        <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                          <div>
+                            <span className="text-xs font-medium">{app.app}</span>
+                            <div className="text-xs text-gray-500">{app.time} today</div>
+                          </div>
+                          <div className={`w-2 h-2 rounded-full ${app.status === 'active' ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                        </div>
+                      ))}
+                    </div>
+                    <Button
+                      className="w-full mt-3 h-7 text-xs"
+                      variant="outline"
+                      onClick={() => navigateToSettings('screentime')}
+                    >
+                      <Settings className="h-3 w-3 mr-1" />
+                      Configure App Limits
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Flagged Content Review */}
               <Card className="border-slate-200">
                 <CardHeader className="pb-4">
                   <CardTitle className="flex items-center justify-between">
@@ -640,10 +1131,10 @@ export default function ParentalControlCenter() {
                   ) : (
                     <div className="space-y-4">
                       {filteredContent.map((flag, index) => (
-                        <div 
-                          key={flag.id} 
+                        <div
+                          key={flag.id}
                           className={`group p-5 rounded-xl border-l-4 transition-all duration-200 hover:shadow-lg ${
-                            index % 2 === 0 
+                            index % 2 === 0
                               ? "border-l-red-500 bg-gradient-to-r from-red-50 to-rose-50 border border-red-200"
                               : "border-l-orange-500 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200"
                           }`}
@@ -657,10 +1148,10 @@ export default function ParentalControlCenter() {
                                 {flag.contentType === 'app' && <Shield className="h-5 w-5 mr-2 text-slate-600" />}
                                 <h4 className="font-semibold text-lg text-slate-800">{flag.name}</h4>
                               </div>
-                              
+
                               <div className="mb-3">
-                                <Badge 
-                                  variant="outline" 
+                                <Badge
+                                  variant="outline"
                                   className={`mr-3 font-medium ${
                                     flag.contentType === 'game' ? 'bg-purple-100 text-purple-800 border-purple-300' :
                                     flag.contentType === 'video' ? 'bg-red-100 text-red-800 border-red-300' :
@@ -674,17 +1165,17 @@ export default function ParentalControlCenter() {
                                   Platform: {flag.platform}
                                 </span>
                               </div>
-                              
+
                               <p className={`text-sm font-medium ${
                                 index % 2 === 0 ? 'text-red-700' : 'text-orange-700'
                               }`}>
                                 ⚠️ {flag.flagReason}
                               </p>
                             </div>
-                            
+
                             <div className="flex flex-col space-y-2 ml-6">
-                              <Button 
-                                size="sm" 
+                              <Button
+                                size="sm"
                                 onClick={() => approveContentMutation.mutate(flag.id)}
                                 className="bg-emerald-600 hover:bg-emerald-700 text-white border-none shadow-sm min-w-[100px]"
                                 disabled={approveContentMutation.isPending}
@@ -692,8 +1183,8 @@ export default function ParentalControlCenter() {
                                 <CheckCircle2 className="h-4 w-4 mr-2" />
                                 Approve
                               </Button>
-                              <Button 
-                                size="sm" 
+                              <Button
+                                size="sm"
                                 onClick={() => blockContentMutation.mutate(flag.id)}
                                 className="bg-red-600 hover:bg-red-700 text-white border-none shadow-sm min-w-[100px]"
                                 disabled={blockContentMutation.isPending}
@@ -705,7 +1196,7 @@ export default function ParentalControlCenter() {
                           </div>
                         </div>
                       ))}
-                      
+
                       {/* Summary Footer */}
                       <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
                         <div className="flex items-center justify-between">
@@ -724,26 +1215,86 @@ export default function ParentalControlCenter() {
                   )}
                 </CardContent>
               </Card>
+
+              {/* Monitoring Settings */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card className="bg-white">
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <AlertCircle className="h-5 w-5 mr-2 text-yellow-600" />
+                      Alert Settings
+                    </CardTitle>
+                    <CardDescription>Configure monitoring notifications</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {[
+                        { name: 'Inappropriate Content Detected', enabled: true },
+                        { name: 'New App Installation', enabled: true },
+                        { name: 'Screen Time Limit Exceeded', enabled: false },
+                        { name: 'Suspicious Website Access', enabled: true }
+                      ].map((alert, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <span className="font-medium">{alert.name}</span>
+                          <div className={`w-12 h-6 rounded-full p-1 transition-colors ${alert.enabled ? 'bg-green-500' : 'bg-gray-300'}`}>
+                            <div className={`w-4 h-4 bg-white rounded-full transition-transform ${alert.enabled ? 'translate-x-6' : 'translate-x-0'}`}></div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-white">
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <RefreshCw className="h-5 w-5 mr-2 text-blue-600" />
+                      Monitoring Reports
+                    </CardTitle>
+                    <CardDescription>Generate family safety reports</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <Button className="w-full justify-start" variant="outline">
+                        <Calendar className="h-4 w-4 mr-2" />
+                        Weekly Activity Report
+                      </Button>
+                      <Button className="w-full justify-start" variant="outline">
+                        <Shield className="h-4 w-4 mr-2" />
+                        Content Safety Summary
+                      </Button>
+                      <Button className="w-full justify-start" variant="outline">
+                        <Clock className="h-4 w-4 mr-2" />
+                        Screen Time Analysis
+                      </Button>
+                      <Button className="w-full justify-start" variant="outline">
+                        <AlertCircle className="h-4 w-4 mr-2" />
+                        Security Incidents Report
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
           </Tabs>
         </div>
 
         {/* Right side - Faith Fortress Chatbot (1/4 width) */}
         <div className="lg:col-span-1">
-          <Card className="h-[400px] flex flex-col">
+          <Card className="h-[500px] flex flex-col sticky top-4">
             <CardContent className="p-0 h-full flex flex-col">
-              <div className="flex items-center gap-2 px-4 py-3 border-b bg-blue-50 rounded-t-lg">
-                <MessageCircle className="text-blue-500" />
-                <span className="font-semibold text-blue-900 text-lg">Faith Fortress Chat</span>
+              <div className="flex items-center gap-2 px-3 py-2 border-b bg-blue-50 rounded-t-lg">
+                <MessageCircle className="text-blue-500 h-4 w-4" />
+                <span className="font-semibold text-blue-900 text-base">Faith Fortress Chat</span>
               </div>
-              <div className="overflow-y-auto px-4 py-2 space-y-2 bg-blue-50 flex-1">
+              <div className="overflow-y-auto px-3 py-2 space-y-2 bg-blue-50 flex-1">
                 {messages.map((msg, idx) => (
                   <div
                     key={idx}
                     className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
                   >
                     <div
-                      className={`px-3 py-2 rounded-lg text-sm max-w-[80%] ${
+                      className={`px-2 py-1 rounded-lg text-xs max-w-[80%] ${
                         msg.sender === "user"
                           ? "bg-blue-500 text-white"
                           : "bg-white border text-gray-800"
@@ -755,20 +1306,20 @@ export default function ParentalControlCenter() {
                 ))}
                 <div ref={chatEndRef} />
               </div>
-              <div className="flex items-center gap-2 px-3 py-2 border-t bg-white rounded-b-lg">
+              <div className="flex items-center gap-2 px-2 py-2 border-t bg-white rounded-b-lg">
                 <input
-                  className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  className="flex-1 border rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-300"
                   placeholder="Type your message..."
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSend()}
                 />
                 <button
-                  className="bg-blue-500 hover:bg-blue-600 text-white rounded-lg p-2 transition"
+                  className="bg-blue-500 hover:bg-blue-600 text-white rounded-lg p-1.5 transition"
                   onClick={handleSend}
                   aria-label="Send"
                 >
-                  <Send className="w-4 h-4" />
+                  <Send className="w-3 h-3" />
                 </button>
               </div>
             </CardContent>

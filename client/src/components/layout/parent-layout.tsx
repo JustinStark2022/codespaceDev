@@ -126,41 +126,25 @@ export default function ParentLayout({ children, title }: ParentLayoutProps) {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-h-0">
-        {/* Top Navigation */}
-        <header className="bg-white dark:bg-gray-800 shadow-sm z-10 flex-shrink-0">
-          <div className="flex items-center justify-between h-16 px-4 border-b dark:border-gray-700">
-            <div className="flex items-center">
-              <button onClick={toggleSidebar} className="text-gray-500 lg:hidden">
-                <Menu className="h-5 w-5" />
-              </button>
-              <div className="ml-4 lg:ml-0">
-                <span className="text-xl font-semibold">{title}</span>
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              {/* Notifications */}
-              <div className="relative">
-                <button className="text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white">
-                  <Bell className="h-5 w-5" />
-                  <span className="absolute top-0 right-0 inline-flex items-center justify-center w-4 h-4 text-xs font-bold text-white bg-red-500 rounded-full">2</span>
-                </button>
-              </div>
-              
-              {/* Dark Mode Toggle */}
-              <button 
-                onClick={toggleTheme} 
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white"
-              >
-                {theme === "dark" ? (
-                  <Sun className="h-5 w-5" />
-                ) : (
-                  <Moon className="h-5 w-5" />
-                )}
-              </button>
-            </div>
+        {/* Mobile Menu Button */}
+        <div className="lg:hidden flex items-center justify-between p-4 bg-white dark:bg-gray-800">
+          <button onClick={toggleSidebar} className="text-gray-500">
+            <Menu className="h-6 w-6" />
+          </button>
+          <div className="flex items-center space-x-4">
+            {/* Dark Mode Toggle */}
+            <button
+              onClick={toggleTheme}
+              className="text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white"
+            >
+              {theme === "dark" ? (
+                <Sun className="h-5 w-5" />
+              ) : (
+                <Moon className="h-5 w-5" />
+              )}
+            </button>
           </div>
-        </header>
+        </div>
 
         {/* Content Area */}
         <main className="flex-1 bg-gray-50 dark:bg-gray-900 p-4 lg:p-6 overflow-hidden">
