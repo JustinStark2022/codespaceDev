@@ -15,6 +15,7 @@ import {
   TabsList,
   TabsTrigger
 } from "@/components/ui/tabs";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -334,24 +335,27 @@ export default function ParentalControlCenter() {
         {/* Left side - Main controls (3/4 width) */}
         <div className="lg:col-span-3">
           <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid grid-cols-4 w-full mb-4">
-              <TabsTrigger value="overview" className="flex items-center text-xs px-2">
-                <Home className="h-3 w-3 mr-1" />
-                Overview
-              </TabsTrigger>
-              <TabsTrigger value="screentime" className="flex items-center text-xs px-2">
-                <Clock className="h-3 w-3 mr-1" />
-                Screen Time
-              </TabsTrigger>
-              <TabsTrigger value="content" className="flex items-center text-xs px-2">
-                <Shield className="h-3 w-3 mr-1" />
-                Content
-              </TabsTrigger>
-              <TabsTrigger value="monitoring" className="flex items-center text-xs px-2">
-                <AlertCircle className="h-3 w-3 mr-1" />
-                Monitoring
-              </TabsTrigger>
-            </TabsList>
+            <ScrollArea className="w-full mb-4">
+              <TabsList className="inline-flex w-max min-w-full">
+                <TabsTrigger value="overview" className="flex items-center text-xs px-3 whitespace-nowrap">
+                  <Home className="h-3 w-3 mr-1" />
+                  Overview
+                </TabsTrigger>
+                <TabsTrigger value="screentime" className="flex items-center text-xs px-3 whitespace-nowrap">
+                  <Clock className="h-3 w-3 mr-1" />
+                  Screen Time
+                </TabsTrigger>
+                <TabsTrigger value="content" className="flex items-center text-xs px-3 whitespace-nowrap">
+                  <Shield className="h-3 w-3 mr-1" />
+                  Content
+                </TabsTrigger>
+                <TabsTrigger value="monitoring" className="flex items-center text-xs px-3 whitespace-nowrap">
+                  <AlertCircle className="h-3 w-3 mr-1" />
+                  Monitoring
+                </TabsTrigger>
+              </TabsList>
+              <ScrollBar orientation="horizontal" />
+            </ScrollArea>
 
             {/* Overview Tab */}
             <TabsContent value="overview" className="space-y-3">
