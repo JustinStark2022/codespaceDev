@@ -281,82 +281,85 @@ export default function ParentalControlCenter() {
 
   return (
     <ParentLayout title="Parental Control Center">
-      <ScrollArea className="h-full w-full">
-        <div className="pb-6">
-          {/* Controls Section */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div>
-          <label htmlFor="child-selector" className="block text-sm font-medium text-gray-700 mb-1">
-            Select Child
-          </label>
-          <Select value={selectedChild || ""} onValueChange={setSelectedChild}>
-            <SelectTrigger id="child-selector" className="w-full">
-              <SelectValue placeholder="Choose a child" />
-            </SelectTrigger>
-            <SelectContent className="bg-white">
-              {children.map((child) => (
-                <SelectItem key={child.id} value={child.id.toString()}>
-                  <div className="flex items-center">
-                    <User className="h-4 w-4 mr-2" />
-                    {child.first_name} {child.last_name}
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      <div className="flex flex-col h-full">
+        {/* Sticky Controls Section */}
+        <div className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-900 pb-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label htmlFor="child-selector" className="block text-sm font-medium text-gray-700 mb-1">
+                Select Child
+              </label>
+              <Select value={selectedChild || ""} onValueChange={setSelectedChild}>
+                <SelectTrigger id="child-selector" className="w-full">
+                  <SelectValue placeholder="Choose a child" />
+                </SelectTrigger>
+                <SelectContent className="bg-white">
+                  {children.map((child) => (
+                    <SelectItem key={child.id} value={child.id.toString()}>
+                      <div className="flex items-center">
+                        <User className="h-4 w-4 mr-2" />
+                        {child.first_name} {child.last_name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label htmlFor="date-selector" className="block text-sm font-medium text-gray-700 mb-1">
+                Select Date
+              </label>
+              <input
+                type="date"
+                id="date-selector"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            <div className="flex items-end">
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
+              >
+                <Calendar className="h-4 w-4 mr-2" />
+                Reset to Today
+              </Button>
+            </div>
+          </div>
         </div>
 
-        <div>
-          <label htmlFor="date-selector" className="block text-sm font-medium text-gray-700 mb-1">
-            Select Date
-          </label>
-          <input
-            type="date"
-            id="date-selector"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
-        </div>
+        {/* Main Content Grid */}
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-4 pt-4 min-h-0">
+          {/* Left side - Main controls (3/4 width) */}
+          <div className="lg:col-span-3 flex flex-col min-h-0">
+            <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-full flex flex-col h-full">
+              <ScrollArea className="w-full mb-4">
+                <TabsList className="inline-flex w-max min-w-full">
+                  <TabsTrigger value="overview" className="flex items-center text-xs px-3 whitespace-nowrap">
+                    <Home className="h-3 w-3 mr-1" />
+                    Overview
+                  </TabsTrigger>
+                  <TabsTrigger value="screentime" className="flex items-center text-xs px-3 whitespace-nowrap">
+                    <Clock className="h-3 w-3 mr-1" />
+                    Screen Time
+                  </TabsTrigger>
+                  <TabsTrigger value="content" className="flex items-center text-xs px-3 whitespace-nowrap">
+                    <Shield className="h-3 w-3 mr-1" />
+                    Content
+                  </TabsTrigger>
+                  <TabsTrigger value="monitoring" className="flex items-center text-xs px-3 whitespace-nowrap">
+                    <AlertCircle className="h-3 w-3 mr-1" />
+                    Monitoring
+                  </TabsTrigger>
+                </TabsList>
+                <ScrollBar orientation="horizontal" />
+              </ScrollArea>
 
-        <div className="flex items-end">
-          <Button 
-            variant="outline" 
-            className="w-full" 
-            onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
-          >
-            <Calendar className="h-4 w-4 mr-2" />
-            Reset to Today
-          </Button>
-        </div>
-      </div>
-
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-        {/* Left side - Main controls (3/4 width) */}
-        <div className="lg:col-span-3">
-          <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-full">
-            <ScrollArea className="w-full mb-4">
-              <TabsList className="inline-flex w-max min-w-full">
-                <TabsTrigger value="overview" className="flex items-center text-xs px-3 whitespace-nowrap">
-                  <Home className="h-3 w-3 mr-1" />
-                  Overview
-                </TabsTrigger>
-                <TabsTrigger value="screentime" className="flex items-center text-xs px-3 whitespace-nowrap">
-                  <Clock className="h-3 w-3 mr-1" />
-                  Screen Time
-                </TabsTrigger>
-                <TabsTrigger value="content" className="flex items-center text-xs px-3 whitespace-nowrap">
-                  <Shield className="h-3 w-3 mr-1" />
-                  Content
-                </TabsTrigger>
-                <TabsTrigger value="monitoring" className="flex items-center text-xs px-3 whitespace-nowrap">
-                  <AlertCircle className="h-3 w-3 mr-1" />
-                  Monitoring
-                </TabsTrigger>
-              </TabsList>
-              <ScrollBar orientation="horizontal" />
-            </ScrollArea>
+              <div className="flex-1 overflow-y-auto">
 
             {/* Overview Tab */}
             <TabsContent value="overview" className="space-y-3">
@@ -1280,59 +1283,59 @@ export default function ParentalControlCenter() {
                   </CardContent>
                 </Card>
               </div>
-            </TabsContent>
-          </Tabs>
-        </div>
+              </TabsContent>
+              </div>
+            </Tabs>
+          </div>
 
-        {/* Right side - Faith Fortress Chatbot (1/4 width) */}
-        <div className="lg:col-span-1">
-          <Card className="h-[500px] flex flex-col sticky top-4">
-            <CardContent className="p-0 h-full flex flex-col">
-              <div className="flex items-center gap-2 px-3 py-2 border-b bg-blue-50 rounded-t-lg">
-                <MessageCircle className="text-blue-500 h-4 w-4" />
-                <span className="font-semibold text-blue-900 text-base">Faith Fortress Chat</span>
-              </div>
-              <div className="overflow-y-auto px-3 py-2 space-y-2 bg-blue-50 flex-1">
-                {messages.map((msg, idx) => (
-                  <div
-                    key={idx}
-                    className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
-                  >
+          {/* Right side - Faith Fortress Chatbot (1/4 width) */}
+          <div className="lg:col-span-1 flex flex-col min-h-0">
+            <Card className="flex flex-col h-full sticky top-0">
+              <CardContent className="p-0 h-full flex flex-col">
+                <div className="flex items-center gap-2 px-3 py-2 border-b bg-blue-50 rounded-t-lg">
+                  <MessageCircle className="text-blue-500 h-4 w-4" />
+                  <span className="font-semibold text-blue-900 text-base">Faith Fortress Chat</span>
+                </div>
+                <div className="overflow-y-auto px-3 py-2 space-y-2 bg-blue-50 flex-1">
+                  {messages.map((msg, idx) => (
                     <div
-                      className={`px-2 py-1 rounded-lg text-xs max-w-[80%] ${
-                        msg.sender === "user"
-                          ? "bg-blue-500 text-white"
-                          : "bg-white border text-gray-800"
-                      }`}
+                      key={idx}
+                      className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
                     >
-                      {msg.text}
+                      <div
+                        className={`px-2 py-1 rounded-lg text-xs max-w-[80%] ${
+                          msg.sender === "user"
+                            ? "bg-blue-500 text-white"
+                            : "bg-white border text-gray-800"
+                        }`}
+                      >
+                        {msg.text}
+                      </div>
                     </div>
-                  </div>
-                ))}
-                <div ref={chatEndRef} />
-              </div>
-              <div className="flex items-center gap-2 px-2 py-2 border-t bg-white rounded-b-lg">
-                <input
-                  className="flex-1 border rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-300"
-                  placeholder="Type your message..."
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSend()}
-                />
-                <button
-                  className="bg-blue-500 hover:bg-blue-600 text-white rounded-lg p-1.5 transition"
-                  onClick={handleSend}
-                  aria-label="Send"
-                >
-                  <Send className="w-3 h-3" />
-                </button>
-              </div>
-            </CardContent>
-          </Card>
+                  ))}
+                  <div ref={chatEndRef} />
+                </div>
+                <div className="flex items-center gap-2 px-2 py-2 border-t bg-white rounded-b-lg">
+                  <input
+                    className="flex-1 border rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-300"
+                    placeholder="Type your message..."
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                  />
+                  <button
+                    className="bg-blue-500 hover:bg-blue-600 text-white rounded-lg p-1.5 transition"
+                    onClick={handleSend}
+                    aria-label="Send"
+                  >
+                    <Send className="w-3 h-3" />
+                  </button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
-        </div>
-      </ScrollArea>
     </ParentLayout>
   );
 }
