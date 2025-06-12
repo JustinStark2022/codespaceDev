@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import ParentLayout from "@/components/layout/parent-layout";
 import {
@@ -32,6 +32,25 @@ import { Badge } from "@/components/ui/badge";
 import { fetchChildren } from "@/api/children";
 import { Child } from "@/types/user";
 import { useToast } from "@/hooks/use-toast";
+import { queryClient } from "@/lib/queryClient";
+import {
+  getUserSettings,
+  updateUserSettings,
+  getContentFilters,
+  updateContentFilters,
+  getScreenTimeSettings,
+  updateScreenTimeSettings,
+  getMonitoringSettings,
+  updateMonitoringSettings,
+  getTrustedWebsites,
+  addTrustedWebsite,
+  removeTrustedWebsite,
+  type UserSettings,
+  type ContentFilters,
+  type ScreenTimeSettings,
+  type MonitoringSettings,
+  type TrustedWebsite
+} from "@/api/settings";
 import {
   Settings as SettingsIcon,
   Shield,
