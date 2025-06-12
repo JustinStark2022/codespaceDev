@@ -15,6 +15,7 @@ import {
   TabsList,
   TabsTrigger
 } from "@/components/ui/tabs";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -163,33 +164,45 @@ export default function Settings() {
 
   return (
     <ParentLayout title="Settings">
-      <div className="max-w-6xl mx-auto space-y-3">
-        <div className="flex items-center mb-3">
-          <SettingsIcon className="h-5 w-5 text-primary mr-2" />
-          <h1 className="text-xl font-bold">Account Settings</h1>
+      <div className="flex flex-col h-full">
+        {/* Sticky Header */}
+        <div className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-900 pb-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="max-w-6xl mx-auto">
+            <div className="flex items-center mb-3">
+              <SettingsIcon className="h-5 w-5 text-primary mr-2" />
+              <h1 className="text-xl font-bold">Account Settings</h1>
+            </div>
+          </div>
         </div>
 
-        <Card className="shadow-md border-0">
-          <CardContent className="pt-3">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid grid-cols-4 mb-4 h-8">
-                <TabsTrigger value="general" className="text-xs">
-                  <Bell className="h-3 w-3 mr-1" />
-                  General
-                </TabsTrigger>
-                <TabsTrigger value="content" className="text-xs">
-                  <Shield className="h-3 w-3 mr-1" />
-                  Content
-                </TabsTrigger>
-                <TabsTrigger value="screentime" className="text-xs">
-                  <Clock className="h-3 w-3 mr-1" />
-                  Screen Time
-                </TabsTrigger>
-                <TabsTrigger value="monitoring" className="text-xs">
-                  <Monitor className="h-3 w-3 mr-1" />
-                  Monitoring
-                </TabsTrigger>
-              </TabsList>
+        {/* Main Content */}
+        <div className="flex-1 max-w-6xl mx-auto w-full pt-4 min-h-0">
+          <Card className="shadow-md border-0 h-full flex flex-col">
+            <CardContent className="pt-3 flex-1 flex flex-col min-h-0">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex flex-col h-full">
+                <ScrollArea className="w-full mb-4">
+                  <TabsList className="inline-flex w-max min-w-full">
+                    <TabsTrigger value="general" className="flex items-center text-xs px-3 whitespace-nowrap">
+                      <Bell className="h-3 w-3 mr-1" />
+                      General
+                    </TabsTrigger>
+                    <TabsTrigger value="content" className="flex items-center text-xs px-3 whitespace-nowrap">
+                      <Shield className="h-3 w-3 mr-1" />
+                      Content
+                    </TabsTrigger>
+                    <TabsTrigger value="screentime" className="flex items-center text-xs px-3 whitespace-nowrap">
+                      <Clock className="h-3 w-3 mr-1" />
+                      Screen Time
+                    </TabsTrigger>
+                    <TabsTrigger value="monitoring" className="flex items-center text-xs px-3 whitespace-nowrap">
+                      <Monitor className="h-3 w-3 mr-1" />
+                      Monitoring
+                    </TabsTrigger>
+                  </TabsList>
+                  <ScrollBar orientation="horizontal" />
+                </ScrollArea>
+
+                <div className="flex-1 overflow-y-auto">
 
               {/* General Tab */}
               <TabsContent value="general" className="space-y-3">
@@ -1191,11 +1204,12 @@ export default function Settings() {
                     "Save Monitoring Settings"
                   )}
                 </Button>
-              </TabsContent>
-
-            </Tabs>
-          </CardContent>
-        </Card>
+                </TabsContent>
+                </div>
+              </Tabs>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </ParentLayout>
   );
