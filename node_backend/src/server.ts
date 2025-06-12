@@ -20,6 +20,8 @@ import screenTimeRoutes from "./routes/screenTime.routes";
 import childDashboardRoutes from "./routes/childDashboard.routes";
 import gamesRoutes from "./routes/games.routes";
 import aiRoutes from "./routes/ai.routes";
+import settingsRoutes from "./routes/settings.routes";
+import parentalControlRoutes from "./routes/parentalControl.routes";
 
 import logger from "./utils/logger";
 
@@ -78,6 +80,8 @@ app.use("/api/screentime", screenTimeRoutes);
 app.use("/api/child-dashboard", childDashboardRoutes);
 app.use("/api/games", gamesRoutes);
 app.use("/api/ai", aiRoutes);
+app.use("/api/settings", settingsRoutes);
+app.use("/api/parental-control", parentalControlRoutes);
 
 // Error handling middleware
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

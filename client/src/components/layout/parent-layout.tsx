@@ -147,7 +147,7 @@ export default function ParentLayout({ children, title }: ParentLayoutProps) {
         </div>
 
         {/* Content Area */}
-        <main className="flex-1 bg-gray-50 dark:bg-gray-900 p-4 lg:p-6 overflow-hidden">
+        <main className="flex-1 bg-gray-50 dark:bg-gray-900 p-4 lg:p-6 overflow-y-auto">
           {children}
         </main>
       </div>
