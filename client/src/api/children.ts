@@ -20,8 +20,9 @@ export const createChild = async (childData: {
   display_name: string;
   first_name: string;
   last_name: string;
+  email?: string;
 }): Promise<Child> => {
-  const response = await fetch("/api/user/child", {
+  const response = await fetch("/api/user/children", {
     method: "POST",
     credentials: "include",
     headers: {
@@ -31,7 +32,8 @@ export const createChild = async (childData: {
   });
 
   if (!response.ok) {
-    throw new Error("Failed to create child");
+    const errorText = await response.text();
+    throw new Error(errorText || "Failed to create child");
   }
 
   return response.json();
