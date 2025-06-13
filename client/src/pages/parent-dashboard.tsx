@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import ParentLayout from "@/components/layout/parent-layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   UserPlus,
   ShieldCheck,
@@ -21,7 +22,8 @@ import { fetchChildren } from "@/api/children";
 import { getFlaggedContent, FlaggedContent } from "@/api/monitoring";
 import React, { useRef, useState } from "react";
 
-const childImages = [
+// Fallback images for when no profile picture is available
+const fallbackChildImages = [
   "/images/profile-girl.png",
   "/images/profile-boy-2.png",
   "/images/profile-boy-1.png",
@@ -163,11 +165,30 @@ export default function ParentDashboard() {
                         <tr key={child.id} className="border-t">
                           <td className="py-2">
                             <div className="flex items-center">
-                              <img
-                                src={childImages[index]}
-                                alt={`${child.username} Profile`}
-                                className="w-12 h-12 rounded-full border border-gray-300 object-cover mr-2"
-                              />
+                              <Avatar className="w-12 h-12 mr-2 border border-gray-300">
+                                <AvatarImage
+                                  src={child.profile?.profile_picture || ""}
+                                  alt={`${child.username} Profile`}
+                                  className="object-cover"
+                                />
+                                <AvatarFallback className="bg-gray-100">
+                                  {child.profile?.profile_picture ? (
+                                    // If we have a profile picture but it failed to load, show fallback image
+                                    <img
+                                      src={fallbackChildImages[index % fallbackChildImages.length]}
+                                      alt={`${child.username} Profile`}
+                                      className="w-full h-full object-cover rounded-full"
+                                    />
+                                  ) : (
+                                    // If no profile picture in database, show fallback image
+                                    <img
+                                      src={fallbackChildImages[index % fallbackChildImages.length]}
+                                      alt={`${child.username} Profile`}
+                                      className="w-full h-full object-cover rounded-full"
+                                    />
+                                  )}
+                                </AvatarFallback>
+                              </Avatar>
                               <span className="font-semibold mr-1">{child.username}</span>
                             </div>
                           </td>

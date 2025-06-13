@@ -261,3 +261,91 @@ export const getChildProfile = async (req: AuthenticatedRequest, res: Response) 
     return res.status(500).json({ message: "Failed to fetch child profile." });
   }
 };
+
+// Update child profile data
+export const updateChildProfile = async (req: AuthenticatedRequest, res: Response) => {
+  const userId = parseInt(req.params.userId);
+  const requestingUserId = req.user?.id;
+  const { age, profile_picture, grade_level, favorite_bible_verse, interests, restrictions } = req.body;
+
+  if (!requestingUserId) {
+    logger.warn("updateChildProfile called without authenticated user.");
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  // Check if user is updating their own profile or is a parent updating child's profile
+  if (userId !== requestingUserId) {
+    // Check if requesting user is the parent of this child
+    const [childUser] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (!childUser || childUser.parent_id !== requestingUserId) {
+      logger.warn({ requestingUserId, userId }, "Unauthorized access to update child profile.");
+      return res.status(403).json({ message: "Access denied" });
+    }
+  }
+
+  try {
+    // Check if profile exists
+    const [existingProfile] = await db
+      .select()
+      .from(child_profiles)
+      .where(eq(child_profiles.user_id, userId))
+      .limit(1);
+
+    if (existingProfile) {
+      // Update existing profile
+      const [updatedProfile] = await db
+        .update(child_profiles)
+        .set({
+          age: age !== undefined ? age : existingProfile.age,
+          profile_picture: profile_picture !== undefined ? profile_picture : existingProfile.profile_picture,
+          grade_level: grade_level !== undefined ? grade_level : existingProfile.grade_level,
+          favorite_bible_verse: favorite_bible_verse !== undefined ? favorite_bible_verse : existingProfile.favorite_bible_verse,
+          interests: interests !== undefined ? interests : existingProfile.interests,
+          restrictions: restrictions !== undefined ? restrictions : existingProfile.restrictions,
+          updated_at: new Date()
+        })
+        .where(eq(child_profiles.user_id, userId))
+        .returning();
+
+      logger.info({ userId, requestingUserId }, "Child profile updated successfully.");
+      res.json(updatedProfile);
+    } else {
+      // Create new profile if it doesn't exist
+      const [childUser] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+
+      if (!childUser || !childUser.parent_id) {
+        return res.status(400).json({ message: "Cannot create profile - user not found or no parent assigned" });
+      }
+
+      const [newProfile] = await db
+        .insert(child_profiles)
+        .values({
+          user_id: userId,
+          parent_id: childUser.parent_id,
+          age: age || null,
+          profile_picture: profile_picture || null,
+          grade_level: grade_level || null,
+          favorite_bible_verse: favorite_bible_verse || null,
+          interests: interests || null,
+          restrictions: restrictions || null
+        })
+        .returning();
+
+      logger.info({ userId, requestingUserId }, "Child profile created successfully.");
+      res.json(newProfile);
+    }
+
+  } catch (err: any) {
+    logger.error(err, { userId, requestingUserId }, "Error updating child profile.");
+    return res.status(500).json({ message: "Failed to update child profile." });
+  }
+};
