@@ -56,6 +56,10 @@ export const screen_time = pgTable("screen_time", {
   user_id: integer("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
+  date: varchar("date", { length: 10 }).notNull().default(new Date().toISOString().split('T')[0]), // YYYY-MM-DD format
+  allowed_time_minutes: integer("allowed_time_minutes").notNull().default(120),
+  used_time_minutes: integer("used_time_minutes").notNull().default(0),
+  additional_reward_minutes: integer("additional_reward_minutes").notNull().default(0),
   daily_limits_total: integer("daily_limits_total").notNull(),
   daily_limits_gaming: integer("daily_limits_gaming").notNull(),
   daily_limits_social: integer("daily_limits_social").notNull(),
@@ -68,6 +72,7 @@ export const screen_time = pgTable("screen_time", {
   time_rewards_lessons: integer("time_rewards_lessons").notNull(),
   time_rewards_chores: integer("time_rewards_chores").notNull(),
   created_at: timestamp("created_at").notNull().defaultNow(),
+  updated_at: timestamp("updated_at").notNull().defaultNow(),
 });
 
 // ─── Schedules ─────────────────────────────────────────────────────────────────

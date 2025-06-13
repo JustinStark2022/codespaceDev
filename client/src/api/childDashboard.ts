@@ -1,5 +1,5 @@
 // client/src/api/childDashboard.ts
-import type { ScreenTimeData } from "@/types/screentime";
+import type { ScreenTimeData } from "@/types/screenTime";
 import type { UserLessonProgress } from "@/types/lesson";
 
 export interface ChildDashboardData {

@@ -17,7 +17,7 @@ export const getBibles = async (_req: Request, res: Response) => {
       throw new Error(`API responded with ${response.status}: ${response.statusText}`);
     }
     
-    const json = await response.json();
+    const json: any = await response.json();
     
     // Filter for popular English versions
     const preferredBibleIds = [
@@ -59,7 +59,7 @@ export const getBooks = async (req: Request, res: Response) => {
       throw new Error(`API responded with ${response.status}: ${response.statusText}`);
     }
     
-    const json = await response.json();
+    const json: any = await response.json();
     
     const books = json.data.map((b: any) => ({
       id: b.id,
@@ -90,7 +90,7 @@ export const getChapters = async (req: Request, res: Response) => {
       throw new Error(`API responded with ${response.status}: ${response.statusText}`);
     }
     
-    const json = await response.json();
+    const json: any = await response.json();
     
     const chapters = json.data.map((c: any) => ({ 
       id: c.id, 
@@ -126,7 +126,7 @@ export const getChapterContent = async (req: Request, res: Response) => {
       throw new Error(`API responded with ${response.status}: ${response.statusText}`);
     }
     
-    const json = await response.json();
+    const json: any = await response.json();
     res.json(json.data);
   } catch (err) {
     console.error("Chapter Content API Error:", err);
@@ -148,7 +148,7 @@ export const getVerses = async (req: Request, res: Response) => {
       throw new Error(`API responded with ${response.status}: ${response.statusText}`);
     }
     
-    const json = await response.json();
+    const json: any = await response.json();
     
     const verses = json.data.map((v: any) => ({
       id: v.id,
@@ -185,7 +185,7 @@ export const getVerse = async (req: Request, res: Response) => {
       throw new Error(`API responded with ${response.status}: ${response.statusText}`);
     }
     
-    const json = await response.json();
+    const json: any = await response.json();
     res.json(json.data);
   } catch (err) {
     console.error("Verse API Error:", err);
@@ -212,7 +212,7 @@ export const getBiblePassage = async (req: Request, res: Response) => {
       throw new Error(`API responded with ${response.status}: ${response.statusText}`);
     }
     
-    const json = await response.json();
+    const json: any = await response.json();
     res.json(json);
   } catch (err) {
     console.error("Passage API Error:", err);
@@ -239,7 +239,7 @@ export const searchBible = async (req: Request, res: Response) => {
       throw new Error(`API responded with ${response.status}: ${response.statusText}`);
     }
     
-    const json = await response.json();
+    const json: any = await response.json();
     res.json(json);
   } catch (err) {
     console.error("Search API Error:", err);

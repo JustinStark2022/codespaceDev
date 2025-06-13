@@ -7,7 +7,13 @@ import cors from "cors";
 import morgan from "morgan";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
+import path from "path";
+import { fileURLToPath } from "url";
 import { z } from "zod";
+
+// Get __dirname equivalent in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 import authRoutes from "./routes/auth.routes";
 import userRoutes from "./routes/user.routes";
 import bibleRoutes from "./routes/bible.routes";
@@ -66,6 +72,9 @@ app.use(cookieParser());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(morgan("dev"));
+
+// Serve uploaded files
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // API routes
 app.use("/api", authRoutes);

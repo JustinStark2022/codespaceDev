@@ -38,9 +38,16 @@ export default defineConfig(({ mode }) => {
       sourcemap: mode === "development", // Generate sourcemaps in development mode
       rollupOptions: {
         output: {
-          manualChunks: {
-            vendor: ["react", "react-dom"], // Separate vendor libraries
-            ui: ["@radix-ui/react-*"], // Separate UI libraries
+          manualChunks: (id) => {
+            if (id.includes("node_modules")) {
+              if (id.includes("react") || id.includes("react-dom")) {
+                return "vendor";
+              }
+              if (id.includes("@radix-ui")) {
+                return "ui";
+              }
+              return "vendor";
+            }
           },
         },
       },
