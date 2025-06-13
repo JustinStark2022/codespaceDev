@@ -50,24 +50,31 @@ export const lesson_progress = pgTable("lesson_progress", {
   completed_at: timestamp("completed_at"),
 });
 
-// ─── Screen Time ───────────────────────────────────────────────────────────────
+// ─── Screen Time Daily Usage ───────────────────────────────────────────────────
 export const screen_time = pgTable("screen_time", {
   id: serial("id").primaryKey(),
   user_id: integer("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
-  daily_limits_total: integer("daily_limits_total").notNull(),
-  daily_limits_gaming: integer("daily_limits_gaming").notNull(),
-  daily_limits_social: integer("daily_limits_social").notNull(),
-  daily_limits_educational: integer("daily_limits_educational").notNull(),
-  usage_today_total: integer("usage_today_total").notNull(),
-  usage_today_gaming: integer("usage_today_gaming").notNull(),
-  usage_today_social: integer("usage_today_social").notNull(),
-  usage_today_educational: integer("usage_today_educational").notNull(),
-  time_rewards_scripture: integer("time_rewards_scripture").notNull(),
-  time_rewards_lessons: integer("time_rewards_lessons").notNull(),
-  time_rewards_chores: integer("time_rewards_chores").notNull(),
+  date: varchar("date", { length: 10 }).notNull(), // YYYY-MM-DD format
+  allowed_time_minutes: integer("allowed_time_minutes").notNull().default(120),
+  used_time_minutes: integer("used_time_minutes").notNull().default(0),
+  additional_reward_minutes: integer("additional_reward_minutes").notNull().default(0),
+  // Detailed usage breakdown
+  daily_limits_total: integer("daily_limits_total").notNull().default(120),
+  daily_limits_gaming: integer("daily_limits_gaming").notNull().default(60),
+  daily_limits_social: integer("daily_limits_social").notNull().default(30),
+  daily_limits_educational: integer("daily_limits_educational").notNull().default(30),
+  usage_today_total: integer("usage_today_total").notNull().default(0),
+  usage_today_gaming: integer("usage_today_gaming").notNull().default(0),
+  usage_today_social: integer("usage_today_social").notNull().default(0),
+  usage_today_educational: integer("usage_today_educational").notNull().default(0),
+  // Reward tracking
+  time_rewards_scripture: integer("time_rewards_scripture").notNull().default(0),
+  time_rewards_lessons: integer("time_rewards_lessons").notNull().default(0),
+  time_rewards_chores: integer("time_rewards_chores").notNull().default(0),
   created_at: timestamp("created_at").notNull().defaultNow(),
+  updated_at: timestamp("updated_at").notNull().defaultNow(),
 });
 
 // ─── Schedules ─────────────────────────────────────────────────────────────────
@@ -220,8 +227,78 @@ export const monitoring_settings = pgTable("monitoring_settings", {
   updated_at: timestamp("updated_at").notNull().defaultNow(),
 });
 
+// ─── Activity Logs ─────────────────────────────────────────────────────────
+export const activity_logs = pgTable("activity_logs", {
+  id: serial("id").primaryKey(),
+  user_id: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  activity_type: varchar("activity_type", { length: 50 }).notNull(), // "app_usage", "website_visit", "content_flagged", etc.
+  app_name: varchar("app_name", { length: 255 }),
+  website_url: varchar("website_url", { length: 500 }),
+  duration_minutes: integer("duration_minutes"),
+  flagged: boolean("flagged").notNull().default(false),
+  flag_reason: text("flag_reason"),
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
+  date: varchar("date", { length: 10 }).notNull(), // YYYY-MM-DD for easy querying
+});
+
+// ─── Alerts ────────────────────────────────────────────────────────────────
+export const alerts = pgTable("alerts", {
+  id: serial("id").primaryKey(),
+  user_id: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  child_id: integer("child_id").references(() => users.id, { onDelete: "cascade" }),
+  alert_type: varchar("alert_type", { length: 50 }).notNull(), // "content_flagged", "time_limit", "new_app", etc.
+  title: varchar("title", { length: 255 }).notNull(),
+  message: text("message").notNull(),
+  severity: varchar("severity", { length: 10 }).notNull().default("medium"), // "low", "medium", "high"
+  read: boolean("read").notNull().default(false),
+  action_taken: varchar("action_taken", { length: 50 }), // "approved", "blocked", "ignored"
+  created_at: timestamp("created_at").notNull().defaultNow(),
+});
+
+// ─── Child Profiles ────────────────────────────────────────────────────────
+export const child_profiles = pgTable("child_profiles", {
+  id: serial("id").primaryKey(),
+  user_id: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  parent_id: integer("parent_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  age: integer("age"),
+  grade_level: varchar("grade_level", { length: 20 }),
+  profile_picture: varchar("profile_picture", { length: 255 }),
+  favorite_bible_verse: text("favorite_bible_verse"),
+  interests: text("interests"), // JSON array of interests
+  restrictions: text("restrictions"), // JSON object of specific restrictions
+  emergency_contacts: text("emergency_contacts"), // JSON array of contacts
+  created_at: timestamp("created_at").notNull().defaultNow(),
+  updated_at: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// ─── Device Sessions ───────────────────────────────────────────────────────
+export const device_sessions = pgTable("device_sessions", {
+  id: serial("id").primaryKey(),
+  user_id: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  device_name: varchar("device_name", { length: 255 }),
+  device_type: varchar("device_type", { length: 50 }), // "phone", "tablet", "computer", "tv"
+  ip_address: varchar("ip_address", { length: 45 }),
+  user_agent: text("user_agent"),
+  session_start: timestamp("session_start").notNull().defaultNow(),
+  session_end: timestamp("session_end"),
+  duration_minutes: integer("duration_minutes"),
+  active: boolean("active").notNull().default(true),
+});
+
 export type User = InferModel<typeof users>;
 export type NewUser = InferModel<typeof users, "insert">;
+export type ScreenTime = InferModel<typeof screen_time>;
+export type NewScreenTime = InferModel<typeof screen_time, "insert">;
 export type UserSettings = InferModel<typeof user_settings>;
 export type NewUserSettings = InferModel<typeof user_settings, "insert">;
 export type ContentFilters = InferModel<typeof content_filters>;
@@ -234,3 +311,11 @@ export type MonitoringSettings = InferModel<typeof monitoring_settings>;
 export type NewMonitoringSettings = InferModel<typeof monitoring_settings, "insert">;
 export type Game = InferModel<typeof games>;
 export type NewGame = InferModel<typeof games, "insert">;
+export type ActivityLog = InferModel<typeof activity_logs>;
+export type NewActivityLog = InferModel<typeof activity_logs, "insert">;
+export type Alert = InferModel<typeof alerts>;
+export type NewAlert = InferModel<typeof alerts, "insert">;
+export type ChildProfile = InferModel<typeof child_profiles>;
+export type NewChildProfile = InferModel<typeof child_profiles, "insert">;
+export type DeviceSession = InferModel<typeof device_sessions>;
+export type NewDeviceSession = InferModel<typeof device_sessions, "insert">;
