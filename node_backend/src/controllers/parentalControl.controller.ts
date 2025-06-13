@@ -25,10 +25,12 @@ export const getOverviewData = async (req: AuthenticatedRequest, res: Response) 
     const userId = req.user?.id;
     const childId = req.query.childId ? parseInt(req.query.childId as string) : null;
     const date = req.query.date as string || new Date().toISOString().split('T')[0];
-    
+
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
+
+    const targetUserId = childId || userId;
 
     // Get screen time data for the date
     const screenTimeData = await db
@@ -36,7 +38,7 @@ export const getOverviewData = async (req: AuthenticatedRequest, res: Response) 
       .from(screen_time)
       .where(
         and(
-          eq(screen_time.user_id, childId || userId),
+          eq(screen_time.user_id, targetUserId),
           eq(screen_time.date, date)
         )
       )
@@ -48,7 +50,7 @@ export const getOverviewData = async (req: AuthenticatedRequest, res: Response) 
       .from(games)
       .where(
         and(
-          eq(games.user_id, childId || userId),
+          eq(games.user_id, targetUserId),
           eq(games.flagged, true)
         )
       );
@@ -56,37 +58,57 @@ export const getOverviewData = async (req: AuthenticatedRequest, res: Response) 
     // Get recent activity (last 7 days of screen time)
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    
+
     const recentActivity = await db
       .select()
       .from(screen_time)
       .where(
         and(
-          eq(screen_time.user_id, childId || userId),
+          eq(screen_time.user_id, targetUserId),
           gte(screen_time.date, sevenDaysAgo.toISOString().split('T')[0])
         )
       )
       .orderBy(desc(screen_time.date));
 
+    // Calculate total rewards if screen time data exists
+    let screenTimeInfo = {
+      allowedTimeMinutes: 120,
+      usedTimeMinutes: 0,
+      additionalRewardMinutes: 0
+    };
+
+    if (screenTimeData[0]) {
+      const st = screenTimeData[0];
+      const totalRewards = (st.time_rewards_scripture || 0) +
+                          (st.time_rewards_lessons || 0) +
+                          (st.time_rewards_chores || 0);
+
+      screenTimeInfo = {
+        allowedTimeMinutes: st.allowed_time_minutes || st.daily_limits_total || 120,
+        usedTimeMinutes: st.used_time_minutes || st.usage_today_total || 0,
+        additionalRewardMinutes: st.additional_reward_minutes || totalRewards
+      };
+    }
+
     const overview = {
-      screenTime: screenTimeData[0] || {
-        allowedTimeMinutes: 120,
-        usedTimeMinutes: 0,
-        additionalRewardMinutes: 0
-      },
+      screenTime: screenTimeInfo,
       flaggedContentCount: flaggedGames.length,
       recentActivity: recentActivity.map(activity => ({
         date: activity.date,
-        usedTime: activity.used_time_minutes,
-        allowedTime: activity.allowed_time_minutes
+        usedTime: activity.used_time_minutes || activity.usage_today_total || 0,
+        allowedTime: activity.allowed_time_minutes || activity.daily_limits_total || 120
       })),
       alerts: [
         {
-          type: "info",
-          message: "All systems monitoring normally",
+          type: flaggedGames.length > 0 ? "warning" : "info",
+          message: flaggedGames.length > 0
+            ? `${flaggedGames.length} items flagged for review`
+            : "All systems monitoring normally",
           timestamp: new Date().toISOString()
         }
-      ]
+      ],
+      date: date,
+      childId: childId
     };
 
     res.json(overview);
