@@ -100,12 +100,15 @@ export default function ParentalControlCenter() {
     queryFn: fetchChildren,
   });
 
-  const { data: screenTime, isLoading: screenTimeLoading } = useQuery<ScreenTimeData>({
-    queryKey: [`/api/screentime?userId=${selectedChild}&date=${selectedDate}`],
+  const { data: screenTime, isLoading: screenTimeLoading, refetch: refetchScreenTime } = useQuery<ScreenTimeData>({
+    queryKey: ["screentime", selectedChild, selectedDate],
     enabled: !!selectedChild,
     queryFn: async () => {
+      console.log("Fetching screen time for:", { selectedChild, selectedDate });
       const res = await apiRequest("GET", `/api/screentime?userId=${selectedChild}&date=${selectedDate}`);
-      return res.json();
+      const data = await res.json();
+      console.log("Screen time data received:", data);
+      return data;
     },
   });
 
@@ -113,8 +116,22 @@ export default function ParentalControlCenter() {
     data: flaggedContent = [],
     isLoading: isLoadingFlagged,
   } = useQuery<FlaggedContent[]>({
-    queryKey: ["flaggedContent"],
+    queryKey: ["flaggedContent", selectedChild],
     queryFn: getFlaggedContent,
+  });
+
+  // Overview data query for dashboard metrics
+  const { data: overviewData, isLoading: overviewLoading } = useQuery({
+    queryKey: ["overview", selectedChild, selectedDate],
+    enabled: !!selectedChild,
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (selectedChild) params.append("childId", selectedChild);
+      if (selectedDate) params.append("date", selectedDate);
+
+      const res = await apiRequest("GET", `/api/parental-control/overview?${params.toString()}`);
+      return res.json();
+    },
   });
 
   // Mutations
@@ -123,8 +140,28 @@ export default function ParentalControlCenter() {
       const res = await apiRequest("POST", "/api/screentime/update", data);
       return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/screentime?userId=${selectedChild}&date=${selectedDate}`] });
+    onSuccess: async (data, variables) => {
+      console.log("Screen time update successful:", { data, variables });
+
+      // Invalidate the specific query for this user and date
+      await queryClient.invalidateQueries({
+        queryKey: ["screentime", variables.userId.toString(), variables.date]
+      });
+      // Also invalidate all screentime queries to refresh any overview data
+      await queryClient.invalidateQueries({
+        queryKey: ["screentime"]
+      });
+      // Invalidate overview data to refresh dashboard
+      await queryClient.invalidateQueries({
+        queryKey: ["overview", variables.userId.toString(), variables.date]
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["overview"]
+      });
+
+      // Force refetch the current screen time data
+      refetchScreenTime();
+
       toast({ title: "Screen time updated", description: "Time limits adjusted successfully with God's guidance." });
     },
     onError: (error: any) => {
@@ -138,7 +175,7 @@ export default function ParentalControlCenter() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/games/flagged"] });
+      queryClient.invalidateQueries({ queryKey: ["flaggedContent"] });
       toast({ title: "Content approved", description: "This content has been deemed appropriate for your family." });
     },
     onError: (error: any) => {
@@ -152,7 +189,7 @@ export default function ParentalControlCenter() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/games/flagged"] });
+      queryClient.invalidateQueries({ queryKey: ["flaggedContent"] });
       toast({ title: "Content blocked", description: "This content has been protected from your family." });
     },
     onError: (error: any) => {
@@ -166,7 +203,7 @@ export default function ParentalControlCenter() {
       return res.json();
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/games/flagged"] });
+      queryClient.invalidateQueries({ queryKey: ["flaggedContent"] });
       toast({
         title: data.flagged ? "Content flagged for review" : "Content approved",
         description: data.flagged
@@ -209,13 +246,18 @@ export default function ParentalControlCenter() {
   };
 
   const adjustAllowedTime = (amount: number) => {
-    if (!screenTime || !selectedChild) return;
+    if (!screenTime || !selectedChild) {
+      console.log("Cannot adjust time:", { screenTime, selectedChild });
+      return;
+    }
     const newAllowedTime = Math.max(15, screenTime.allowedTimeMinutes + amount);
-    updateScreenTimeMutation.mutate({
+    const mutationData = {
       userId: parseInt(selectedChild),
       date: selectedDate,
       allowedTimeMinutes: newAllowedTime
-    });
+    };
+    console.log("Adjusting screen time:", { amount, currentTime: screenTime.allowedTimeMinutes, newAllowedTime, mutationData });
+    updateScreenTimeMutation.mutate(mutationData);
   };
 
   const getSelectedChildName = () => {
