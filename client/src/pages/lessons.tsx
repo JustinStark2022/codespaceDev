@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../hooks/use-auth";
 import ParentLayout from "../components/layout/parent-layout";
 import ChildLayout from "../components/layout/child-layout";
+import { apiRequest } from "../lib/api";
 import {
   Card,
   CardHeader,
@@ -284,10 +286,29 @@ const lessonStyles = `
   }
 `;
 
+// Helper function to check if lesson is age-appropriate
+const isAgeAppropriate = (ageRange: string, childAge: number): boolean => {
+  if (!ageRange || !childAge) return true; // Show all if no age data
+
+  const [minAge, maxAge] = ageRange.split('-').map(age => parseInt(age.trim()));
+  return childAge >= minAge && childAge <= maxAge;
+};
+
 export default function LessonsSimple() {
   const { user } = useAuth();
   const isChild = user?.role === "child";
   const Layout = isChild ? ChildLayout : ParentLayout;
+
+  // Fetch child profile data for age-based filtering
+  const { data: childProfile } = useQuery({
+    queryKey: ["childProfile", user?.id],
+    queryFn: async () => {
+      if (!isChild || !user?.id) return null;
+      const res = await apiRequest("GET", `/api/user/profile/${user.id}`);
+      return res.json();
+    },
+    enabled: isChild && !!user?.id
+  });
 
   // Sample children data for parents
   const sampleChildren = [
@@ -413,6 +434,11 @@ export default function LessonsSimple() {
     }
   }, [chatMessages]);
 
+  // Filter lessons based on child's age
+  const filteredLessons = isChild && childProfile?.age
+    ? sampleLessons.filter(lesson => isAgeAppropriate(lesson.age_range, childProfile.age))
+    : sampleLessons;
+
   // Render different versions for parents and children
   if (isChild) {
     return (
@@ -443,12 +469,18 @@ export default function LessonsSimple() {
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2">
                   <Gift className="h-5 w-5 text-purple-600" />
-                  My Lessons ({sampleLessons.length})
+                  My Lessons ({filteredLessons.length})
+                  {childProfile?.age && (
+                    <Badge variant="outline" className="ml-2 bg-blue-50 text-blue-700">
+                      Age {childProfile.age}
+                    </Badge>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex-1 overflow-y-auto p-4">
                 <div className="space-y-3">
-                  {sampleLessons.map((lesson) => (
+                  {filteredLessons.length > 0 ? (
+                    filteredLessons.map((lesson) => (
                     <div
                       key={lesson.id}
                       className="group p-4 border-2 rounded-2xl hover:border-blue-300 hover:shadow-lg transition-all cursor-pointer bg-white"
@@ -499,7 +531,28 @@ export default function LessonsSimple() {
                         </div>
                       </div>
                     </div>
-                  ))}
+                  ))
+                  ) : (
+                    <div className="text-center py-8">
+                      <div className="p-6 bg-yellow-50 rounded-xl mb-4">
+                        <User className="h-12 w-12 text-yellow-600 mx-auto mb-3" />
+                        <h3 className="text-lg font-semibold text-yellow-800 mb-2">
+                          No Lessons for Your Age Yet
+                        </h3>
+                        <p className="text-yellow-700 text-sm">
+                          {childProfile?.age
+                            ? `We're working on more lessons for age ${childProfile.age}! Check back soon.`
+                            : "We need to know your age to show the right lessons for you."
+                          }
+                        </p>
+                      </div>
+                      {!childProfile?.age && (
+                        <p className="text-gray-500 text-sm">
+                          Ask your parent to update your profile with your age.
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

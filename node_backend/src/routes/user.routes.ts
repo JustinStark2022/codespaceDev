@@ -1,14 +1,16 @@
 // src/routes/user.routes.ts
 import { Router } from "express";
-import { getUser, getChildren, createChild } from "../controllers/user.controller";
+import { getUser, getChildren, createChild, getChildProfile } from "../controllers/user.controller";
 import { verifyToken } from "../middleware/auth.middleware";
+import { uploadSingle } from "../middleware/upload.middleware";
 
 const router = Router();
 
 // Protect all user routes with verifyToken
 router.get("/me",         verifyToken, getUser);
 router.get("/children",   verifyToken, getChildren);
-router.post("/children",  verifyToken, createChild);
+router.post("/children",  verifyToken, uploadSingle, createChild);
+router.get("/profile/:userId", verifyToken, getChildProfile);
 // Alias for legacy frontend: GET /api/user
 router.get("/", verifyToken, getUser);
 
