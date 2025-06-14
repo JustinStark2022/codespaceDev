@@ -31,7 +31,7 @@ router.post("/sync-rules", verifyToken, syncContentRules);
 router.get("/reports/weekly", verifyToken, generateWeeklyReport);
 router.get("/reports/content-safety", verifyToken, generateContentSafetySummary);
 
-// POST /api/parental-control/block-app
+export default router;
 router.post("/block-app", verifyToken, blockNewApp);
 
 // POST /api/parental-control/sync-rules

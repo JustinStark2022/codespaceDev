@@ -19,10 +19,10 @@ import userRoutes from "./routes/user.routes";
 import gamesRoutes from "./routes/games.routes";
 import parentalControlRoutes from "./routes/parentalControl.routes";
 import childDashboardRoutes from "./routes/childDashboard.routes";
-
-import logger from "./utils/logger";
 import aiRoutes from "./routes/ai.routes";
 import settingsRoutes from "./routes/settings.routes";
+
+import logger from "./utils/logger";
 
 // Environment variable validation
 const envSchema = z.object({
@@ -74,6 +74,8 @@ app.use("/api/user", userRoutes);
 app.use("/api/games", gamesRoutes);
 app.use("/api/parental-control", parentalControlRoutes);
 app.use("/api/child-dashboard", childDashboardRoutes);
+app.use("/api/ai", aiRoutes);
+app.use("/api/settings", settingsRoutes);
 
 // Error handling middleware
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
@@ -87,8 +89,6 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 app.listen(PORT, () => {
   logger.info(`Server running in ${process.env.NODE_ENV} mode on http://localhost:${PORT}`);
 });
-
-
 app.use("/api/child-dashboard", childDashboardRoutes);
 app.use("/api/games", gamesRoutes);
 app.use("/api/ai", aiRoutes);

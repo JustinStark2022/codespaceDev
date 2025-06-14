@@ -1,77 +1,77 @@
 // src/controllers/childDashboard.controller.ts
 import { Request, Response } from "express";
 import { db } from "@/db/db";
-import { screen_time as screenTimeTable, lesson_progress as lpTable } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { screen_time, lesson_progress } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import logger from "@/utils/logger";
 
-export const getChildDashboardData = async (
-  req: Request & { user?: { id: number } },
-  res: Response
-) => {
+interface AuthenticatedRequest extends Request {
+  user?: {
+    id: number;
+    role: string;
+  };
+}
+
+export const getChildDashboardData = async (req: AuthenticatedRequest, res: Response) => {
   const userId = req.user?.id;
+  
   if (!userId) {
+    logger.warn("getChildDashboardData called without authenticated user.");
     return res.status(401).json({ message: "Unauthorized" });
   }
 
   try {
-    const today = new Date().toISOString().split('T')[0];
-
-    // Fetch today's screen time record with proper date filtering
-    const [screen_time] = await db
+    // Get screen time data
+    const screenTimeRecords = await db
       .select()
-      .from(screenTimeTable)
-      .where(
-        and(
-          eq(screenTimeTable.user_id, userId),
-          eq(screenTimeTable.date, today)
-        )
-      )
+      .from(screen_time)
+      .where(eq(screen_time.user_id, userId))
       .limit(1);
 
-    // Fetch this user's lesson progress
-    const lesson_progress = await db
-      .select()
-      .from(lpTable)
-      .where(eq(lpTable.user_id, userId));
+    const screenTime = screenTimeRecords.length > 0 ? screenTimeRecords[0] : null;
 
-    // Transform screen time data to match frontend expectations
-    const screenTime = screen_time ? {
-      allowedTimeMinutes: screen_time.allowed_time_minutes || screen_time.daily_limits_total || 120,
-      usedTimeMinutes: screen_time.used_time_minutes || screen_time.usage_today_total || 0,
-      additionalRewardMinutes: screen_time.additional_reward_minutes ||
-        ((screen_time.time_rewards_scripture || 0) +
-         (screen_time.time_rewards_lessons || 0) +
-         (screen_time.time_rewards_chores || 0)),
+    // Get lesson progress
+    const lessonProgressRecords = await db
+      .select()
+      .from(lesson_progress)
+      .where(eq(lesson_progress.user_id, userId));
+
+    // Transform screen time data
+    const screenTimeData = {
+      allowedTimeMinutes: screenTime?.allowed_time_minutes || 120,
+      usedTimeMinutes: screenTime?.used_time_minutes || 0,
+      additionalRewardMinutes: screenTime?.additional_reward_minutes || 0,
       dailyLimits: {
-        total: screen_time.daily_limits_total || screen_time.allowed_time_minutes || 120,
-        gaming: screen_time.daily_limits_gaming || 60,
-        social: screen_time.daily_limits_social || 30,
-        educational: screen_time.daily_limits_educational || 30
+        total: screenTime?.daily_limits_total || 120,
+        gaming: screenTime?.daily_limits_gaming || 60,
+        social: screenTime?.daily_limits_social || 30,
+        educational: screenTime?.daily_limits_educational || 90
       },
       usageToday: {
-        total: screen_time.usage_today_total || screen_time.used_time_minutes || 0,
-        gaming: screen_time.usage_today_gaming || 0,
-        social: screen_time.usage_today_social || 0,
-        educational: screen_time.usage_today_educational || 0
+        total: screenTime?.usage_today_total || 0,
+        gaming: screenTime?.usage_today_gaming || 0,
+        social: screenTime?.usage_today_social || 0,
+        educational: screenTime?.usage_today_educational || 0
       },
       timeRewards: {
-        fromScripture: screen_time.time_rewards_scripture || 0,
-        fromLessons: screen_time.time_rewards_lessons || 0,
-        fromChores: screen_time.time_rewards_chores || 0
+        fromScripture: screenTime?.time_rewards_scripture || 0,
+        fromLessons: screenTime?.time_rewards_lessons || 0,
+        fromChores: screenTime?.time_rewards_chores || 0
       }
-    } : {
-      // Default values if no screen time record exists
-      allowedTimeMinutes: 120,
-      usedTimeMinutes: 0,
-      additionalRewardMinutes: 0,
-      dailyLimits: {
-        total: 120,
-        gaming: 60,
-        social: 30,
-        educational: 30
-      },
-      usageToday: {
-        total: 0,
+    };
+
+    const dashboardData = {
+      screenTime: screenTimeData,
+      lessonProgress: lessonProgressRecords
+    };
+
+    logger.debug({ userId }, "Successfully fetched child dashboard data.");
+    res.json(dashboardData);
+  } catch (err: any) {
+    logger.error(err, { userId }, "Error fetching child dashboard data.");
+    return res.status(500).json({ message: "Failed to fetch dashboard data." });
+  }
+};
         gaming: 0,
         social: 0,
         educational: 0

@@ -1,17 +1,40 @@
-
-  "name": "KingdomKidsWorkspace",
-  "image": "mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm",
+{
+  "name": "Kingdom Kids Development",
   "dockerComposeFile": "../docker-compose.yml",
-  "service": "backend",
-  "workspaceFolder": "codespace-dev",
-  "forwardPorts": [5173, 5000],
-  "postCreateCommand": "npm install",
+  "service": "app",
+  "workspaceFolder": "/workspace",
+  "shutdownAction": "stopCompose",
   "customizations": {
     "vscode": {
       "extensions": [
+        "ms-vscode.vscode-typescript-next",
+        "bradlc.vscode-tailwindcss",
         "esbenp.prettier-vscode",
-        "dbaeumer.vscode-eslint"
-      ]
+        "ms-vscode.vscode-json",
+        "ms-vscode-remote.remote-containers"
+      ],
+      "settings": {
+        "typescript.preferences.importModuleSpecifier": "relative",
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+      }
     }
-  }
+  },
+  "forwardPorts": [3000, 5000, 5173],
+  "portsAttributes": {
+    "3000": {
+      "label": "Database",
+      "onAutoForward": "notify"
+    },
+    "5000": {
+      "label": "Backend API",
+      "onAutoForward": "notify"
+    },
+    "5173": {
+      "label": "Frontend Dev Server",
+      "onAutoForward": "notify"
+    }
+  },
+  "postCreateCommand": "npm install",
+  "remoteUser": "node"
 }
