@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => {
       },
       proxy: {
         "/api": {
-          target: env.VITE_API_URL || "http://localhost:3001", // Updated: Use port 3001 as default
+          target: env.VITE_API_URL || "http://localhost:5000", // Updated: Use port 5000 as default
           changeOrigin: true,
           secure: false,
           ws: true,
