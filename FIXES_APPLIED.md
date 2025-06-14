@@ -57,13 +57,25 @@ Both the frontend and backend have been successfully fixed and now run error-fre
 
 ## How to Run
 
-### Option 1: Use the convenience script
-```bash
-./start-dev.sh
+### Windows PowerShell (Recommended)
+
+#### Option 1: Test setup first
+```powershell
+.\test-setup.ps1
 ```
 
-### Option 2: Manual startup
-```bash
+#### Option 2: Start in separate windows
+```powershell
+.\start-apps.ps1
+```
+
+#### Option 3: Start in current terminal
+```powershell
+.\start-dev.ps1
+```
+
+### Manual startup (Windows)
+```powershell
 # Terminal 1 - Backend
 cd node_backend
 npm run dev
@@ -71,6 +83,11 @@ npm run dev
 # Terminal 2 - Frontend
 cd client
 npm run dev
+```
+
+### Linux/Mac
+```bash
+./start-dev.sh
 ```
 
 ## Application URLs

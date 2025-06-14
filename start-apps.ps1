@@ -4,7 +4,7 @@ Write-Host "Starting Kingdom Kids Application..." -ForegroundColor Green
 
 # Start backend in a new PowerShell window
 Write-Host "Starting backend server..." -ForegroundColor Yellow
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$PWD\node_backend'; node dist/server.js"
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$PWD\node_backend'; npm run dev"
 
 # Wait a moment for backend to start
 Start-Sleep -Seconds 3

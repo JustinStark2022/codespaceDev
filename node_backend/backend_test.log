@@ -1,0 +1,5 @@
+
+> kingdom-kids-ts-backend@1.0.0 dev
+> tsx --tsconfig tsconfig.json src/server.ts
+
+[2025-06-14 01:36:27.384 +0000] [32mINFO[39m: [36mServer running in development mode on http://localhost:5000[39m
