@@ -22,6 +22,7 @@ export default function AuthPage() {
     last_name: "",
   });
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -30,20 +31,48 @@ export default function AuthPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setIsSubmitting(true);
 
-    if (mode === "login") {
-      try {
-        const user = await login(form.username, form.password);
-        if (user.token) {
-          localStorage.setItem("token", user.token);
+    try {
+      if (mode === "login") {
+        console.log("Attempting login with:", { username: form.username });
+
+        const userData = await login(form.username, form.password);
+        console.log("Login successful:", userData);
+
+        // Store token if provided
+        if (userData.token) {
+          localStorage.setItem("token", userData.token);
         }
+
+        // Transform the response to match User interface
+        const user = {
+          id: userData.id,
+          username: userData.username,
+          email: userData.email,
+          display_name: userData.displayName,
+          role: userData.role as "parent" | "child",
+          parent_id: userData.parentId === null ? undefined : userData.parentId,
+          first_name: userData.firstName,
+          last_name: userData.lastName,
+          created_at: userData.createdAt || new Date().toISOString(),
+          isParent: userData.isParent,
+        };
+
         setUser(user);
-        navigate(user.role === "parent" ? "/dashboard" : "/child-dashboard");
-      } catch (err: any) {
-        setError(err.message || "Login failed");
-      }
-    } else {
-      try {
+
+        // Navigate based on role
+        const redirectPath =
+          user.role === "parent" ? "/dashboard" : "/child-dashboard";
+        console.log("Navigating to:", redirectPath);
+        navigate(redirectPath);
+      } else {
+        // Registration
+        console.log("Attempting registration with:", {
+          ...form,
+          role: "parent",
+        });
+
         const response = await fetch("/api/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -51,28 +80,55 @@ export default function AuthPage() {
           body: JSON.stringify({ ...form, role: "parent" }),
         });
 
-        if (!response.ok) throw new Error("Registration failed");
-        const user = await response.json();
-        if (user.token) {
-          localStorage.setItem("token", user.token);
+        if (!response.ok) {
+          const errorData = await response
+            .json()
+            .catch(() => ({ message: "Registration failed" }));
+          throw new Error(errorData.message || "Registration failed");
         }
+
+        const userData = await response.json();
+        console.log("Registration successful:", userData);
+
+        if (userData.token) {
+          localStorage.setItem("token", userData.token);
+        }
+
+        // Transform response for registration
+        const user = {
+          id: userData.id,
+          username: userData.username || form.username,
+          email: userData.email || form.email,
+          display_name: userData.display_name || form.display_name,
+          role: "parent" as const,
+          parent_id: undefined,
+          first_name: userData.first_name || form.first_name,
+          last_name: userData.last_name || form.last_name,
+          created_at: userData.created_at || new Date().toISOString(),
+          isParent: true,
+        };
+
         setUser(user);
         navigate("/dashboard");
-      } catch (err: any) {
-        setError(err.message || "Registration failed");
       }
+    } catch (err: any) {
+      console.error("Authentication error:", err);
+      setError(err.message || "Authentication failed");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4 font-poppins">
-      <Card className="w-full max-w-xl shadow-xl rounded-2xl border-0"> {/* Increased max-w-xl */}
-        <CardContent className="py-14 px-10 space-y-8"> {/* More padding */}
+      <Card className="w-full max-w-xl shadow-xl rounded-2xl border-0">
+        <CardContent className="py-14 px-10 space-y-8">
           <div className="w-full flex justify-center items-center">
-            <div className="w-48 h-48 flex items-center justify-center"> {/* Larger container */}
+            <div className="w-48 h-48 flex items-center justify-center">
               <Logo />
             </div>
           </div>
+
           {/* Tabs */}
           <div className="flex items-center justify-center bg-muted rounded-lg p-1">
             <button
@@ -98,31 +154,63 @@ export default function AuthPage() {
               Register
             </button>
           </div>
+
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             {mode === "register" && (
               <>
                 <div>
                   <Label htmlFor="first_name">First Name</Label>
-                  <Input name="first_name" value={form.first_name} onChange={handleChange} required />
+                  <Input
+                    name="first_name"
+                    value={form.first_name}
+                    onChange={handleChange}
+                    required
+                    disabled={isSubmitting}
+                  />
                 </div>
                 <div>
                   <Label htmlFor="last_name">Last Name</Label>
-                  <Input name="last_name" value={form.last_name} onChange={handleChange} required />
+                  <Input
+                    name="last_name"
+                    value={form.last_name}
+                    onChange={handleChange}
+                    required
+                    disabled={isSubmitting}
+                  />
                 </div>
                 <div>
                   <Label htmlFor="display_name">Display Name</Label>
-                  <Input name="display_name" value={form.display_name} onChange={handleChange} required />
+                  <Input
+                    name="display_name"
+                    value={form.display_name}
+                    onChange={handleChange}
+                    required
+                    disabled={isSubmitting}
+                  />
                 </div>
                 <div>
                   <Label htmlFor="email">Email</Label>
-                  <Input type="email" name="email" value={form.email} onChange={handleChange} required />
+                  <Input
+                    type="email"
+                    name="email"
+                    value={form.email}
+                    onChange={handleChange}
+                    required
+                    disabled={isSubmitting}
+                  />
                 </div>
               </>
             )}
             <div>
               <Label htmlFor="username">Username</Label>
-              <Input name="username" value={form.username} onChange={handleChange} required />
+              <Input
+                name="username"
+                value={form.username}
+                onChange={handleChange}
+                required
+                disabled={isSubmitting}
+              />
             </div>
             <div>
               <Label htmlFor="password">Password</Label>
@@ -132,22 +220,36 @@ export default function AuthPage() {
                 value={form.password}
                 onChange={handleChange}
                 required
+                disabled={isSubmitting}
               />
             </div>
 
-            {error && <p className="text-sm text-red-500">{error}</p>}
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                <p className="text-red-600 text-sm">{error}</p>
+              </div>
+            )}
 
             <div className="text-right">
               <button
                 type="button"
                 className="text-xs text-blue-600 hover:underline"
+                disabled={isSubmitting}
               >
                 Forgot Password?
               </button>
             </div>
 
-            <Button type="submit" className="w-full text-white">
-              {mode === "login" ? "Sign In" : "Register"}
+            <Button
+              type="submit"
+              className="w-full text-white"
+              disabled={isSubmitting}
+            >
+              {isSubmitting
+                ? "Please wait..."
+                : mode === "login"
+                ? "Sign In"
+                : "Register"}
             </Button>
           </form>
         </CardContent>

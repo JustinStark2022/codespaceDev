@@ -1,8 +1,8 @@
 import { User } from "@/types/user";
 
 export const testAuthApi = () => "API is connected";
+
 export async function getMe(): Promise<User> {
-  
   const res = await fetch("/api/user", {
     credentials: "include",
   });
@@ -13,23 +13,25 @@ export async function getMe(): Promise<User> {
 
   return res.json();
 }
+
 export interface LoginResponse {
   id: number;
   username: string;
   email: string;
-  display_name: string;
+  displayName: string;
   role: string;
-  parent_id?: number | null;
-  first_name: string;
-  last_name: string;
-  created_at?: string;
+  parentId?: number | null;
+  firstName: string;
+  lastName: string;
+  createdAt?: string;
+  isParent: boolean;
   token?: string;
 }
 
 export async function login(username: string, password: string): Promise<LoginResponse> {
   const response = await fetch("/api/login", {
     method: "POST",
-    credentials: "include", // makes sure cookies (JWT) are sent/received
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
     },
@@ -37,9 +39,24 @@ export async function login(username: string, password: string): Promise<LoginRe
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Login failed: ${errorText}`);
+    const errorData = await response.json().catch(() => ({ message: "Login failed" }));
+    throw new Error(errorData.message || "Login failed");
   }
 
-  return response.json();
+  const data = await response.json();
+  
+  // Transform backend response to match frontend expectations
+  return {
+    id: data.id,
+    username: data.username,
+    email: data.email,
+    displayName: data.displayName || data.display_name,
+    role: data.role,
+    parentId: data.parentId || data.parent_id,
+    firstName: data.firstName || data.first_name,
+    lastName: data.lastName || data.last_name,
+    createdAt: data.createdAt || data.created_at,
+    isParent: data.isParent || data.role === "parent",
+    token: data.token
+  };
 }
