@@ -155,3 +155,80 @@ export const createChild = async (req: AuthenticatedRequest, res: Response) => {
     return res.status(500).json({ message: "Failed to create child account." });
   }
 };
+
+export const getChildProfile = async (req: AuthenticatedRequest, res: Response) => {
+  const childId = parseInt(req.params.id);
+  const parentId = req.user?.id;
+
+  if (!parentId) {
+    logger.warn("getChildProfile called without authenticated parent.");
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  try {
+    const [child] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, childId))
+      .limit(1);
+
+    if (!child || child.parent_id !== parentId) {
+      logger.warn({ parentId, childId }, "Child not found or doesn't belong to parent.");
+      return res.status(404).json({ message: "Child not found" });
+    }
+
+    const { password, ...safeChild } = child;
+    logger.debug({ parentId, childId }, "Successfully fetched child profile.");
+    res.json(safeChild);
+  } catch (err: any) {
+    logger.error(err, { parentId, childId }, "Error fetching child profile.");
+    return res.status(500).json({ message: "Failed to fetch child profile." });
+  }
+};
+
+export const updateChildProfile = async (req: AuthenticatedRequest, res: Response) => {
+  const childId = parseInt(req.params.id);
+  const parentId = req.user?.id;
+  const { first_name, last_name, display_name, email } = req.body;
+
+  if (!parentId) {
+    logger.warn("updateChildProfile called without authenticated parent.");
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  try {
+    const [existingChild] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, childId))
+      .limit(1);
+
+    if (!existingChild || existingChild.parent_id !== parentId) {
+      logger.warn({ parentId, childId }, "Child not found or doesn't belong to parent.");
+      return res.status(404).json({ message: "Child not found" });
+    }
+
+    const [updatedChild] = await db
+      .update(users)
+      .set({
+        first_name: first_name || existingChild.first_name,
+        last_name: last_name || existingChild.last_name,
+        display_name: display_name || existingChild.display_name,
+        email: email || existingChild.email,
+      })
+      .where(eq(users.id, childId))
+      .returning();
+
+    if (!updatedChild) {
+      logger.error({ parentId, childId }, "Failed to update child profile.");
+      return res.status(500).json({ message: "Failed to update child profile" });
+    }
+
+    const { password, ...safeChild } = updatedChild;
+    logger.info({ parentId, childId }, "Child profile updated successfully.");
+    res.json(safeChild);
+  } catch (err: any) {
+    logger.error(err, { parentId, childId }, "Error updating child profile.");
+    return res.status(500).json({ message: "Failed to update child profile." });
+  }
+};

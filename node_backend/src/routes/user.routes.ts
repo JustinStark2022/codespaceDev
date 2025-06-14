@@ -6,13 +6,13 @@ import { uploadSingle } from "../middleware/upload.middleware";
 
 const router = Router();
 
-// Protect all user routes with verifyToken
-router.get("/me",         verifyToken, getUser);
-router.get("/children",   verifyToken, getChildren);
-router.post("/children",  verifyToken, uploadSingle, createChild);
-router.get("/profile/:userId", verifyToken, getChildProfile);
-router.put("/profile/:userId", verifyToken, updateChildProfile);
-// Alias for legacy frontend: GET /api/user
-router.get("/", verifyToken, getUser);
+// Get current user profile
+router.get("/profile", verifyToken, getUser);
+
+// Parent routes for managing children
+router.get("/children", verifyToken, getChildren);
+router.post("/children", verifyToken, createChild);
+router.get("/children/:id", verifyToken, getChildProfile);
+router.put("/children/:id", verifyToken, uploadSingle, updateChildProfile);
 
 export default router;

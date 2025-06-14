@@ -4,56 +4,44 @@ Write-Host "Starting Kingdom Kids Development Environment..." -ForegroundColor G
 # Function to cleanup background processes
 function Cleanup {
     Write-Host "Shutting down applications..." -ForegroundColor Yellow
-    if ($BackendJob) { Stop-Job $BackendJob; Remove-Job $BackendJob }
-    if ($FrontendJob) { Stop-Job $FrontendJob; Remove-Job $FrontendJob }
+    Get-Process | Where-Object {$_.ProcessName -eq "node"} | Stop-Process -Force -ErrorAction SilentlyContinue
     exit 0
 }
 
-# Set up signal handlers
-$null = Register-EngineEvent PowerShell.Exiting -Action { Cleanup }
+# Set up signal handlers for Ctrl+C
+[Console]::TreatControlCAsInput = $false
+[Console]::CancelKeyPress += {
+    Cleanup
+}
 
 try {
-    # Start backend
+    # Get current directory
+    $currentDir = Get-Location
+
     Write-Host "Starting backend on port 5000..." -ForegroundColor Cyan
-    $BackendJob = Start-Job -ScriptBlock {
-        Set-Location "node_backend"
-        npm run dev
-    }
+    # Start backend process
+    $backendProcess = Start-Process -FilePath "powershell" -ArgumentList "-NoExit", "-Command", "cd '$currentDir\node_backend'; npm run dev" -PassThru
 
     # Wait a moment for backend to start
     Start-Sleep -Seconds 3
 
-    # Start frontend
     Write-Host "Starting frontend on port 5173..." -ForegroundColor Cyan
-    $FrontendJob = Start-Job -ScriptBlock {
-        Set-Location "client"
-        npm run dev
-    }
+    # Start frontend process
+    $frontendProcess = Start-Process -FilePath "powershell" -ArgumentList "-NoExit", "-Command", "cd '$currentDir\client'; npm run dev" -PassThru
 
     Write-Host ""
     Write-Host "✅ Applications started successfully!" -ForegroundColor Green
     Write-Host "🔗 Frontend: http://localhost:5173" -ForegroundColor Blue
     Write-Host "🔗 Backend API: http://localhost:5000" -ForegroundColor Blue
     Write-Host ""
-    Write-Host "Press Ctrl+C to stop both applications" -ForegroundColor Yellow
+    Write-Host "Both applications are running in separate windows." -ForegroundColor Yellow
+    Write-Host "Close those windows or press Ctrl+C here to stop both applications." -ForegroundColor Yellow
     Write-Host ""
 
-    # Monitor jobs and show output
-    while ($BackendJob.State -eq "Running" -or $FrontendJob.State -eq "Running") {
-        # Show backend output
-        $BackendOutput = Receive-Job $BackendJob -ErrorAction SilentlyContinue
-        if ($BackendOutput) {
-            Write-Host "[BACKEND] $BackendOutput" -ForegroundColor Magenta
-        }
+    # Wait for user input or process termination
+    Write-Host "Press any key to stop both applications..." -ForegroundColor Cyan
+    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
 
-        # Show frontend output
-        $FrontendOutput = Receive-Job $FrontendJob -ErrorAction SilentlyContinue
-        if ($FrontendOutput) {
-            Write-Host "[FRONTEND] $FrontendOutput" -ForegroundColor Cyan
-        }
-
-        Start-Sleep -Seconds 1
-    }
 }
 catch {
     Write-Host "Error occurred: $_" -ForegroundColor Red
