@@ -2,7 +2,9 @@
 import { User } from "@/types/user";
 
 export interface ScreenTimeData {
-  user: User;
+  allowedTimeMinutes: number;
+  usedTimeMinutes: number;
+  additionalRewardMinutes: number;
   dailyLimits: {
     total: number;
     gaming: number;
@@ -20,17 +22,4 @@ export interface ScreenTimeData {
     fromLessons: number;
     fromChores: number;
   };
-  schedule: {
-    id: number;
-    dayOfWeek: string;
-    startTime: string;
-    endTime: string;
-    enabled: boolean;
-  }[];
-  blockedApps: {
-    id: number;
-    name: string;
-    category: "gaming" | "social" | "educational" | "entertainment" | "other";
-    blocked: boolean;
-  }[];
 }

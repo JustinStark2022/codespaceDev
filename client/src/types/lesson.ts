@@ -7,8 +7,9 @@ export interface BibleLesson {
   }
 
   export interface UserLessonProgress {
-    lesson: any;
-    lessonId: string;
+    id: number;
+    user_id: number;
+    lesson_id: number;
     completed: boolean;
-    completedAt?: string; // Optional ISO timestamp (e.g. "2025-04-17T18:30:00Z")
+    completed_at?: string;
   }

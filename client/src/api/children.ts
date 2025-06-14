@@ -4,9 +4,17 @@ import { Child } from "@/types/user";
 export const fetchChildren = async (): Promise<Child[]> => {
   const res = await fetch("/api/user/children", {
     credentials: "include",
+    headers: {
+      "Authorization": `Bearer ${localStorage.getItem("token") || ""}`,
+      "Content-Type": "application/json"
+    }
   });
 
   if (!res.ok) {
+    if (res.status === 401) {
+      localStorage.removeItem("token");
+      throw new Error("Unauthorized");
+    }
     throw new Error("Failed to fetch children");
   }
 

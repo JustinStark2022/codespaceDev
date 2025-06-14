@@ -51,27 +51,44 @@ export const getChildren = async (req: AuthenticatedRequest, res: Response) => {
     // For each child, fetch screen time and lesson progress metrics
     const results = await Promise.all(
       children.map(async (child) => {
-        // Screen time record
-        const [screenTime] = await db
-          .select()
-          .from(screen_time)
-          .where(eq(screen_time.user_id, child.id));
-        // Lesson progress
-        const progress = await db
-          .select()
-          .from(lesson_progress)
-          .where(eq(lesson_progress.user_id, child.id));
+        try {
+          // Screen time record
+          const screenTimeRecords = await db
+            .select()
+            .from(screen_time)
+            .where(eq(screen_time.user_id, child.id));
+          
+          const screenTime = screenTimeRecords.length > 0 ? screenTimeRecords[0] : null;
+          
+          // Lesson progress
+          const progress = await db
+            .select()
+            .from(lesson_progress)
+            .where(eq(lesson_progress.user_id, child.id));
 
-        const completedCount = progress.filter(p => p.completed).length;
+          const completedCount = progress.filter(p => p.completed).length;
 
-        return {
-          ...child,
-          screenTime: screenTime || null,
-          totalLessons: progress.length,
-          completedLessons: completedCount,
-        };
+          return {
+            ...child,
+            screenTime: screenTime ? {
+              allowedTimeMinutes: screenTime.allowed_time_minutes || 120,
+              usedTimeMinutes: screenTime.used_time_minutes || 0
+            } : null,
+            totalLessons: progress.length,
+            completedLessons: completedCount,
+          };
+        } catch (childErr: any) {
+          logger.warn({ error: childErr.message, childId: child.id }, "Error fetching child metrics, using defaults");
+          return {
+            ...child,
+            screenTime: null,
+            totalLessons: 0,
+            completedLessons: 0,
+          };
+        }
       })
     );
+    
     logger.debug({ parentId }, "Successfully fetched children details with metrics.");
     res.json(results);
   } catch (err: any) {
@@ -230,4 +247,3 @@ export const updateChildProfile = async (req: AuthenticatedRequest, res: Respons
     return res.status(500).json({ message: "Failed to update child profile." });
   }
 };
-  

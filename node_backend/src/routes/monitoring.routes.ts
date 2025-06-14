@@ -4,7 +4,7 @@ import { verifyToken } from "../middleware/auth.middleware";
 
 const router = Router();
 
-// Games monitoring routes
+// Flagged content routes
 router.get("/flagged", verifyToken, getFlaggedContent);
 router.post("/approve/:id", verifyToken, approveContent);
 router.post("/block/:id", verifyToken, blockContent);
