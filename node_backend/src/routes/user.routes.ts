@@ -7,6 +7,7 @@ import upload from "../middleware/upload.middleware";
 const router = Router();
 
 // Get current user profile
+router.get("/", verifyToken, getUser);
 router.get("/profile", verifyToken, getUser);
 
 // Parent routes for managing children

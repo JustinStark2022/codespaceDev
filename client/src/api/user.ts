@@ -5,13 +5,35 @@ export const testAuthApi = () => "API is connected";
 export async function getMe(): Promise<User> {
   const res = await fetch("/api/user", {
     credentials: "include",
+    headers: {
+      "Authorization": `Bearer ${localStorage.getItem("token") || ""}`,
+      "Content-Type": "application/json"
+    }
   });
 
   if (!res.ok) {
+    if (res.status === 401) {
+      // Clear invalid token
+      localStorage.removeItem("token");
+    }
     throw new Error("Failed to fetch user");
   }
 
-  return res.json();
+  const data = await res.json();
+  
+  // Transform backend response to match frontend User interface
+  return {
+    id: data.id,
+    username: data.username,
+    email: data.email,
+    display_name: data.display_name,
+    role: data.role,
+    parent_id: data.parent_id,
+    first_name: data.first_name,
+    last_name: data.last_name,
+    created_at: data.created_at,
+    isParent: data.role === "parent"
+  };
 }
 
 export interface LoginResponse {

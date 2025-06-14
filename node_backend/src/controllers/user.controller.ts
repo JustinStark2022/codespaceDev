@@ -81,8 +81,7 @@ export const getChildren = async (req: AuthenticatedRequest, res: Response) => {
 };
 
 export const createChild = async (req: AuthenticatedRequest, res: Response) => {
-  const { username, password, email, display_name, first_name, last_name } =
-    req.body;
+  const { username, password, email, display_name, first_name, last_name, age } = req.body;
   // Role is implicitly 'child' when created by a parent
   const role = "child";
 
@@ -112,17 +111,16 @@ export const createChild = async (req: AuthenticatedRequest, res: Response) => {
 
     // Check if email exists (optional, depending on requirements for child accounts)
     if (email) {
-        const existingEmail = await db
+      const existingEmail = await db
         .select()
         .from(users)
         .where(eq(users.email, email));
 
-        if (existingEmail.length > 0) {
+      if (existingEmail.length > 0) {
         logger.warn({ parentId, childEmail: email }, "Attempt to create child with existing email.");
         return res.status(400).json({ message: "Email already registered." });
-        }
+      }
     }
-
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -131,7 +129,7 @@ export const createChild = async (req: AuthenticatedRequest, res: Response) => {
       .values({
         username,
         password: hashedPassword,
-        email: email || null, // Make email optional for children or ensure it's provided
+        email: email || null,
         display_name,
         role,
         parent_id: parentId,
@@ -144,14 +142,14 @@ export const createChild = async (req: AuthenticatedRequest, res: Response) => {
       logger.error({ parentId, childUsername: username }, "Failed to insert new child user into DB.");
       return res.status(500).json({ message: "Failed to create user" });
     }
+    
     const createdChild = inserted[0];
     logger.info({ parentId, childId: createdChild.id, childUsername: createdChild.username }, "Child account created successfully.");
-    const { password: _, ...safeChild } = createdChild; // Exclude password from response
+    const { password: _, ...safeChild } = createdChild;
     res.status(201).json(safeChild);
 
   } catch (err: any) {
     logger.error(err, { parentId, body: req.body }, "Error creating child account.");
-    // Consider if ZodError can happen here if input validation is added
     return res.status(500).json({ message: "Failed to create child account." });
   }
 };
@@ -232,3 +230,4 @@ export const updateChildProfile = async (req: AuthenticatedRequest, res: Respons
     return res.status(500).json({ message: "Failed to update child profile." });
   }
 };
+  
