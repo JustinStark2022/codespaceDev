@@ -40,6 +40,7 @@ Both the frontend and backend have been successfully fixed and now run error-fre
 ### 3. Dependencies
 - **Fixed**: Node modules permissions
 - **Reinstalled**: All dependencies to resolve module resolution issues
+- **Added**: multer and @types/multer packages to prevent import errors
 
 ## Verification Results
 

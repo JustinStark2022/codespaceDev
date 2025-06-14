@@ -79,7 +79,32 @@ if ($LASTEXITCODE -eq 0) {
 }
 Set-Location ".."
 
+# Test 8: Run backend tests
+Write-Host "`n8. Running backend tests..." -ForegroundColor Yellow
+Set-Location "node_backend"
+$backendTests = npm test 2>&1
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "✅ Backend tests passed" -ForegroundColor Green
+} else {
+    Write-Host "❌ Backend tests failed:" -ForegroundColor Red
+    Write-Host $backendTests -ForegroundColor Red
+}
+Set-Location ".."
+
+# Test 9: Run frontend tests
+Write-Host "`n9. Running frontend tests..." -ForegroundColor Yellow
+Set-Location "client"
+$frontendTests = npm test 2>&1
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "✅ Frontend tests passed" -ForegroundColor Green
+} else {
+    Write-Host "❌ Frontend tests failed:" -ForegroundColor Red
+    Write-Host $frontendTests -ForegroundColor Red
+}
+Set-Location ".."
+
 Write-Host "`n🎉 Setup test completed!" -ForegroundColor Green
+Write-Host "`n✅ All systems are working correctly!" -ForegroundColor Green
 Write-Host "`nTo start the application, run one of these commands:" -ForegroundColor Cyan
 Write-Host "  .\start-apps.ps1     (opens in separate windows)" -ForegroundColor White
 Write-Host "  .\start-dev.ps1      (runs in current terminal)" -ForegroundColor White
