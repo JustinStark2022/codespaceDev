@@ -19,10 +19,10 @@ import userRoutes from "./routes/user.routes";
 import gamesRoutes from "./routes/games.routes";
 import parentalControlRoutes from "./routes/parentalControl.routes";
 import childDashboardRoutes from "./routes/childDashboard.routes";
-import aiRoutes from "./routes/ai.routes";
-import settingsRoutes from "./routes/settings.routes";
 
 import logger from "./utils/logger";
+import aiRoutes from "./routes/ai.routes";
+import settingsRoutes from "./routes/settings.routes";
 
 // Environment variable validation
 const envSchema = z.object({
@@ -68,7 +68,7 @@ app.use(morgan("dev"));
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-// API routes
+// API routes - Register only once
 app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes); 
 app.use("/api/games", gamesRoutes);
@@ -83,10 +83,11 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
   });
 });
 
-// Start server
+// Start server - Only call listen once
 app.listen(PORT, () => {
   logger.info(`Server running in ${process.env.NODE_ENV} mode on http://localhost:${PORT}`);
 });
+
 
 app.use("/api/child-dashboard", childDashboardRoutes);
 app.use("/api/games", gamesRoutes);

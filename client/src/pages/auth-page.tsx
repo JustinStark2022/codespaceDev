@@ -162,7 +162,9 @@ export default function AuthPage() {
                 <div>
                   <Label htmlFor="first_name">First Name</Label>
                   <Input
+                    id="first_name"
                     name="first_name"
+                    autoComplete="given-name"
                     value={form.first_name}
                     onChange={handleChange}
                     required
@@ -172,7 +174,9 @@ export default function AuthPage() {
                 <div>
                   <Label htmlFor="last_name">Last Name</Label>
                   <Input
+                    id="last_name"
                     name="last_name"
+                    autoComplete="family-name"
                     value={form.last_name}
                     onChange={handleChange}
                     required
@@ -182,7 +186,9 @@ export default function AuthPage() {
                 <div>
                   <Label htmlFor="display_name">Display Name</Label>
                   <Input
+                    id="display_name"
                     name="display_name"
+                    autoComplete="nickname"
                     value={form.display_name}
                     onChange={handleChange}
                     required
@@ -192,8 +198,10 @@ export default function AuthPage() {
                 <div>
                   <Label htmlFor="email">Email</Label>
                   <Input
+                    id="email"
                     type="email"
                     name="email"
+                    autoComplete="email"
                     value={form.email}
                     onChange={handleChange}
                     required
@@ -205,7 +213,9 @@ export default function AuthPage() {
             <div>
               <Label htmlFor="username">Username</Label>
               <Input
+                id="username"
                 name="username"
+                autoComplete="username"
                 value={form.username}
                 onChange={handleChange}
                 required
@@ -215,8 +225,12 @@ export default function AuthPage() {
             <div>
               <Label htmlFor="password">Password</Label>
               <Input
+                id="password"
                 type="password"
                 name="password"
+                autoComplete={
+                  mode === "register" ? "new-password" : "current-password"
+                }
                 value={form.password}
                 onChange={handleChange}
                 required

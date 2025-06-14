@@ -292,6 +292,7 @@ export default function ChildAccounts() {
                     <Input
                       id="username"
                       name="username"
+                      autoComplete="username"
                       value={formData.username}
                       onChange={handleChange}
                       required
@@ -304,6 +305,7 @@ export default function ChildAccounts() {
                       id="password"
                       name="password"
                       type="password"
+                      autoComplete="new-password"
                       value={formData.password}
                       onChange={handleChange}
                       required
@@ -315,6 +317,7 @@ export default function ChildAccounts() {
                     <Input
                       id="first_name"
                       name="first_name"
+                      autoComplete="given-name"
                       value={formData.first_name}
                       onChange={handleChange}
                       required
@@ -326,6 +329,7 @@ export default function ChildAccounts() {
                     <Input
                       id="last_name"
                       name="last_name"
+                      autoComplete="family-name"
                       value={formData.last_name}
                       onChange={handleChange}
                       required
@@ -337,6 +341,7 @@ export default function ChildAccounts() {
                     <Input
                       id="display_name"
                       name="display_name"
+                      autoComplete="nickname"
                       value={formData.display_name}
                       onChange={handleChange}
                       required
@@ -363,6 +368,7 @@ export default function ChildAccounts() {
                       id="email"
                       name="email"
                       type="email"
+                      autoComplete="email"
                       value={formData.email}
                       onChange={handleChange}
                       required
@@ -533,6 +539,7 @@ export default function ChildAccounts() {
                   <Label htmlFor="edit_first_name">First Name</Label>
                   <Input
                     id="edit_first_name"
+                    autoComplete="given-name"
                     value={formData.first_name}
                     onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
                     placeholder="Enter first name"
@@ -542,6 +549,7 @@ export default function ChildAccounts() {
                   <Label htmlFor="edit_last_name">Last Name</Label>
                   <Input
                     id="edit_last_name"
+                    autoComplete="family-name"
                     value={formData.last_name}
                     onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
                     placeholder="Enter last name"
@@ -553,6 +561,7 @@ export default function ChildAccounts() {
                 <Label htmlFor="edit_display_name">Display Name</Label>
                 <Input
                   id="edit_display_name"
+                  autoComplete="nickname"
                   value={formData.display_name}
                   onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
                   placeholder="Enter display name"
@@ -576,6 +585,7 @@ export default function ChildAccounts() {
                 <Input
                   id="edit_email"
                   type="email"
+                  autoComplete="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   placeholder="Enter email address"
@@ -588,6 +598,7 @@ export default function ChildAccounts() {
                   <Input
                     id="edit_password"
                     type={showPassword ? "text" : "password"}
+                    autoComplete="new-password"
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     placeholder="Leave blank to keep current password"
