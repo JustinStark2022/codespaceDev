@@ -2,7 +2,7 @@
 import { Router } from "express";
 import { getUser, getChildren, createChild, getChildProfile, updateChildProfile } from "../controllers/user.controller";
 import { verifyToken } from "../middleware/auth.middleware";
-import { uploadSingle } from "../middleware/upload.middleware";
+import upload from "../middleware/upload.middleware";
 
 const router = Router();
 
@@ -13,6 +13,6 @@ router.get("/profile", verifyToken, getUser);
 router.get("/children", verifyToken, getChildren);
 router.post("/children", verifyToken, createChild);
 router.get("/children/:id", verifyToken, getChildProfile);
-router.put("/children/:id", verifyToken, uploadSingle, updateChildProfile);
+router.put("/children/:id", verifyToken, upload.single('profilePicture'), updateChildProfile);
 
 export default router;
