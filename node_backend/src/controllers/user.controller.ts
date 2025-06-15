@@ -78,7 +78,10 @@ export const getChildren = async (req: AuthenticatedRequest, res: Response) => {
             completedLessons: completedCount,
           };
         } catch (childErr: any) {
-          logger.warn({ error: childErr.message, childId: child.id }, "Error fetching child metrics, using defaults");
+          logger.warn("Error fetching child metrics, using defaults", { 
+            error: childErr.message, 
+            childId: child.id 
+          });
           return {
             ...child,
             screenTime: null,

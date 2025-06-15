@@ -29,32 +29,30 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { fetchChildren } from "@/api/children";
+import { getFlaggedContent } from "@/api/monitoring";
 import {
-  Shield,
-  Clock,
-  MessageCircle,
-  Send,
-  Gamepad2,
-  Youtube,
-  Globe,
-  Calendar,
   User,
-  RefreshCw,
-  Loader2,
+  Home,
+  Clock,
+  Shield,
   AlertCircle,
   CheckCircle2,
-  Search,
+  RefreshCw,
+  Book,
+  Loader2,
   Plus,
   Minus,
-  Heart,
-  Book,
-  Home,
   Settings,
-  ExternalLink
+  Gamepad2,
+  Heart,
+  Search,
+  Globe,
+  Youtube,
+  MessageCircle,
+  Send,
+  Calendar
 } from "lucide-react";
-import { Child } from "@/types/user";
-import { fetchChildren } from "@/api/children";
-import { getFlaggedContent, FlaggedContent } from "@/api/monitoring";
 
 interface ScreenTimeData {
   allowedTimeMinutes: number;
@@ -126,8 +124,10 @@ export default function ParentalControlCenter() {
     enabled: !!selectedChild,
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (selectedChild) params.append("childId", selectedChild);
-      if (selectedDate) params.append("date", selectedDate);
+      if (selectedChild) { params.append("childId", selectedChild); }
+      if (selectedDate) {
+        params.append("date", selectedDate);
+      }
 
       const res = await apiRequest("GET", `/api/parental-control/overview?${params.toString()}`);
       return res.json();
@@ -240,7 +240,9 @@ export default function ParentalControlCenter() {
   };
 
   const calculateTimeUsedPercentage = () => {
-    if (!screenTime || !screenTime.allowedTimeMinutes || !screenTime.usedTimeMinutes) return 0;
+    if (!screenTime || !screenTime.allowedTimeMinutes || !screenTime.usedTimeMinutes) {
+      return 0;
+    }
     const total = screenTime.allowedTimeMinutes + (screenTime.additionalRewardMinutes || 0);
     return total > 0 ? Math.min(100, Math.round((screenTime.usedTimeMinutes / total) * 100)) : 0;
   };
@@ -261,13 +263,17 @@ export default function ParentalControlCenter() {
   };
 
   const getSelectedChildName = () => {
-    if (!selectedChild || children.length === 0) return "Child";
+    if (!selectedChild || children.length === 0) {
+      return "Child";
+    }
     const child = children.find((c) => c.id.toString() === selectedChild);
     return child ? `${child.first_name} ${child.last_name}` : "Child";
   };
 
   const getRemainingTime = () => {
-    if (!screenTime || !screenTime.allowedTimeMinutes) return "No data";
+    if (!screenTime || !screenTime.allowedTimeMinutes) {
+      return "No data";
+    }
     const total = (screenTime.allowedTimeMinutes || 0) + (screenTime.additionalRewardMinutes || 0);
     const remaining = total - (screenTime.usedTimeMinutes || 0);
     return remaining > 0 ? formatMinutes(remaining) : "0m";
@@ -294,7 +300,7 @@ export default function ParentalControlCenter() {
   };
 
   const handleSend = () => {
-    if (!input.trim()) return;
+    if (!input.trim()) { return; }
     
     const userMessage: ChatMessage = { sender: "user", text: input };
     setMessages(prev => [...prev, userMessage]);
@@ -1380,4 +1386,33 @@ export default function ParentalControlCenter() {
       </div>
     </ParentLayout>
   );
+}
+
+interface Child {
+  id: number;
+  username: string;
+  first_name: string;
+  last_name: string;
+  display_name: string;
+  email: string;
+  created_at: string;
+  role: "child";
+  parent_id: number;
+  age?: number;
+  profile_picture?: string;
+  totalLessons?: number;
+  completedLessons?: number;
+  screenTime?: {
+    allowedTimeMinutes: number;
+    usedTimeMinutes: number;
+  } | null;
+}
+
+interface FlaggedContent {
+  id: number;
+  name: string;
+  platform: string;
+  contentType: 'game' | 'video' | 'website' | 'app';
+  flagReason: string;
+  flaggedAt: string;
 }

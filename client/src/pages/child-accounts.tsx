@@ -138,7 +138,9 @@ export default function ChildAccounts() {
   };
 
   const handleUpdateChild = () => {
-    if (!selectedChild) return;
+    if (!selectedChild) {
+      return;
+    }
     const updateData: any = { ...formData };
     if (!updateData.password) {
       // Use delete on any type to avoid TypeScript error

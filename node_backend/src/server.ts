@@ -74,8 +74,6 @@ app.use("/api/user", userRoutes);
 app.use("/api/games", gamesRoutes);
 app.use("/api/parental-control", parentalControlRoutes);
 app.use("/api/child-dashboard", childDashboardRoutes);
-app.use("/api/ai", aiRoutes);
-app.use("/api/settings", settingsRoutes);
 
 // Error handling middleware
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
@@ -85,6 +83,10 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
   });
 });
 
+// Start server - Only call listen once
+app.listen(PORT, () => {
+  logger.info(`Server running in ${process.env.NODE_ENV} mode on http://localhost:${PORT}`);
+});
 // Start server - Only call listen once
 app.listen(PORT, () => {
   logger.info(`Server running in ${process.env.NODE_ENV} mode on http://localhost:${PORT}`);

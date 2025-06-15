@@ -60,31 +60,8 @@ export const getChildDashboardData = async (req: AuthenticatedRequest, res: Resp
       }
     };
 
-    const dashboardData = {
-      screenTime: screenTimeData,
-      lessonProgress: lessonProgressRecords
-    };
-
-    logger.debug({ userId }, "Successfully fetched child dashboard data.");
-    res.json(dashboardData);
-  } catch (err: any) {
-    logger.error(err, { userId }, "Error fetching child dashboard data.");
-    return res.status(500).json({ message: "Failed to fetch dashboard data." });
-  }
-};
-        gaming: 0,
-        social: 0,
-        educational: 0
-      },
-      timeRewards: {
-        fromScripture: 0,
-        fromLessons: 0,
-        fromChores: 0
-      }
-    };
-
     // Transform lesson progress to match frontend expectations
-    const lessonProgress = lesson_progress.map(progress => ({
+    const lessonProgress = lessonProgressRecords.map(progress => ({
       id: progress.id,
       user_id: progress.user_id,
       lesson_id: progress.lesson_id,

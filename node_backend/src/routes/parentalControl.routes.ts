@@ -32,16 +32,3 @@ router.get("/reports/weekly", verifyToken, generateWeeklyReport);
 router.get("/reports/content-safety", verifyToken, generateContentSafetySummary);
 
 export default router;
-router.post("/block-app", verifyToken, blockNewApp);
-
-// POST /api/parental-control/sync-rules
-router.post("/sync-rules", verifyToken, syncContentRules);
-
-// ─── Reports ───────────────────────────────────────────────────────────────
-// GET /api/parental-control/reports/weekly?childId=123
-router.get("/reports/weekly", verifyToken, generateWeeklyReport);
-
-// GET /api/parental-control/reports/content-safety?childId=123
-router.get("/reports/content-safety", verifyToken, generateContentSafetySummary);
-
-export default router;
