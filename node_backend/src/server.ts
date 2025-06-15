@@ -67,7 +67,7 @@ app.use(morgan("dev"));
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // API routes - Register only once
-app.use("/api/auth", authRoutes);
+app.use("/api", authRoutes);  // This will handle /api/login, /api/register, /api/logout
 app.use("/api/user", userRoutes); 
 app.use("/api/games", gamesRoutes);
 app.use("/api/parental-control", parentalControlRoutes);

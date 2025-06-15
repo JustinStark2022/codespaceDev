@@ -5,13 +5,10 @@ import { generateToken } from "../utils/token";
 import logger from "../utils/logger";
 
 import { Request, Response } from "express";
-
 import bcrypt from "bcrypt";
-
+import jwt from "jsonwebtoken";
 import { eq } from "drizzle-orm";
-
 import { createInsertSchema } from "drizzle-zod";
-
 import { z } from "zod";
 
 // Zod-based type validation schema
@@ -112,48 +109,75 @@ export const registerUser = async (req: Request, res: Response) => {
 };
 
 export const loginUser = async (req: Request, res: Response) => {
-  try {
-    const { username, password } = loginSchema.parse(req.body);
+  const { username, password } = req.body;
 
-    const [user] = await db
+  if (!username || !password) {
+    return res.status(400).json({ message: "Username and password are required" });
+  }
+
+  try {
+    // Find user by username
+    const userResult = await db
       .select()
       .from(users)
-      .where(eq(users.username, username));
+      .where(eq(users.username, username))
+      .limit(1);
 
-    if (!user) {
-      logger.warn({ username }, "Login attempt failed: user not found.");
-      return res.status(401).json({ message: "Invalid username or password." });
+    if (userResult.length === 0) {
+      logger.warn({ username }, "Login attempt with non-existent username");
+      return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    const isValidPassword = await bcrypt.compare(password, user.password);
-    if (!isValidPassword) {
-      logger.warn({ username }, "Login attempt failed: invalid password.");
-      return res.status(401).json({ message: "Invalid username or password." });
+    const user = userResult[0];
+
+    // Check password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      logger.warn({ username, userId: user.id }, "Login attempt with invalid password");
+      return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    const token = generateToken(user.id, user.role);
-    logger.info({ userId: user.id, username: user.username }, "User logged in successfully.");
-
-    res
-      .cookie("token", token, COOKIE_OPTS)
-      .json({
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        displayName: user.display_name,
+    // Generate JWT token
+    const token = jwt.sign(
+      { 
+        userId: user.id, 
         role: user.role,
-        parentId: user.parent_id,
-        firstName: user.first_name,
-        lastName: user.last_name,
-        createdAt: user.created_at,
-        isParent: user.role === "parent",
-      });
+        username: user.username 
+      },
+      process.env.JWT_SECRET!,
+      { expiresIn: "24h" }
+    );
+
+    // Set HTTP-only cookie
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    });
+
+    // Remove password from response
+    const { password: _, ...safeUser } = user;
+
+    logger.info({ userId: user.id, username, role: user.role }, "User logged in successfully");
+
+    // Return user data in the format expected by frontend
+    res.json({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      displayName: user.display_name,
+      role: user.role,
+      parentId: user.parent_id,
+      firstName: user.first_name,
+      lastName: user.last_name,
+      createdAt: user.created_at,
+      isParent: user.role === "parent",
+      token
+    });
   } catch (err: any) {
-    logger.error(err, "Error during user login.");
-    if (err instanceof z.ZodError) {
-      return res.status(400).json({ message: err.errors[0].message });
-    }
-    return res.status(400).json({ message: err.message });
+    logger.error(err, { username }, "Error during login");
+    res.status(500).json({ message: "Internal server error" });
   }
 };
 
