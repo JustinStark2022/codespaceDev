@@ -19,6 +19,7 @@ import userRoutes from "./routes/user.routes";
 import gamesRoutes from "./routes/games.routes";
 import parentalControlRoutes from "./routes/parentalControl.routes";
 import childDashboardRoutes from "./routes/childDashboard.routes";
+import bibleRoutes from "./routes/bible.routes";
 
 import logger from "./utils/logger";
 
@@ -72,6 +73,8 @@ app.use("/api/user", userRoutes);
 app.use("/api/games", gamesRoutes);
 app.use("/api/parental-control", parentalControlRoutes);
 app.use("/api/child-dashboard", childDashboardRoutes);
+app.use("/api/bible", bibleRoutes);
+app.use("/api/lessons", bibleRoutes); // Also handle /api/lessons routes
 
 // Error handling middleware
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
