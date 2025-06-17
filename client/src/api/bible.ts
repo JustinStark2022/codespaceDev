@@ -46,8 +46,12 @@ export const getBibleBooks = async (): Promise<BibleBook[]> => {
 
 export const getBibleVerses = async (book?: string, chapter?: number): Promise<BibleVerse[]> => {
   const params = new URLSearchParams();
-  if (book) params.append("book", book);
-  if (chapter) params.append("chapter", chapter.toString());
+  if (book) {
+    params.append("book", book);
+  }
+  if (chapter) {
+    params.append("chapter", chapter.toString());
+  }
 
   const res = await fetch(`/api/bible/verses?${params.toString()}`, {
     credentials: "include",

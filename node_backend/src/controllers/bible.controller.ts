@@ -126,7 +126,9 @@ export const getBibles = async (_req: Request, res: Response) => {
 // Get books in a Bible
 export const getBooks = async (req: Request, res: Response) => {
   const { bibleId } = req.params;
-  if (!bibleId) return res.status(400).json({ message: "Missing Bible ID" });
+  if (!bibleId) {
+    return res.status(400).json({ message: "Missing Bible ID" });
+  }
 
   try {
     const response = await fetch(`${BASE_URL}/bibles/${bibleId}/books`, { headers });

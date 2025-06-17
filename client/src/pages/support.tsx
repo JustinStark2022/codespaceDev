@@ -242,7 +242,9 @@ export default function Support() {
 
   // Handle chat message sending
   const handleChatSend = () => {
-    if (!chatInput.trim()) return;
+    if (!chatInput.trim()) {
+      return;
+    }
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),

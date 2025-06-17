@@ -17,7 +17,7 @@ interface AuthenticatedRequest extends Request {
 export const verifyToken = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     // Get token from cookie or Authorization header
-    let token = req.cookies.token;
+    let {token} = req.cookies;
     
     if (!token) {
       const authHeader = req.headers.authorization;
