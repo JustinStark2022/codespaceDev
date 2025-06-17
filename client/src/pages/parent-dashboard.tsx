@@ -108,7 +108,9 @@ export default function ParentDashboard() {
 
   // Dummy send handler
   const handleSend = () => {
-    if (!input.trim()) return;
+    if (!input.trim()) {
+      return;
+    }
     setMessages((msgs) => [
       ...msgs,
       { sender: "user", text: input },
