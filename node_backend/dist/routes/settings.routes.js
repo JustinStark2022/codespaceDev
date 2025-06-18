@@ -1,32 +1,77 @@
 import { Router } from "express";
-import { getUserSettings, updateUserSettings, getContentFilters, updateContentFilters, getScreenTimeSettings, updateScreenTimeSettings, getMonitoringSettings, updateMonitoringSettings, getTrustedWebsites, addTrustedWebsite, removeTrustedWebsite } from "../controllers/settings.controller";
 import { verifyToken } from "../middleware/auth.middleware";
+import { db } from "@/db/db";
+import { user_settings } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import logger from "@/utils/logger";
 const router = Router();
-// ─── General Settings ──────────────────────────────────────────────────────
-// GET /api/settings/general
-router.get("/general", verifyToken, getUserSettings);
-// PUT /api/settings/general
-router.put("/general", verifyToken, updateUserSettings);
-// ─── Content Filter Settings ───────────────────────────────────────────────
-// GET /api/settings/content-filters?childId=123
-router.get("/content-filters", verifyToken, getContentFilters);
-// PUT /api/settings/content-filters
-router.put("/content-filters", verifyToken, updateContentFilters);
-// ─── Screen Time Settings ──────────────────────────────────────────────────
-// GET /api/settings/screen-time?childId=123
-router.get("/screen-time", verifyToken, getScreenTimeSettings);
-// PUT /api/settings/screen-time
-router.put("/screen-time", verifyToken, updateScreenTimeSettings);
-// ─── Monitoring Settings ───────────────────────────────────────────────────
-// GET /api/settings/monitoring
-router.get("/monitoring", verifyToken, getMonitoringSettings);
-// PUT /api/settings/monitoring
-router.put("/monitoring", verifyToken, updateMonitoringSettings);
-// ─── Trusted Websites ──────────────────────────────────────────────────────
-// GET /api/settings/trusted-websites?childId=123
-router.get("/trusted-websites", verifyToken, getTrustedWebsites);
-// POST /api/settings/trusted-websites
-router.post("/trusted-websites", verifyToken, addTrustedWebsite);
-// DELETE /api/settings/trusted-websites/:id
-router.delete("/trusted-websites/:id", verifyToken, removeTrustedWebsite);
+// Get user settings
+router.get("/", verifyToken, async (req, res) => {
+    const userId = req.user?.id;
+    if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+    }
+    try {
+        const settings = await db
+            .select()
+            .from(user_settings)
+            .where(eq(user_settings.user_id, userId))
+            .limit(1);
+        if (settings.length === 0) {
+            // Return default settings if none exist
+            const defaultSettings = {
+                content_alerts: true,
+                screentime_alerts: true,
+                lesson_completions: true,
+                device_usage: true,
+                bible_plan: true,
+                default_translation: "NIV",
+                reading_plan: "chronological",
+                daily_reminders: true,
+                theme_mode: "light",
+                language: "en",
+                sound_effects: true
+            };
+            return res.json(defaultSettings);
+        }
+        res.json(settings[0]);
+    }
+    catch (err) {
+        logger.error(err, { userId }, "Error fetching user settings");
+        res.status(500).json({ message: "Failed to fetch settings" });
+    }
+});
+// Update user settings
+router.put("/", verifyToken, async (req, res) => {
+    const userId = req.user?.id;
+    if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+    }
+    try {
+        const updatedSettings = await db
+            .update(user_settings)
+            .set({
+            ...req.body,
+            updated_at: new Date()
+        })
+            .where(eq(user_settings.user_id, userId))
+            .returning();
+        if (updatedSettings.length === 0) {
+            // Create settings if they don't exist
+            const newSettings = await db
+                .insert(user_settings)
+                .values({
+                user_id: userId,
+                ...req.body
+            })
+                .returning();
+            return res.json(newSettings[0]);
+        }
+        res.json(updatedSettings[0]);
+    }
+    catch (err) {
+        logger.error(err, { userId }, "Error updating user settings");
+        res.status(500).json({ message: "Failed to update settings" });
+    }
+});
 export default router;
