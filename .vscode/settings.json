@@ -1,7 +1,7 @@
 {
   "stylelint.validate": ["css", "scss"],
   "stylelint.lintDirtyFilesOnly": true,
-  "json.schemaDownload.enable": false,
+  "json.schemaDownload.enable": true,
   "files.associations": {
     "*.config.ts": "typescript",
     "*.config.js": "javascript"

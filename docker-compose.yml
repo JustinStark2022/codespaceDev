@@ -3,6 +3,7 @@ services:
     build:
       context: ./node_backend
       dockerfile: Dockerfile
+      target: development
     ports:
       - "5000:5000"
     env_file:
@@ -13,14 +14,14 @@ services:
       - PORT=${PORT:-5000} # Can be overridden by .env.node_backend
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:5173} # Can be overridden by .env.node_backend
     volumes:
-      - ./node_backend:/app
-      - /app/node_modules
+      - ./node_backend:/node_backend
     command: npm run dev
 
   client:
     build:
       context: ./client
       dockerfile: Dockerfile
+      target: development
     ports:
       - "5173:5173"
     env_file:
@@ -33,6 +34,5 @@ services:
       - VITE_API_URL=${VITE_API_URL:-http://localhost:5000}
       - VITE_FRONTEND_URL=${VITE_FRONTEND_URL:-http://localhost:5173}
     volumes:
-      - ./client:/app
-      - /app/node_modules
+      - ./client:/client
     command: npm run dev
