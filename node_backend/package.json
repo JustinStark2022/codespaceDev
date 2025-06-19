@@ -4,7 +4,7 @@
   "type": "module",
   "main": "src/server.ts",
   "scripts": {
-    "dev": "tsx --tsconfig tsconfig.json src/server.ts",
+    "dev": "npx tsx --tsconfig tsconfig.json src/server.ts",
     "start": "node dist/server.js",
     "build": "tsc",
     "test": "jest",
