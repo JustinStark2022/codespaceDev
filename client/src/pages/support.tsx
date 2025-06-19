@@ -397,7 +397,7 @@ export default function Support() {
             </Card>
 
             {/* Live Chat */}
-            <Card className="h-96 flex-1 overflow-auto">
+            <Card className="h-96">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base flex items-center">
                   <Bot className="h-4 w-4 mr-2 text-blue-500" />
@@ -408,7 +408,7 @@ export default function Support() {
               </CardHeader>
               <CardContent className="flex flex-col h-72 pt-0">
                 {/* Chat Messages */}
-                <div className="flex-1 overflow-y-auto space-y-2 mb-3">
+                <div className="flex-1 overflow-y-auto space-y-2 mb-3 flex-1">
                   {chatMessages.map((msg) => (
                     <div key={msg.id} className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}>
                       <div className={`max-w-[80%] p-2 rounded-lg text-xs ${
@@ -461,7 +461,7 @@ export default function Support() {
 
           {/* Main Content Area */}
           <div className="lg:col-span-6 flex flex-col space-y-4 h-full">
-            <Card className="shadow-lg border-0 flex-1 overflow-auto">
+            <Card className="shadow-lg border-0">
               <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 border-b">
                 <CardTitle className="text-lg flex items-center">
                   <HelpCircle className="h-5 w-5 mr-2 text-blue-600" />
@@ -896,38 +896,6 @@ export default function Support() {
                     </div>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* System Status */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center">
-                  <Globe className="h-4 w-4 mr-2 text-gray-500" />
-                  System Status
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 pt-0">
-                {[
-                  { service: "Content Filtering", status: "operational", uptime: "99.9%" },
-                  { service: "Screen Time Tracking", status: "operational", uptime: "99.8%" },
-                  { service: "Bible Lessons", status: "operational", uptime: "100%" },
-                  { service: "Parent Dashboard", status: "operational", uptime: "99.9%" }
-                ].map((service, index) => (
-                  <div key={index} className="flex items-center justify-between p-2 rounded bg-gray-50">
-                    <div className="flex items-center space-x-2">
-                      <div className={`w-2 h-2 rounded-full ${
-                        service.status === "operational" ? "bg-green-500" : "bg-red-500"
-                      }`}></div>
-                      <span className="text-xs font-medium">{service.service}</span>
-                    </div>
-                    <span className="text-xs text-gray-600">{service.uptime}</span>
-                  </div>
-                ))}
-                <Button variant="outline" className="w-full mt-2 h-6 text-xs">
-                  <ExternalLink className="h-3 w-3 mr-1" />
-                  View Status Page
-                </Button>
               </CardContent>
             </Card>
 
