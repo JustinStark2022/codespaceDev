@@ -11,8 +11,8 @@ services:
       - .env.node_backend
     environment:
       - NODE_ENV=${NODE_ENV:-development}
-      - PORT=${PORT:-5000} # Can be overridden by .env.node_backend
-      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:5173} # Can be overridden by .env.node_backend
+      - PORT=${PORT:-5000} 
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:5173} 
       - NPM_CONFIG_PRODUCTION=false
     volumes:
       - ./node_backend:/node_backend
@@ -31,8 +31,6 @@ services:
       - .env.client
     environment:
       - NODE_ENV=${NODE_ENV:-development}
-      # VITE_API_URL and VITE_FRONTEND_URL should primarily come from .env.client or .env
-      # Defaulting them here can be an option, but usually, they are set in the env files.
       - VITE_API_URL=${VITE_API_URL:-http://backend:3001}
       - VITE_FRONTEND_URL=${VITE_FRONTEND_URL:-http://localhost:5173}
       - NPM_CONFIG_PRODUCTION=false
