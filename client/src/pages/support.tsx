@@ -370,9 +370,9 @@ export default function Support() {
         </div>
 
         {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
           {/* Left Sidebar - Quick Actions & Chat */}
-          <div className="lg:col-span-3 space-y-4">
+          <div className="lg:col-span-3 flex flex-col space-y-4 h-full">
             {/* Quick Actions */}
             <Card>
               <CardHeader className="pb-3">
@@ -397,7 +397,7 @@ export default function Support() {
             </Card>
 
             {/* Live Chat */}
-            <Card className="h-96">
+            <Card className="h-96 flex-1 overflow-auto">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base flex items-center">
                   <Bot className="h-4 w-4 mr-2 text-blue-500" />
@@ -460,8 +460,8 @@ export default function Support() {
           </div>
 
           {/* Main Content Area */}
-          <div className="lg:col-span-6 space-y-4">
-            <Card className="shadow-lg border-0">
+          <div className="lg:col-span-6 flex flex-col space-y-4 h-full">
+            <Card className="shadow-lg border-0 flex-1 overflow-auto">
               <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 border-b">
                 <CardTitle className="text-lg flex items-center">
                   <HelpCircle className="h-5 w-5 mr-2 text-blue-600" />
@@ -787,7 +787,7 @@ export default function Support() {
           </div>
 
           {/* Right Sidebar - Contact & Support Info */}
-          <div className="lg:col-span-3 space-y-4">
+          <div className="lg:col-span-3 flex flex-col space-y-4 h-full">
             {/* Contact Form */}
             <Card>
               <CardHeader className="pb-3">
