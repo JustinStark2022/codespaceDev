@@ -16,7 +16,8 @@ services:
       - NPM_CONFIG_PRODUCTION=false
     volumes:
       - ./node_backend:/node_backend
-    command: sh -c "npm install && npm run dev"
+      - node_modules_backend:/node_backend/node_modules
+    command: npm run dev
 
   client:
     build:
@@ -37,4 +38,9 @@ services:
       - NPM_CONFIG_PRODUCTION=false
     volumes:
       - ./client:/client
-    command: sh -c "npm install && npm run dev"
+      - node_modules_client:/client/node_modules
+    command: npm run dev
+
+volumes:
+  node_modules_backend:
+  node_modules_client:
