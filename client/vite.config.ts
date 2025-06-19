@@ -1,11 +1,8 @@
-import { defineConfig, loadEnv } from "vite";
+import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 
 export default defineConfig(({ mode }) => {
-  // Explicitly load .env.client from the root directory
-  const env = loadEnv(mode, process.cwd(), ".env.client");
-
   return {
     server: {
       host: "0.0.0.0",
@@ -17,7 +14,7 @@ export default defineConfig(({ mode }) => {
       },
       proxy: {
         "/api": {
-          target: env.VITE_API_URL || "http://localhost:5000", // Updated: Use port 5000 as default
+          target: "http://backend:3001",
           changeOrigin: true,
           secure: false,
           ws: true,
@@ -26,7 +23,7 @@ export default defineConfig(({ mode }) => {
               console.log("proxy error", err);
             });
             proxy.on("proxyReq", (proxyReq) => {
-              proxyReq.setHeader("Origin", env.VITE_FRONTEND_URL || "http://localhost:5173");
+              proxyReq.setHeader("Origin", process.env.VITE_FRONTEND_URL || "http://localhost:5173");
             });
           },
         },
@@ -58,8 +55,6 @@ export default defineConfig(({ mode }) => {
         "@": path.resolve(__dirname, "src"), // Alias for the "src" directory
       },
     },
-    define: {
-      __APP_ENV__: JSON.stringify(env.APP_ENV), // Define environment-specific variables
-    },
+
   };
 });
