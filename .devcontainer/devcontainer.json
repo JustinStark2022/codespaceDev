@@ -2,7 +2,7 @@
   "name": "Kingdom Kids Development",
   "dockerComposeFile": "../docker-compose.yml",
   "service": "backend",
-  "workspaceFolder": "/workspace",
+  "workspaceFolder": "/codespaceDev",
   "shutdownAction": "stopCompose",
   "customizations": {
     "vscode": {
