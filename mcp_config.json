@@ -1,0 +1,64 @@
+{
+  "mcpServers": {
+    "git": {
+      "command": "python",
+      "args": [
+        "-m",
+        "mcp_server_git"
+      ],
+      "env": {}
+    },
+    "mcp-server-neon": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://mcp.neon.tech/sse"
+      ],
+      "env": {
+        "NEON_API_KEY": "${NEON_API_KEY}"
+      }
+    },
+    "neon": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "@smithery/cli@latest",
+        "run",
+        "neon",
+        "--key",
+        "${NEON_API_KEY}",
+        "--config",
+        "{\"neonApiKey\":\"${NEON_API_KEY}\"}"
+      ],
+      "env": {
+        "NEON_API_KEY": "${NEON_API_KEY}"
+      }
+    },
+    "taskmaster-ai": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "--package=task-master-ai",
+        "task-master-ai",
+        "--config",
+        "./taskmaster.config.json"
+      ],
+      "env": {
+        "OPENAI_API_KEY": "${OPENAI_API_KEY}",
+        "TASKMASTER_CONFIG": "./taskmaster.config.json"
+      }
+    },
+    "filesystem": {
+      "command": "python",
+      "args": [
+        "-m",
+        "mcp_server_filesystem",
+        "/workspace"
+      ],
+      "env": {}
+    }
+  }
+}
