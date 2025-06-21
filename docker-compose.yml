@@ -1,22 +1,5 @@
-version: '3.8'
 
 services:
-  database:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_DB: faith_fortress_db
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d faith_fortress_db"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
   backend:
     build:
       context: ./node_backend
@@ -24,21 +7,26 @@ services:
       target: development
     ports:
       - "5000:3001"
+    working_dir: /workspace/node_backend
     env_file:
       - .env
       - .env.node_backend
     environment:
       - NODE_ENV=${NODE_ENV:-development}
       - PORT=3001
-      - DATABASE_URL=postgresql://user:password@database:5432/faith_fortress_db
+      - PGHOST=${PGHOST}
+      - PGUSER=${PGUSER}
+      - PGPASSWORD=${PGPASSWORD}
+      - PGDATABASE=${PGDATABASE}
+      - DATABASE_URL=${DATABASE_URL}
+      - NEON_API_KEY=${NEON_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - BIBLE_API_KEY=${BIBLE_API_KEY}
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:5173}
       - NPM_CONFIG_PRODUCTION=false
     volumes:
       - ./node_backend:/workspace/node_backend
       - node_modules_backend:/workspace/node_backend/node_modules
-    depends_on:
-      database:
-        condition: service_healthy
     command: npm run dev
     networks:
       - app-network
@@ -50,6 +38,7 @@ services:
       target: development
     ports:
       - "5173:5173"
+    working_dir: /workspace/client
     env_file:
       - .env
       - .env.client
@@ -57,6 +46,8 @@ services:
       - NODE_ENV=${NODE_ENV:-development}
       - VITE_API_URL=${VITE_API_URL:-http://localhost:5000}
       - VITE_FRONTEND_URL=${VITE_FRONTEND_URL:-http://localhost:5173}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - NEON_API_KEY=${NEON_API_KEY}
       - NPM_CONFIG_PRODUCTION=false
     volumes:
       - ./client:/workspace/client

@@ -32,7 +32,7 @@ COPY package*.json ./
 RUN npm install
 
 # Install MCP server dependencies
-RUN pip3 install mcp-server-git
+RUN python3 -m pip install --break-system-packages mcp-server-git
 
 COPY . .
 

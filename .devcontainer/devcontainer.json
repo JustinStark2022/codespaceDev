@@ -2,7 +2,7 @@
   "name": "Kingdom Kids Development",
   "dockerComposeFile": "../docker-compose.yml",
   "service": "backend",
-  "workspaceFolder": "/codespaceDev",
+  "workspaceFolder": "/workspace/node_backend",
   "shutdownAction": "stopCompose",
   "customizations": {
     "vscode": {
@@ -35,6 +35,6 @@
       "onAutoForward": "notify"
     }
   },
-  "postCreateCommand": "npm install",
+  "postCreateCommand": "npm install && cd /workspace/client && npm install",
   "remoteUser": "node"
 }
