@@ -405,9 +405,9 @@ export default function Support() {
                 </CardTitle>
                 <CardDescription className="text-xs">Get instant help from our AI support agent</CardDescription>
               </CardHeader>
-              <CardContent className="flex flex-col h-72 pt-0">
+              <CardContent className="flex flex-col h-72 pt-0 overflow-y-auto">
                 {/* Chat Messages */}
-                <div className="flex-1 overflow-y-auto space-y-2 mb-3 flex-1">
+                <div className="flex-1 overflow-y-auto space-y-2 mb-3">
                   {chatMessages.map((msg) => (
                     <div key={msg.id} className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}>
                       <div className={`max-w-[80%] p-2 rounded-lg text-xs ${
@@ -469,7 +469,7 @@ export default function Support() {
                 <CardDescription>Everything you need to get the most out of Kingdom Kids</CardDescription>
               </CardHeader>
               <CardContent className="pt-4">
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full h-full flex-1">
                   <TabsList className="grid grid-cols-3 mb-6 h-10 bg-gray-100">
                     <TabsTrigger value="overview" className="text-sm font-medium">
                       <Star className="h-4 w-4 mr-2" />
@@ -486,7 +486,7 @@ export default function Support() {
                   </TabsList>
 
                   {/* Overview Tab */}
-                  <TabsContent value="overview" className="space-y-6">
+                  <TabsContent value="overview" className="space-y-6 flex-1 overflow-y-auto">
                     {/* Feature Highlights */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
   <Card className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200 shadow-md rounded-xl flex flex-col justify-between h-full">
@@ -569,7 +569,7 @@ export default function Support() {
                   </TabsContent>
 
                   {/* FAQs Tab */}
-                  <TabsContent value="faqs" className="space-y-4">
+                  <TabsContent value="faqs" className="space-y-4 flex-1 overflow-y-auto">
                     {/* Search and Filter */}
                     <div className="flex space-x-2">
                       <div className="flex-1 relative">
@@ -641,7 +641,7 @@ export default function Support() {
                   </TabsContent>
 
                   {/* Guides Tab */}
-                  <TabsContent value="guides" className="space-y-4">
+                  <TabsContent value="guides" className="space-y-4 flex-1 overflow-y-auto">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {/* Getting Started Guide */}
                       <Card className="border-l-4 border-l-blue-500">
