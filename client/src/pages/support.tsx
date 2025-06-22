@@ -351,53 +351,51 @@ export default function Support() {
 
   return (
     <Layout title="Support">
-      <div className="max-w-7xl mx-auto space-y-4">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center">
-            <div className="p-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg mr-3">
-              <HelpCircle className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold">Help & Support</h1>
-              <p className="text-sm text-gray-600">Get help, find answers, and connect with our support team</p>
-            </div>
-          </div>
-          <Badge variant="secondary" className="bg-green-100 text-green-800">
-            <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-            All systems operational
-          </Badge>
-        </div>
+      <div className="max-w-[1440px] mx-auto px-2 sm:px-4 py-4 space-y-6">
+  {/* Header */}
+  <div className="flex items-center justify-between mb-6">
+    <div className="flex items-center">
+      <div className="p-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl shadow-lg mr-4">
+        <HelpCircle className="h-6 w-6 text-white" />
+      </div>
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Help & Support</h1>
+        <p className="text-base text-gray-600">Get help, find answers, and connect with our support team</p>
+      </div>
+    </div>
 
-        {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-          {/* Left Sidebar - Quick Actions & Chat */}
-          <div className="lg:col-span-3 flex flex-col space-y-4 h-full">
-            {/* Quick Actions */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center">
-                  <Zap className="h-4 w-4 mr-2 text-yellow-500" />
-                  Quick Actions
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 pt-0">
-                {quickActions.map((action, index) => (
-                  <Button
-                    key={index}
-                    variant="ghost"
-                    className="w-full justify-start h-8 text-xs"
-                    onClick={() => handleQuickAction(action.action)}
-                  >
-                    <span className="mr-2">{action.icon}</span>
-                    {action.text}
-                  </Button>
-                ))}
-              </CardContent>
-            </Card>
+  </div>
 
-            {/* Live Chat */}
-            <Card className="h-96">
+  {/* Main Content Grid */}
+  <div className="flex flex-col lg:flex-row gap-8 items-stretch w-full">
+  {/* Left Sidebar */}
+  <div className="w-full lg:w-1/4 flex flex-col gap-6 bg-gradient-to-b from-blue-50/70 to-white/80 rounded-2xl p-4 shadow-md min-h-[400px] h-full">
+    {/* Quick Actions */}
+    <Card className="flex-1 rounded-xl shadow-md flex flex-col">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center">
+          <Zap className="h-4 w-4 mr-2 text-yellow-500" />
+          Quick Actions
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2 pt-0">
+        {quickActions.map((action, index) => (
+          <Button
+            key={index}
+            variant="ghost"
+            className="w-full justify-start h-9 text-sm rounded-lg"
+            onClick={() => handleQuickAction(action.action)}
+          >
+            <span className="mr-2">{action.icon}</span>
+            {action.text}
+          </Button>
+        ))}
+      </CardContent>
+    </Card>
+
+    {/* Live Chat */}
+    <Card className="flex-1 min-h-[340px] max-h-[480px] flex flex-col rounded-xl shadow-md bg-white/90">
+
               <CardHeader className="pb-2">
                 <CardTitle className="text-base flex items-center">
                   <Bot className="h-4 w-4 mr-2 text-blue-500" />
@@ -489,59 +487,56 @@ export default function Support() {
                   {/* Overview Tab */}
                   <TabsContent value="overview" className="space-y-6">
                     {/* Feature Highlights */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <Card className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200 hover:shadow-lg transition-shadow">
-                        <CardContent className="p-6">
-                          <div className="flex items-center mb-3">
-                            <Shield className="h-6 w-6 text-blue-600 mr-3" />
-                            <h3 className="font-bold text-lg text-blue-800">Content Protection</h3>
-                          </div>
-                          <p className="text-blue-700 mb-4">AI-powered filtering keeps your family safe from inappropriate content across all devices and platforms</p>
-                          <Button variant="outline" size="sm" className="mt-2 h-8 text-sm border-blue-300 text-blue-700 hover:bg-blue-200">
-                            Learn More
-                          </Button>
-                        </CardContent>
-                      </Card>
-
-                      <Card className="bg-gradient-to-r from-green-50 to-green-100 border-green-200 hover:shadow-lg transition-shadow">
-                        <CardContent className="p-6">
-                          <div className="flex items-center mb-3">
-                            <Heart className="h-6 w-6 text-green-600 mr-3" />
-                            <h3 className="font-bold text-lg text-green-800">Biblical Values</h3>
-                          </div>
-                          <p className="text-green-700 mb-4">Every feature is designed with Christian principles at its core, helping families grow in faith together</p>
-                          <Button variant="outline" size="sm" className="mt-2 h-8 text-sm border-green-300 text-green-700 hover:bg-green-200">
-                            Explore
-                          </Button>
-                        </CardContent>
-                      </Card>
-
-                      <Card className="bg-gradient-to-r from-purple-50 to-purple-100 border-purple-200 hover:shadow-lg transition-shadow">
-                        <CardContent className="p-6">
-                          <div className="flex items-center mb-3">
-                            <Clock className="h-6 w-6 text-purple-600 mr-3" />
-                            <h3 className="font-bold text-lg text-purple-800">Screen Time Balance</h3>
-                          </div>
-                          <p className="text-purple-700 mb-4">Healthy digital habits with Bible-based reward systems that encourage spiritual growth</p>
-                          <Button variant="outline" size="sm" className="mt-2 h-8 text-sm border-purple-300 text-purple-700 hover:bg-purple-200">
-                            Set Up
-                          </Button>
-                        </CardContent>
-                      </Card>
-
-                      <Card className="bg-gradient-to-r from-orange-50 to-orange-100 border-orange-200 hover:shadow-lg transition-shadow">
-                        <CardContent className="p-6">
-                          <div className="flex items-center mb-3">
-                            <Headphones className="h-6 w-6 text-orange-600 mr-3" />
-                            <h3 className="font-bold text-lg text-orange-800">24/7 Support</h3>
-                          </div>
-                          <p className="text-orange-700 mb-4">Get help whenever you need it from our caring support team who understand family needs</p>
-                          <Button variant="outline" size="sm" className="mt-2 h-8 text-sm border-orange-300 text-orange-700 hover:bg-orange-200">
-                            Contact Us
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+  <Card className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200 shadow-md rounded-xl flex flex-col justify-between h-full">
+    <CardContent className="p-6 flex flex-col h-full">
+      <div className="flex items-center mb-3">
+        <Shield className="h-6 w-6 text-blue-600 mr-3" />
+        <h3 className="font-bold text-lg text-blue-800">Content Protection</h3>
+      </div>
+      <p className="text-blue-700 mb-4 flex-1">AI-powered filtering keeps your family safe from inappropriate content across all devices and platforms</p>
+      <Button variant="outline" size="sm" className="mt-2 h-8 text-sm border-blue-300 text-blue-700 hover:bg-blue-200">
+        Learn More
+      </Button>
+    </CardContent>
+  </Card>
+  <Card className="bg-gradient-to-r from-green-50 to-green-100 border-green-200 shadow-md rounded-xl flex flex-col justify-between h-full">
+    <CardContent className="p-6 flex flex-col h-full">
+      <div className="flex items-center mb-3">
+        <Heart className="h-6 w-6 text-green-600 mr-3" />
+        <h3 className="font-bold text-lg text-green-800">Biblical Values</h3>
+      </div>
+      <p className="text-green-700 mb-4 flex-1">Every feature is designed with Christian principles at its core, helping families grow in faith together</p>
+      <Button variant="outline" size="sm" className="mt-2 h-8 text-sm border-green-300 text-green-700 hover:bg-green-200">
+        Explore
+      </Button>
+    </CardContent>
+  </Card>
+  <Card className="bg-gradient-to-r from-purple-50 to-purple-100 border-purple-200 shadow-md rounded-xl flex flex-col justify-between h-full">
+    <CardContent className="p-6 flex flex-col h-full">
+      <div className="flex items-center mb-3">
+        <Clock className="h-6 w-6 text-purple-600 mr-3" />
+        <h3 className="font-bold text-lg text-purple-800">Screen Time Balance</h3>
+      </div>
+      <p className="text-purple-700 mb-4 flex-1">Healthy digital habits with Bible-based reward systems that encourage spiritual growth</p>
+      <Button variant="outline" size="sm" className="mt-2 h-8 text-sm border-purple-300 text-purple-700 hover:bg-purple-200">
+        Set Up
+      </Button>
+    </CardContent>
+  </Card>
+  <Card className="bg-gradient-to-r from-orange-50 to-orange-100 border-orange-200 shadow-md rounded-xl flex flex-col justify-between h-full">
+    <CardContent className="p-6 flex flex-col h-full">
+      <div className="flex items-center mb-3">
+        <Headphones className="h-6 w-6 text-orange-600 mr-3" />
+        <h3 className="font-bold text-lg text-orange-800">24/7 Support</h3>
+      </div>
+      <p className="text-orange-700 mb-4 flex-1">Get help whenever you need it from our caring support team who understand family needs</p>
+      <Button variant="outline" size="sm" className="mt-2 h-8 text-sm border-orange-300 text-orange-700 hover:bg-orange-200">
+        Contact Us
+      </Button>
+    </CardContent>
+  </Card>
+</div>
 
                     {/* Quick Stats */}
                     <Card className="bg-gradient-to-r from-gray-50 to-gray-100 border-gray-200">
@@ -786,139 +781,140 @@ export default function Support() {
             </Card>
           </div>
 
-          {/* Right Sidebar - Contact & Support Info */}
-          <div className="lg:col-span-3 flex flex-col space-y-4 h-full">
-            {/* Contact Form */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center">
-                  <Mail className="h-4 w-4 mr-2 text-blue-500" />
-                  Contact Support
-                </CardTitle>
-                <CardDescription className="text-xs">Get personalized help from our team</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 pt-0">
-                <form onSubmit={handleSubmit} className="space-y-3">
-                  <div className="space-y-1">
-                    <label htmlFor="name" className="text-xs font-medium">Your Name</label>
-                    <Input
-                      id="name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="Enter your name"
-                      className="h-7 text-xs"
-                      required
-                    />
-                  </div>
+    {/* Right Sidebar - Grouped Panel */}
+    <div className="w-full lg:w-1/4 flex flex-col h-full">
+      <div className="flex-1 flex flex-col bg-gradient-to-b from-gray-50 to-white rounded-2xl shadow-md p-4 gap-6 h-full">
+        {/* Contact Form */}
+        <Card className="rounded-xl shadow-sm flex flex-col">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center">
+              <Mail className="h-4 w-4 mr-2 text-blue-500" />
+              Contact Support
+            </CardTitle>
+            <CardDescription className="text-xs">Get personalized help from our team</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 pt-0">
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <div className="space-y-1">
+                <label htmlFor="name" className="text-xs font-medium">Your Name</label>
+                <Input
+                  id="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Enter your name"
+                  className="h-7 text-xs"
+                  required
+                />
+              </div>
 
-                  <div className="space-y-1">
-                    <label htmlFor="email" className="text-xs font-medium">Email Address</label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="Enter your email"
-                      className="h-7 text-xs"
-                      required
-                    />
-                  </div>
+              <div className="space-y-1">
+                <label htmlFor="email" className="text-xs font-medium">Email Address</label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter your email"
+                  className="h-7 text-xs"
+                  required
+                />
+              </div>
 
-                  <div className="space-y-1">
-                    <label htmlFor="message" className="text-xs font-medium">Message</label>
-                    <Textarea
-                      id="message"
-                      value={message}
-                      onChange={(e) => setMessage(e.target.value)}
-                      placeholder="How can we help you?"
-                      rows={3}
-                      className="text-xs"
-                      required
-                    />
-                  </div>
+              <div className="space-y-1">
+                <label htmlFor="message" className="text-xs font-medium">Message</label>
+                <Textarea
+                  id="message"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="How can we help you?"
+                  rows={3}
+                  className="text-xs"
+                  required
+                />
+              </div>
 
-                  <Button
-                    type="submit"
-                    className="w-full h-7 text-xs"
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                        Sending...
-                      </>
-                    ) : (
-                      <>
-                        <Send className="mr-1 h-3 w-3" />
-                        Send Message
-                      </>
-                    )}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
+              <Button
+                type="submit"
+                className="w-full h-7 text-xs"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Send className="mr-1 h-3 w-3" />
+                    Send Message
+                  </>
+                )}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
 
-            {/* Support Channels */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center">
-                  <Headphones className="h-4 w-4 mr-2 text-green-500" />
-                  Support Channels
-                </CardTitle>
-                <CardDescription className="text-xs">Multiple ways to get help</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 pt-0">
-                <div className="space-y-3">
-                  <div className="flex items-start space-x-3 p-2 rounded-lg bg-blue-50">
-                    <Phone className="h-4 w-4 text-blue-600 mt-0.5" />
-                    <div>
-                      <h3 className="font-medium text-sm text-blue-800">Phone Support</h3>
-                      <p className="text-xs text-blue-600">(555) 123-4567</p>
-                      <p className="text-xs text-blue-500">Mon-Fri, 9 AM - 5 PM ET</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start space-x-3 p-2 rounded-lg bg-green-50">
-                    <Mail className="h-4 w-4 text-green-600 mt-0.5" />
-                    <div>
-                      <h3 className="font-medium text-sm text-green-800">Email Support</h3>
-                      <p className="text-xs text-green-600">support@kingdomkids.com</p>
-                      <p className="text-xs text-green-500">Response within 24 hours</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start space-x-3 p-2 rounded-lg bg-purple-50">
-                    <MessageSquare className="h-4 w-4 text-purple-600 mt-0.5" />
-                    <div>
-                      <h3 className="font-medium text-sm text-purple-800">Live Chat</h3>
-                      <p className="text-xs text-purple-600">Available in-app</p>
-                      <p className="text-xs text-purple-500">Daily, 10 AM - 8 PM ET</p>
-                    </div>
-                  </div>
+        {/* Support Channels */}
+        <Card className="rounded-xl shadow-sm flex flex-col">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center">
+              <Headphones className="h-4 w-4 mr-2 text-green-500" />
+              Support Channels
+            </CardTitle>
+            <CardDescription className="text-xs">Multiple ways to get help</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 pt-0">
+            <div className="space-y-3">
+              <div className="flex items-start space-x-3 p-2 rounded-lg bg-blue-50">
+                <Phone className="h-4 w-4 text-blue-600 mt-0.5" />
+                <div>
+                  <h3 className="font-medium text-sm text-blue-800">Phone Support</h3>
+                  <p className="text-xs text-blue-600">(555) 123-4567</p>
+                  <p className="text-xs text-blue-500">Mon-Fri, 9 AM - 5 PM ET</p>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
 
-            {/* Community */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center">
-                  <Heart className="h-4 w-4 mr-2 text-pink-500" />
-                  Community
-                </CardTitle>
-                <CardDescription className="text-xs">Connect with other families</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2 pt-0">
-                <Button variant="outline" className="w-full justify-start h-7 text-xs">
-                  <MessageSquare className="h-3 w-3 mr-2" />
-                  Parent Forum
-                </Button>
-                <Button variant="outline" className="w-full justify-start h-7 text-xs">
-                  <Coffee className="h-3 w-3 mr-2" />
-                  Weekly Q&A
-                </Button>
-                <Button variant="outline" className="w-full justify-start h-7 text-xs">
-                  <BookOpen className="h-3 w-3 mr-2" />
+              <div className="flex items-start space-x-3 p-2 rounded-lg bg-green-50">
+                <Mail className="h-4 w-4 text-green-600 mt-0.5" />
+                <div>
+                  <h3 className="font-medium text-sm text-green-800">Email Support</h3>
+                  <p className="text-xs text-green-600">support@kingdomkids.com</p>
+                  <p className="text-xs text-green-500">Response within 24 hours</p>
+                </div>
+              </div>
+
+              <div className="flex items-start space-x-3 p-2 rounded-lg bg-purple-50">
+                <MessageSquare className="h-4 w-4 text-purple-600 mt-0.5" />
+                <div>
+                  <h3 className="font-medium text-sm text-purple-800">Live Chat</h3>
+                  <p className="text-xs text-purple-600">Available in-app</p>
+                  <p className="text-xs text-purple-500">Daily, 10 AM - 8 PM ET</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Community */}
+        <Card className="rounded-xl shadow-sm flex flex-col">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center">
+              <Heart className="h-4 w-4 mr-2 text-pink-500" />
+              Community
+            </CardTitle>
+            <CardDescription className="text-xs">Connect with other families</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2 pt-0">
+            <Button variant="outline" className="w-full justify-start h-7 text-xs">
+              <MessageSquare className="h-3 w-3 mr-2" />
+              Parent Forum
+            </Button>
+            <Button variant="outline" className="w-full justify-start h-7 text-xs">
+              <Coffee className="h-3 w-3 mr-2" />
+              Weekly Q&A
+            </Button>
+            <Button variant="outline" className="w-full justify-start h-7 text-xs">
+              <BookOpen className="h-3 w-3 mr-2" />
                   Family Stories
                 </Button>
                 <Button variant="outline" className="w-full justify-start h-7 text-xs">
