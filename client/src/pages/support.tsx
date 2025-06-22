@@ -395,7 +395,7 @@ export default function Support() {
     </Card>
 
     {/* Live Chat */}
-    <Card className="flex-1 min-h-[340px] max-h-[480px] flex flex-col rounded-xl shadow-md bg-white/90">
+    <Card className="flex-1 min-h-[600px] max-h-[880px] flex-col rounded-xl shadow-md bg-white/90">
 
               <CardHeader className="pb-2">
                 <CardTitle className="text-base flex items-center">
@@ -459,7 +459,7 @@ export default function Support() {
           </div>
 
           {/* Main Content Area */}
-          <div className="lg:col-span-6 flex flex-col space-y-4 h-full">
+          <div className="lg:col-span-6 flex-1 flex-col space-y-4 h-full">
             <Card className="shadow-lg border-0">
               <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 border-b">
                 <CardTitle className="text-lg flex items-center">
@@ -541,25 +541,25 @@ export default function Support() {
 
                     {/* Quick Stats */}
                     <Card className="bg-gradient-to-r from-gray-50 to-gray-100 border-gray-200">
-                      <CardHeader className="pb-4">
+                      <CardHeader className="pb-4 flex-1">
                         <CardTitle className="text-xl font-bold text-center">Kingdom Kids by the Numbers</CardTitle>
                         <CardDescription className="text-center">Trusted by families worldwide</CardDescription>
                       </CardHeader>
-                      <CardContent className="pt-0">
+                      <CardContent className="pt-0 flex-1 mt-2 mb-2">
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                          <div className="text-center p-4 bg-white rounded-lg shadow-sm">
+                          <div className="text-center mt-2 mb-2 p-4 bg-white rounded-lg shadow-sm">
                             <div className="text-3xl font-bold text-blue-600 mb-1">50K+</div>
                             <div className="text-sm text-gray-600 font-medium">Families Protected</div>
                           </div>
-                          <div className="text-center p-4 bg-white rounded-lg shadow-sm">
+                          <div className="text-center mt-2 mb-2 p-4 bg-white rounded-lg shadow-sm">
                             <div className="text-3xl font-bold text-green-600 mb-1">1M+</div>
                             <div className="text-sm text-gray-600 font-medium">Content Items Filtered</div>
                           </div>
-                          <div className="text-center p-4 bg-white rounded-lg shadow-sm">
+                          <div className="text-center mt-2 mb-2 p-4 bg-white rounded-lg shadow-sm">
                             <div className="text-3xl font-bold text-purple-600 mb-1">99.9%</div>
                             <div className="text-sm text-gray-600 font-medium">Uptime</div>
                           </div>
-                          <div className="text-center p-4 bg-white rounded-lg shadow-sm">
+                          <div className="text-center mt-2 mb-2 p-4 bg-white rounded-lg shadow-sm">
                             <div className="text-3xl font-bold text-orange-600 mb-1">4.9★</div>
                             <div className="text-sm text-gray-600 font-medium">Parent Rating</div>
                           </div>
