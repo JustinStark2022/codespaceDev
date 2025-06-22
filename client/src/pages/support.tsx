@@ -395,7 +395,7 @@ export default function Support() {
     </Card>
 
     {/* Live Chat */}
-    <Card className="flex-1 min-h-[600px] max-h-[880px] flex-col rounded-xl shadow-md bg-white/90">
+    <Card className="flex-1 min-h-[600px] max-h-[930px] flex-col rounded-xl shadow-md bg-white/90">
 
               <CardHeader className="pb-2">
                 <CardTitle className="text-base flex items-center">
@@ -405,54 +405,56 @@ export default function Support() {
                 </CardTitle>
                 <CardDescription className="text-xs">Get instant help from our AI support agent</CardDescription>
               </CardHeader>
-              <CardContent className="flex flex-col h-72 pt-0 overflow-y-auto">
-                {/* Chat Messages */}
-                <div className="flex-1 overflow-y-auto space-y-2 mb-3">
-                  {chatMessages.map((msg) => (
-                    <div key={msg.id} className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}>
-                      <div className={`max-w-[80%] p-2 rounded-lg text-xs ${
-                        msg.sender === "user"
-                          ? "bg-blue-500 text-white"
-                          : "bg-gray-100 text-gray-800"
-                      }`}>
-                        <div className="flex items-start space-x-1">
-                          {msg.sender === "agent" && <Bot className="h-3 w-3 mt-0.5 text-blue-500" />}
-                          {msg.sender === "user" && <User className="h-3 w-3 mt-0.5" />}
-                          <span>{msg.message}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {isChatTyping && (
-                    <div className="flex justify-start">
-                      <div className="bg-gray-100 p-2 rounded-lg text-xs">
-                        <div className="flex items-center space-x-1">
-                          <Bot className="h-3 w-3 text-blue-500" />
-                          <span>Faith is typing...</span>
-                          <div className="flex space-x-1">
-                            <div className="w-1 h-1 bg-gray-400 rounded-full animate-bounce"></div>
-                            <div className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-                            <div className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+              <CardContent className="flex flex-col h-full p-0">
+                <div className="flex flex-col h-full">
+                  {/* --- messages area --- */}
+                  <div className="flex-1 overflow-auto p-4">
+                    {chatMessages.map((msg) => (
+                      <div key={msg.id} className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}>
+                        <div className={`max-w-[80%] p-2 rounded-lg text-xs ${
+                          msg.sender === "user"
+                            ? "bg-blue-500 text-white"
+                            : "bg-gray-100 text-gray-800"
+                        }`}>
+                          <div className="flex items-start space-x-1">
+                            {msg.sender === "agent" && <Bot className="h-3 w-3 mt-0.5 text-blue-500" />}
+                            {msg.sender === "user" && <User className="h-3 w-3 mt-0.5" />}
+                            <span>{msg.message}</span>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  )}
-                  <div ref={chatEndRef} />
-                </div>
+                    ))}
+                    {isChatTyping && (
+                      <div className="flex justify-start">
+                        <div className="bg-gray-100 p-2 rounded-lg text-xs">
+                          <div className="flex items-center space-x-1">
+                            <Bot className="h-3 w-3 text-blue-500" />
+                            <span>Faith is typing...</span>
+                            <div className="flex space-x-1">
+                              <div className="w-1 h-1 bg-gray-400 rounded-full animate-bounce"></div>
+                              <div className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                              <div className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    <div ref={chatEndRef} />
+                  </div>
 
-                {/* Chat Input */}
-                <div className="flex space-x-2">
-                  <Input
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    placeholder="Ask Faith anything..."
-                    className="h-8 text-xs"
-                    onKeyPress={(e) => e.key === "Enter" && handleChatSend()}
-                  />
-                  <Button size="sm" onClick={handleChatSend} className="h-8 w-8 p-0">
-                    <Send className="h-3 w-3" />
-                  </Button>
+                  {/* --- chat input, pushed to bottom --- */}
+                  <div className="mt-auto flex space-x-2 p-4">
+                    <Input
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      placeholder="Ask Faith anything..."
+                      className="h-8 text-xs"
+                      onKeyPress={(e) => e.key === "Enter" && handleChatSend()}
+                    />
+                    <Button size="sm" onClick={handleChatSend} className="h-8 w-8 p-0">
+                      <Send className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
