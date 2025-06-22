@@ -395,7 +395,7 @@ export default function Support() {
     </Card>
 
     {/* Live Chat */}
-    <Card className="flex-1 min-h-[600px] max-h-[930px] flex-col rounded-xl shadow-md bg-white/90">
+    <Card className="flex flex-col h-full min-h-0 max-h-none rounded-xl shadow-md bg-white/90">
 
               <CardHeader className="pb-2">
                 <CardTitle className="text-base flex items-center">
