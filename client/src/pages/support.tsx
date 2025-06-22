@@ -444,20 +444,18 @@ export default function Support() {
     <div ref={chatEndRef} />
   </div>
 
-  {/* --- chat input, sticky at the very bottom of the chat UI, full width --- */}
-  <div className="fixed left-0 bottom-0 w-full z-50 flex justify-center bg-white/95 border-t border-gray-200 shadow-lg" style={{boxShadow: '0 -2px 8px rgba(0,0,0,0.03)'}}>
-    <div className="flex w-full max-w-[420px] px-4 py-2 space-x-2">
-      <Input
-        value={chatInput}
-        onChange={(e) => setChatInput(e.target.value)}
-        placeholder="Ask Faith anything..."
-        className="h-10 text-xs flex-1"
-        onKeyPress={(e) => e.key === "Enter" && handleChatSend()}
-      />
-      <Button size="sm" onClick={handleChatSend} className="h-10 w-10 p-0">
-        <Send className="h-4 w-4" />
-      </Button>
-    </div>
+  {/* --- chat input, always at bottom of chat card, not full screen --- */}
+  <div className="mt-auto flex space-x-2 p-4 border-t border-gray-200 bg-white/95 shadow-sm">
+    <Input
+      value={chatInput}
+      onChange={(e) => setChatInput(e.target.value)}
+      placeholder="Ask Faith anything..."
+      className="h-8 text-xs flex-1"
+      onKeyPress={(e) => e.key === "Enter" && handleChatSend()}
+    />
+    <Button size="sm" onClick={handleChatSend} className="h-8 w-8 p-0">
+      <Send className="h-3 w-3" />
+    </Button>
   </div>
 </div>
             </Card>
