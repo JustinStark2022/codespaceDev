@@ -405,10 +405,13 @@ export default function Support() {
                 </CardTitle>
                 <CardDescription className="text-xs">Get instant help from our AI support agent</CardDescription>
               </CardHeader>
-              <CardContent className="flex flex-col h-full p-0">
-                <div className="flex flex-col h-full">
+              <CardContent className="flex flex-col h-full p-0 min-h-[600px]">
+                <div className="flex flex-col h-full min-h-[500px]">
                   {/* --- messages area --- */}
                   <div className="flex-1 overflow-auto p-4">
+                    {chatMessages.length === 0 && (
+                      <div className="text-gray-400 text-center mt-8">No messages yet. Start the conversation!</div>
+                    )}
                     {chatMessages.map((msg) => (
                       <div key={msg.id} className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}>
                         <div className={`max-w-[80%] p-2 rounded-lg text-xs ${
@@ -442,8 +445,8 @@ export default function Support() {
                     <div ref={chatEndRef} />
                   </div>
 
-                  {/* --- chat input, pushed to bottom --- */}
-                  <div className="mt-auto flex space-x-2 p-4">
+                  {/* --- chat input, always at bottom, visually separated --- */}
+                  <div className="mt-auto flex space-x-2 p-4 border-t border-gray-200 bg-white/95 shadow-sm">
                     <Input
                       value={chatInput}
                       onChange={(e) => setChatInput(e.target.value)}
