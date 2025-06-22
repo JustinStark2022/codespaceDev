@@ -405,61 +405,61 @@ export default function Support() {
                 </CardTitle>
                 <CardDescription className="text-xs">Get instant help from our AI support agent</CardDescription>
               </CardHeader>
-              <CardContent className="flex flex-col h-full p-0 min-h-[600px]">
-                <div className="flex flex-col h-full min-h-[500px]">
-                  {/* --- messages area --- */}
-                  <div className="flex-1 overflow-auto p-4">
-                    {chatMessages.length === 0 && (
-                      <div className="text-gray-400 text-center mt-8">No messages yet. Start the conversation!</div>
-                    )}
-                    {chatMessages.map((msg) => (
-                      <div key={msg.id} className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}>
-                        <div className={`max-w-[80%] p-2 rounded-lg text-xs ${
-                          msg.sender === "user"
-                            ? "bg-blue-500 text-white"
-                            : "bg-gray-100 text-gray-800"
-                        }`}>
-                          <div className="flex items-start space-x-1">
-                            {msg.sender === "agent" && <Bot className="h-3 w-3 mt-0.5 text-blue-500" />}
-                            {msg.sender === "user" && <User className="h-3 w-3 mt-0.5" />}
-                            <span>{msg.message}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                    {isChatTyping && (
-                      <div className="flex justify-start">
-                        <div className="bg-gray-100 p-2 rounded-lg text-xs">
-                          <div className="flex items-center space-x-1">
-                            <Bot className="h-3 w-3 text-blue-500" />
-                            <span>Faith is typing...</span>
-                            <div className="flex space-x-1">
-                              <div className="w-1 h-1 bg-gray-400 rounded-full animate-bounce"></div>
-                              <div className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-                              <div className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    <div ref={chatEndRef} />
-                  </div>
+              <div className="relative flex flex-col h-full min-h-[600px]">
+  {/* --- messages area --- */}
+  <div className="flex-1 overflow-auto p-4 pb-20"> {/* Add extra bottom padding for input bar */}
+    {chatMessages.length === 0 && (
+      <div className="text-gray-400 text-center mt-8">No messages yet. Start the conversation!</div>
+    )}
+    {chatMessages.map((msg) => (
+      <div key={msg.id} className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}>
+        <div className={`max-w-[80%] p-2 rounded-lg text-xs ${
+          msg.sender === "user"
+            ? "bg-blue-500 text-white"
+            : "bg-gray-100 text-gray-800"
+        }`}>
+          <div className="flex items-start space-x-1">
+            {msg.sender === "agent" && <Bot className="h-3 w-3 mt-0.5 text-blue-500" />}
+            {msg.sender === "user" && <User className="h-3 w-3 mt-0.5" />}
+            <span>{msg.message}</span>
+          </div>
+        </div>
+      </div>
+    ))}
+    {isChatTyping && (
+      <div className="flex justify-start">
+        <div className="bg-gray-100 p-2 rounded-lg text-xs">
+          <div className="flex items-center space-x-1">
+            <Bot className="h-3 w-3 text-blue-500" />
+            <span>Faith is typing...</span>
+            <div className="flex space-x-1">
+              <div className="w-1 h-1 bg-gray-400 rounded-full animate-bounce"></div>
+              <div className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+              <div className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+    <div ref={chatEndRef} />
+  </div>
 
-                  {/* --- chat input, always at bottom, visually separated --- */}
-                  <div className="mt-auto flex space-x-2 p-4 border-t border-gray-200 bg-white/95 shadow-sm">
-                    <Input
-                      value={chatInput}
-                      onChange={(e) => setChatInput(e.target.value)}
-                      placeholder="Ask Faith anything..."
-                      className="h-8 text-xs"
-                      onKeyPress={(e) => e.key === "Enter" && handleChatSend()}
-                    />
-                    <Button size="sm" onClick={handleChatSend} className="h-8 w-8 p-0">
-                      <Send className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
+  {/* --- chat input, sticky at the very bottom of the chat UI, full width --- */}
+  <div className="fixed left-0 bottom-0 w-full z-50 flex justify-center bg-white/95 border-t border-gray-200 shadow-lg" style={{boxShadow: '0 -2px 8px rgba(0,0,0,0.03)'}}>
+    <div className="flex w-full max-w-[420px] px-4 py-2 space-x-2">
+      <Input
+        value={chatInput}
+        onChange={(e) => setChatInput(e.target.value)}
+        placeholder="Ask Faith anything..."
+        className="h-10 text-xs flex-1"
+        onKeyPress={(e) => e.key === "Enter" && handleChatSend()}
+      />
+      <Button size="sm" onClick={handleChatSend} className="h-10 w-10 p-0">
+        <Send className="h-4 w-4" />
+      </Button>
+    </div>
+  </div>
+</div>
             </Card>
           </div>
 
