@@ -363,6 +363,7 @@ export default function Support() {
         <p className="text-base text-gray-600">Get help, find answers, and connect with our support team</p>
       </div>
     </div>
+    </div>
 
   </div>
 
