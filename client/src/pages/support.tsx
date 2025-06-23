@@ -351,7 +351,7 @@ export default function Support() {
 
   return (
     <Layout title="Support">
-      <div className="max-w-[1440px] mx-auto px-2 sm:px-4 py-4 space-y-6">
+      <div className="max-w-[1440px] mx-auto px-2 sm:px-4 py-4 h-[calc(100vh-64px)] flex flex-col">
   {/* Header */}
   <div className="flex items-center justify-between mb-6">
     <div className="flex items-center">
@@ -368,9 +368,9 @@ export default function Support() {
   </div>
 
   {/* Main Content Grid */}
-  <div className="flex flex-col lg:flex-row gap-8 items-stretch w-full">
+  <div className="flex flex-1 flex-col lg:flex-row gap-8 items-stretch w-full min-h-0">
   {/* Left Sidebar */}
-  <div className="w-full lg:w-1/4 flex flex-col gap-6 bg-gradient-to-b from-blue-50/70 to-white/80 rounded-2xl p-4 shadow-md min-h-[400px] h-full">
+  <div className="w-full lg:w-1/4 flex flex-col gap-6 bg-gradient-to-b from-blue-50/70 to-white/80 rounded-2xl p-4 shadow-md min-h-[400px] h-full flex-grow">
     {/* Quick Actions */}
     <Card className="flex-1 rounded-xl shadow-md flex flex-col">
       <CardHeader className="pb-3">
