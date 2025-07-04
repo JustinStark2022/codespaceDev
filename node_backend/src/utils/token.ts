@@ -15,7 +15,11 @@ const JWT_EXPIRATION: jwt.SignOptions["expiresIn"] = process.env.JWT_EXPIRATION
   : "1h";
 
 export function generateToken(userId: number, role: string) {
-  return jwt.sign({ id: userId, role }, JWT_SECRET, {
+  // Use `userId` consistently across the codebase so that the auth middleware
+  // can correctly decode the JWT payload. Previously the token payload used an
+  // `id` property which caused `verifyToken` to fail because it expects a
+  // `userId` field.
+  return jwt.sign({ userId, role }, JWT_SECRET, {
     expiresIn: JWT_EXPIRATION,
   });
 }
