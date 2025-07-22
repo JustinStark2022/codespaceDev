@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useToast } from "@/hooks/use-toast";
 import ParentLayout from "@/components/layout/parent-layout";
 import ChildLayout from "@/components/layout/child-layout";
 import { useAuth } from "@/hooks/use-auth";
@@ -26,7 +27,6 @@ import {
   TabsList,
   TabsTrigger
 } from "@/components/ui/tabs";
-import { useToast } from "@/hooks/use-toast";
 import {
   HelpCircle,
   Phone,
@@ -173,6 +173,10 @@ export default function Support() {
   const { toast } = useToast();
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+  const [activeTab, setActiveTab] = useState("overview");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
+
   // Contact form state
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -191,9 +195,6 @@ export default function Support() {
   ]);
   const [chatInput, setChatInput] = useState("");
   const [isChatTyping, setIsChatTyping] = useState(false);
-  const [activeTab, setActiveTab] = useState("overview");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("all");
 
   // Auto-scroll chat to bottom
   useEffect(() => {

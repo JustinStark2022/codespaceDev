@@ -16,10 +16,16 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 import authRoutes from "./routes/auth.routes";
 import userRoutes from "./routes/user.routes";
-import gamesRoutes from "./routes/games.routes";
-import parentalControlRoutes from "./routes/parentalControl.routes";
-import childDashboardRoutes from "./routes/childDashboard.routes";
 import bibleRoutes from "./routes/bible.routes";
+import lessonsRoutes from "./routes/lessons.routes";
+import alertsRoutes from "./routes/alerts.routes";
+import chatRoutes from "./routes/chat.routes";
+import friendsRoutes from "./routes/friends.routes";
+import locationRoutes from "./routes/location.routes";
+import screenTimeRoutes from "./routes/screenTime.routes";
+import childDashboardRoutes from "./routes/childDashboard.routes";
+import gamesRoutes from "./routes/games.routes";
+import aiRoutes from "./routes/ai.routes";
 
 import logger from "./utils/logger";
 
@@ -70,11 +76,16 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 // API routes - Register only once
 app.use("/api", authRoutes);  // This will handle /api/login, /api/register, /api/logout
 app.use("/api/user", userRoutes); 
-app.use("/api/games", gamesRoutes);
-app.use("/api/parental-control", parentalControlRoutes);
-app.use("/api/child-dashboard", childDashboardRoutes);
 app.use("/api/bible", bibleRoutes);
-app.use("/api/lessons", bibleRoutes); // Also handle /api/lessons routes
+app.use("/api/lessons", lessonsRoutes);
+app.use("/api/alerts", alertsRoutes);
+app.use("/api/chat", chatRoutes);
+app.use("/api/friends", friendsRoutes);
+app.use("/api/location", locationRoutes);
+app.use("/api/screentime", screenTimeRoutes);
+app.use("/api/child-dashboard", childDashboardRoutes);
+app.use("/api/games", gamesRoutes);
+app.use("/api/ai", aiRoutes);
 
 // Error handling middleware
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

@@ -156,6 +156,10 @@ export const addTrustedWebsiteQuick = async (req: AuthenticatedRequest, res: Res
       return res.status(401).json({ error: "Unauthorized" });
     }
 
+    if (!url) {
+      return res.status(400).json({ error: "URL is required" });
+    }
+
     const website = await db
       .insert(trusted_websites)
       .values({
@@ -182,8 +186,16 @@ export const blockNewApp = async (req: AuthenticatedRequest, res: Response) => {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    // Mock response for now
-    res.json({ message: "App blocked successfully", app: { name, platform } });
+    if (!name) {
+      return res.status(400).json({ error: "App name is required" });
+    }
+
+    // TODO: Implement actual app blocking logic
+    // For now, return mock response
+    res.json({ 
+      message: "App blocked successfully", 
+      app: { name, platform: platform || "unknown" } 
+    });
   } catch (error: any) {
     logger.error(error, "Error blocking app");
     res.status(500).json({ error: "Failed to block app" });
