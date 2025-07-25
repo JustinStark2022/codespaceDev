@@ -10,6 +10,7 @@ import helmet from "helmet";
 import path from "path";
 import { fileURLToPath } from "url";
 import { z } from "zod";
+import { SchedulerService } from './services/scheduler.service';
 
 // Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -26,6 +27,9 @@ import screenTimeRoutes from "./routes/screenTime.routes";
 import childDashboardRoutes from "./routes/childDashboard.routes";
 import gamesRoutes from "./routes/games.routes";
 import aiRoutes from "./routes/ai.routes";
+import devotionalRoutes from "./routes/devotional.routes";
+import monitorRoutes from "./routes/monitor.routes";
+import blogRoutes from "./routes/blog.routes";
 
 import logger from "./utils/logger";
 
@@ -86,6 +90,9 @@ app.use("/api/screentime", screenTimeRoutes);
 app.use("/api/child-dashboard", childDashboardRoutes);
 app.use("/api/games", gamesRoutes);
 app.use("/api/ai", aiRoutes);
+app.use("/api/devotional", devotionalRoutes);
+app.use("/api/monitor", monitorRoutes);
+app.use("/api/blog", blogRoutes);
 
 // Error handling middleware
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
@@ -95,7 +102,10 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
   });
 });
 
-// Start server - Only call listen once
+// Start server
 app.listen(PORT, () => {
   logger.info(`Server running in ${process.env.NODE_ENV} mode on http://localhost:${PORT}`);
+  
+  // Initialize scheduled tasks
+  SchedulerService.init();
 });

@@ -20,7 +20,9 @@ import { Link } from "wouter";
 import { Child } from "@/types/user";
 import { fetchChildren } from "@/api/children";
 import { getFlaggedContent, FlaggedContent } from "@/api/monitoring";
-import React, { useRef, useState } from "react";
+import { getDailyDevotional, getVerseOfTheDay } from "@/api/llm";
+import React, { useEffect, useRef, useState } from "react";
+import { apiRequest } from "@/lib/queryClient";
 
 // Fallback images for when no profile picture is available
 const fallbackChildImages = [
@@ -46,40 +48,138 @@ function FamilySummary() {
   );
 }
 
-// Mock Verse of the Day component
+// Update the VerseOfTheDay component
 function VerseOfTheDay({ mode }: { mode: "auto" | "manual" }) {
   const [manualVerse, setManualVerse] = useState("Philippians 4:13 - I can do all things through Christ who strengthens me.");
+  const [generatedVerse, setGeneratedVerse] = useState({
+    verse: "Trust in the Lord with all your heart and lean not on your own understanding.",
+    reference: "Proverbs 3:5",
+    reflection: "God's wisdom is always available to guide us through each day."
+  });
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Fetch AI-generated verse when in auto mode
+  useEffect(() => {
+    if (mode === "auto") {
+      const fetchVerse = async () => {
+        setIsLoading(true);
+        try {
+          const response = await apiRequest("GET", "/api/ai/verse-of-the-day");
+          const data = await response.json();
+          setGeneratedVerse(data);
+        } catch (error) {
+          console.error("Failed to fetch verse of the day:", error);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      
+      fetchVerse();
+    }
+  }, [mode]);
+
   return (
     <div>
-      <div className="mb-2">
-        <span className="font-semibold text-blue-700">
-          {mode === "auto"
-            ? "Proverbs 3:5-6 - Trust in the Lord with all your heart and lean not on your own understanding."
-            : manualVerse}
-        </span>
-      </div>
-      {mode === "manual" && (
-        <input
-          className="border rounded px-2 py-1 w-full text-sm"
-          value={manualVerse}
-          onChange={e => setManualVerse(e.target.value)}
-        />
+      {mode === "auto" ? (
+        <div className="space-y-2">
+          {isLoading ? (
+            <div className="text-sm text-gray-500">Loading today's verse...</div>
+          ) : (
+            <>
+              <div className="font-semibold text-blue-700">
+                {generatedVerse.verse}
+              </div>
+              <div className="text-sm text-blue-600 font-medium">
+                - {generatedVerse.reference}
+              </div>
+              <div className="text-xs text-gray-600 mt-2 italic">
+                {generatedVerse.reflection}
+              </div>
+            </>
+          )}
+        </div>
+      ) : (
+        <div>
+          <div className="mb-2">
+            <span className="font-semibold text-blue-700">{manualVerse}</span>
+          </div>
+          <input
+            className="border rounded px-2 py-1 w-full text-sm"
+            value={manualVerse}
+            onChange={e => setManualVerse(e.target.value)}
+          />
+        </div>
       )}
     </div>
   );
 }
 
-interface ChatMessage {
-  sender: "bot" | "user";
-  text: string;
-}
+// Add devotional card to dashboard
+function DevotionalCard() {
+  const { data: devotional, isLoading, error } = useQuery({
+    queryKey: ["dailyDevotional"],
+    queryFn: getDailyDevotional,
+    staleTime: 1000 * 60 * 60 * 12, // Cache for 12 hours
+  });
 
-const initialMessages: ChatMessage[] = [
-  {
-    sender: "bot",
-    text: "👋 Hi! I'm your Faith Fortress AI Chatbot. How can I help you today?",
-  },
-];
+  if (isLoading) {
+    return (
+      <Card className="h-[200px]">
+        <CardContent className="pt-4 flex items-center justify-center h-full">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-2"></div>
+            <p className="text-sm text-gray-600">Preparing today's devotional...</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="h-[200px]">
+        <CardContent className="pt-4 flex items-center justify-center h-full">
+          <div className="text-center">
+            <p className="text-sm text-red-600">Unable to load devotional</p>
+            <p className="text-xs text-gray-500">Please try refreshing</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="h-[200px] cursor-pointer hover:shadow-lg transition-shadow">
+      <CardContent className="pt-4 h-full flex flex-col">
+        <div className="flex justify-between items-center mb-2">
+          <h2 className="text-lg font-bold flex items-center">
+            <BookOpen className="h-5 w-5 mr-2 text-purple-600" />
+            Today's Devotional
+          </h2>
+          <Badge variant="secondary" className="text-xs">
+            AI Generated
+          </Badge>
+        </div>
+        <div className="flex-1 overflow-hidden">
+          <div className="text-sm text-gray-700 leading-relaxed line-clamp-6">
+            {devotional?.devotional ? (
+              <div dangerouslySetInnerHTML={{ 
+                __html: devotional.devotional.substring(0, 300) + '...' 
+              }} />
+            ) : (
+              "Click to generate today's family devotional..."
+            )}
+          </div>
+        </div>
+        <div className="mt-2">
+          <Button variant="outline" size="sm" className="w-full">
+            Read Full Devotional
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function ParentDashboard() {
   const { user } = useAuth();
@@ -106,20 +206,38 @@ export default function ParentDashboard() {
     queryFn: getFlaggedContent,
   });
 
-  // Dummy send handler
-  const handleSend = () => {
+  // Update the chat handleSend function
+  const handleSend = async () => {
     if (!input.trim()) {
       return;
     }
-    setMessages((msgs) => [
-      ...msgs,
-      { sender: "user", text: input },
-      {
-        sender: "bot",
-        text: "Thank you for your message! (AI response coming soon.)",
-      },
-    ]);
+    
+    const userMessage = { sender: "user" as const, text: input };
+    setMessages((msgs) => [...msgs, userMessage]);
     setInput("");
+
+    try {
+      const response = await apiRequest("POST", "/api/ai/chat", {
+        message: input,
+        context: "parent dashboard"
+      });
+      const data = await response.json();
+      
+      const botMessage = {
+        sender: "bot" as const,
+        text: data.response || "I'm having trouble right now. Please try again."
+      };
+      
+      setMessages((msgs) => [...msgs, botMessage]);
+    } catch (error) {
+      console.error("Chat error:", error);
+      const errorMessage = {
+        sender: "bot" as const,
+        text: "I'm having trouble connecting right now. Please try again in a moment."
+      };
+      setMessages((msgs) => [...msgs, errorMessage]);
+    }
+
     setTimeout(() => {
       chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, 100);
@@ -267,7 +385,7 @@ export default function ParentDashboard() {
           
           {/* Bottom Row: Action Cards + Verse of the Day + Chatbot */}
           <div className="w-full flex flex-row gap-4 h-full mt-2">
-            {/* Left side: Action Cards + Verse of the Day */}
+            {/* Left side: Action Cards + Devotional */}
             <div className="flex-1 flex-col gap-2 h-full" style={{width: '545px'}}>
               {/* Action Cards Row */}
               <div className="flex flex-row min-w-[545px] h-16 mb-4 gap-2">
@@ -294,23 +412,8 @@ export default function ParentDashboard() {
                 </Card>
               </div>
               
-              {/* Verse of the Day */}
-              <Card className="h-[200px] flex-1">
-                <CardContent className="pt-4 h-full flex flex-col justify-between">
-                  <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-lg font-bold">Verse of the Day</h2>
-                    <select
-                      className="border rounded px-3 py-2 text-sm"
-                      value={verseMode}
-                      onChange={e => setVerseMode(e.target.value as "auto" | "manual")}
-                    >
-                      <option value="auto">Auto</option>
-                      <option value="manual">Manual</option>
-                    </select>
-                  </div>
-                  <VerseOfTheDay mode={verseMode} />
-                </CardContent>
-              </Card>
+              {/* DevotionalCard - NEW SECTION */}
+              <DevotionalCard />
             </div>
             
             {/* Right side: Chatbot */}

@@ -299,26 +299,34 @@ export default function ParentalControlCenter() {
     form.reset();
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!input.trim()) { return; }
     
     const userMessage: ChatMessage = { sender: "user", text: input };
     setMessages(prev => [...prev, userMessage]);
-    
-    // Simulate AI response (replace with actual API call)
-    setTimeout(() => {
-      const responses = [
-        "I understand your concern about digital wellness. Let me help you find biblical guidance for managing screen time.",
-        "Family protection starts with prayer and wisdom. How can I assist with your parental controls today?",
-        "Remember Philippians 4:8 - focus on what is pure and lovely. I'm here to help filter content appropriately.",
-        "Building healthy digital habits takes time and grace. What specific area would you like to address?"
-      ];
-      const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-      const botMessage: ChatMessage = { sender: "bot", text: randomResponse };
-      setMessages(prev => [...prev, botMessage]);
-    }, 1000);
-    
     setInput("");
+    
+    try {
+      const response = await apiRequest("POST", "/api/ai/chat", {
+        message: input,
+        context: "parental control guidance"
+      });
+      const data = await response.json();
+      
+      const botMessage: ChatMessage = {
+        sender: "bot",
+        text: data.response || "I'm having trouble right now. Please try again."
+      };
+      
+      setMessages(prev => [...prev, botMessage]);
+    } catch (error) {
+      console.error("Chat error:", error);
+      const errorMessage: ChatMessage = {
+        sender: "bot",
+        text: "I'm having trouble connecting right now. Please try again in a moment."
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    }
   };
 
   const filteredContent = flaggedContent.filter((content) =>

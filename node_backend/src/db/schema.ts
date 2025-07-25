@@ -225,6 +225,90 @@ export const monitoring_settings = pgTable("monitoring_settings", {
   updated_at: timestamp("updated_at").notNull().defaultNow(),
 });
 
+// LLM Generated Content Storage
+export const llm_generated_content = pgTable('llm_generated_content', {
+  id: serial('id').primaryKey(),
+  content_type: varchar('content_type', { length: 50 }).notNull(), // 'verse', 'devotional', 'lesson', 'chat', 'summary'
+  prompt: text('prompt').notNull(),
+  system_prompt: text('system_prompt'),
+  generated_content: text('generated_content').notNull(),
+  user_id: integer('user_id').references(() => users.id),
+  child_id: integer('child_id').references(() => users.id),
+  context: varchar('context', { length: 100 }), // 'parent_dashboard', 'parental_control', etc.
+  tokens_used: integer('tokens_used'),
+  generation_time_ms: integer('generation_time_ms'),
+  quality_rating: integer('quality_rating'), // 1-5 for fine-tuning
+  reviewed: boolean('reviewed').default(false),
+  approved: boolean('approved').default(true),
+  created_at: timestamp('created_at').defaultNow(),
+  updated_at: timestamp('updated_at').defaultNow(),
+});
+
+// Child Activity Monitoring
+export const child_activity_logs = pgTable('child_activity_logs', {
+  id: serial('id').primaryKey(),
+  child_id: integer('child_id').references(() => users.id).notNull(),
+  activity_type: varchar('activity_type', { length: 50 }).notNull(), // 'app_usage', 'website_visit', 'content_access'
+  activity_name: varchar('activity_name', { length: 255 }).notNull(),
+  platform: varchar('platform', { length: 50 }),
+  duration_minutes: integer('duration_minutes'),
+  content_category: varchar('content_category', { length: 50 }),
+  content_rating: varchar('content_rating', { length: 10 }),
+  flagged: boolean('flagged').default(false),
+  flag_reason: varchar('flag_reason', { length: 255 }),
+  ai_analysis: text('ai_analysis'),
+  timestamp: timestamp('timestamp').defaultNow(),
+});
+
+// Content Analysis Results
+export const content_analysis = pgTable('content_analysis', {
+  id: serial('id').primaryKey(),
+  child_id: integer('child_id').references(() => users.id).notNull(),
+  content_name: varchar('content_name', { length: 255 }).notNull(),
+  content_type: varchar('content_type', { length: 50 }).notNull(),
+  platform: varchar('platform', { length: 50 }),
+  url: text('url'),
+  ai_analysis: text('ai_analysis').notNull(),
+  safety_score: integer('safety_score'), // 1-100
+  content_themes: text('content_themes'), // JSON array of themes
+  recommended_age: varchar('recommended_age', { length: 20 }),
+  parent_guidance_needed: boolean('parent_guidance_needed').default(false),
+  guidance_notes: text('guidance_notes'),
+  reviewed_by_parent: boolean('reviewed_by_parent').default(false),
+  approved: boolean('approved'),
+  created_at: timestamp('created_at').defaultNow(),
+});
+
+// Weekly Content Summaries
+export const weekly_content_summaries = pgTable('weekly_content_summaries', {
+  id: serial('id').primaryKey(),
+  family_id: integer('family_id').references(() => users.id).notNull(), // parent user id
+  week_start_date: date('week_start_date').notNull(),
+  week_end_date: date('week_end_date').notNull(),
+  summary_content: text('summary_content').notNull(), // AI generated summary
+  parental_advice: text('parental_advice').notNull(), // AI generated advice
+  discussion_topics: text('discussion_topics'), // JSON array of topics
+  spiritual_guidance: text('spiritual_guidance').notNull(), // How to guide kids to Jesus
+  concerning_content: text('concerning_content'), // Issues to address
+  positive_highlights: text('positive_highlights'), // Good things to praise
+  recommended_actions: text('recommended_actions'), // Specific steps for parents
+  prayer_suggestions: text('prayer_suggestions'), // Family prayer topics
+  generated_at: timestamp('generated_at').defaultNow(),
+  reviewed: boolean('reviewed').default(false),
+  sent_to_parent: boolean('sent_to_parent').default(false),
+});
+
+// Conversation Context Storage for better AI responses
+export const conversation_contexts = pgTable('conversation_contexts', {
+  id: serial('id').primaryKey(),
+  user_id: integer('user_id').references(() => users.id).notNull(),
+  session_id: varchar('session_id', { length: 255 }).notNull(),
+  context_type: varchar('context_type', { length: 50 }).notNull(), // 'chat', 'lesson_guidance', etc.
+  conversation_history: text('conversation_history').notNull(), // JSON array of messages
+  last_activity: timestamp('last_activity').defaultNow(),
+  created_at: timestamp('created_at').defaultNow(),
+});
+
 export type User = InferModel<typeof users>;
 export type NewUser = InferModel<typeof users, "insert">;
 export type UserSettings = InferModel<typeof user_settings>;

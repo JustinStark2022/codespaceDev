@@ -390,41 +390,35 @@ export default function LessonsSimple() {
     setChatInput("");
     setIsAiTyping(true);
 
-    // Simulate AI response (replace with actual API call)
-    setTimeout(() => {
-      const aiResponse = generateAIResponse(chatInput);
+    try {
+      const response = await apiRequest("POST", "/api/ai/chat", {
+        message: chatInput,
+        context: "bible lessons guidance"
+      });
+      const data = await response.json();
+
       const aiMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         sender: "ai",
-        message: aiResponse,
+        message: data.response || "I'm having trouble right now. Please try again.",
         timestamp: new Date(),
         type: "guidance"
       };
+      
       setChatMessages(prev => [...prev, aiMessage]);
+    } catch (error) {
+      console.error("Chat error:", error);
+      const errorMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        sender: "ai",
+        message: "I'm having trouble connecting right now. Please try again in a moment.",
+        timestamp: new Date(),
+        type: "guidance"
+      };
+      setChatMessages(prev => [...prev, errorMessage]);
+    } finally {
       setIsAiTyping(false);
-    }, 1500);
-  };
-
-  const generateAIResponse = (userInput: string): string => {
-    const input = userInput.toLowerCase();
-
-    if (input.includes("assign") || input.includes("lesson")) {
-      return "🎯 **Lesson Assignment Tips:**\n\n• Consider your child's age and reading level\n• Start with beginner lessons for younger children\n• Review the lesson objectives to ensure they align with your goals\n• Set up rewards to motivate completion\n\nWould you like me to suggest specific lessons for any of your children?";
     }
-
-    if (input.includes("reward") || input.includes("motivation")) {
-      return "🏆 **Motivation Strategies:**\n\n• Use screen time rewards for lesson completion\n• Create a family lesson completion chart\n• Celebrate milestones with special activities\n• Discuss lessons together at dinner\n\nRemember: Intrinsic motivation grows when children see the value in what they're learning!";
-    }
-
-    if (input.includes("age") || input.includes("appropriate")) {
-      return "👶 **Age-Appropriate Guidelines:**\n\n• **Ages 4-6:** Focus on simple stories with pictures\n• **Ages 7-9:** Interactive lessons with activities\n• **Ages 10-12:** Deeper discussions and applications\n• **Ages 13+:** Complex themes and real-world connections\n\nEach lesson shows the recommended age range to help you choose wisely.";
-    }
-
-    if (input.includes("help") || input.includes("how")) {
-      return "🤝 **I'm here to help with:**\n\n• Choosing age-appropriate lessons\n• Setting up reward systems\n• Creating family discussion questions\n• Troubleshooting engagement issues\n• Biblical parenting guidance\n\nWhat specific area would you like assistance with?";
-    }
-
-    return "✨ That's a great question! As your Kingdom Kids AI assistant, I'm here to help you nurture your children's faith journey. \n\nI can help with lesson selection, age-appropriate content, motivation strategies, and creating meaningful family discussions around biblical lessons. \n\nWhat specific aspect of your children's spiritual education would you like to explore?";
   };
 
   // Auto-scroll chat to bottom
@@ -1050,6 +1044,12 @@ export default function LessonsSimple() {
             className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-purple-600 hover:bg-purple-700 shadow-lg lg:hidden z-40"
           >
             <MessageCircle className="h-6 w-6" />
+          </Button>
+        )}
+      </div>
+    </Layout>
+  );
+}
           </Button>
         )}
       </div>
