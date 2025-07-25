@@ -1,3 +1,4 @@
+import React from "react";
 import { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../hooks/use-auth";
@@ -383,17 +384,17 @@ export default function LessonsSimple() {
       id: Date.now().toString(),
       sender: "user",
       message: chatInput,
-      timestamp: new Date()
+      timestamp: new Date(),
     };
 
-    setChatMessages(prev => [...prev, userMessage]);
+    setChatMessages((prev) => [...prev, userMessage]);
     setChatInput("");
     setIsAiTyping(true);
 
     try {
       const response = await apiRequest("POST", "/api/ai/chat", {
         message: chatInput,
-        context: "bible lessons guidance"
+        context: "bible lessons guidance",
       });
       const data = await response.json();
 
@@ -402,20 +403,22 @@ export default function LessonsSimple() {
         sender: "ai",
         message: data.response || "I'm having trouble right now. Please try again.",
         timestamp: new Date(),
-        type: "guidance"
+        type: "guidance",
       };
-      
-      setChatMessages(prev => [...prev, aiMessage]);
+
+      setChatMessages((prev) => [...prev, aiMessage]);
     } catch (error) {
       console.error("Chat error:", error);
+
       const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         sender: "ai",
         message: "I'm having trouble connecting right now. Please try again in a moment.",
         timestamp: new Date(),
-        type: "guidance"
+        type: "guidance",
       };
-      setChatMessages(prev => [...prev, errorMessage]);
+
+      setChatMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsAiTyping(false);
     }
@@ -1044,12 +1047,6 @@ export default function LessonsSimple() {
             className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-purple-600 hover:bg-purple-700 shadow-lg lg:hidden z-40"
           >
             <MessageCircle className="h-6 w-6" />
-          </Button>
-        )}
-      </div>
-    </Layout>
-  );
-}
           </Button>
         )}
       </div>
