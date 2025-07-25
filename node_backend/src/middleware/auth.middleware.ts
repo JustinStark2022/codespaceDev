@@ -1,54 +1,54 @@
 // src/middleware/auth.middleware.ts
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import { db } from "@/db/db";
-import { users } from "@/db/schema";
-import { eq } from "drizzle-orm";
 import logger from "@/utils/logger";
 
-interface AuthenticatedRequest extends Request {
+export interface AuthenticatedRequest extends Request {
   user?: {
     id: number;
     role: string;
-    username: string;
+    email?: string;
   };
 }
 
-export const verifyToken = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+export const verifyToken = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
-    // Get token from cookie or Authorization header
-    let {token} = req.cookies;
-    
-    if (!token) {
-      const authHeader = req.headers.authorization;
-      if (authHeader && authHeader.startsWith("Bearer ")) {
-        token = authHeader.substring(7);
-      }
-    }
+    const token = req.header("Authorization")?.replace("Bearer ", "") || req.cookies.token;
 
     if (!token) {
-      return res.status(401).json({ message: "No token provided" });
+      return res.status(401).json({ error: "Access denied. No token provided." });
     }
 
-    // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
-
-    // Get fresh user data from database
-    const userResult = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, decoded.userId))
-      .limit(1);
-
-    if (userResult.length === 0) {
-      return res.status(401).json({ message: "User not found" });
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) {
+      logger.error("JWT_SECRET not configured");
+      return res.status(500).json({ error: "Authentication configuration error" });
     }
 
-    const user = userResult[0];
-
-    // Attach user info to request
+    const decoded = jwt.verify(token, jwtSecret) as any;
     req.user = {
-      id: user.id,
+      id: decoded.id || decoded.userId,
+      role: decoded.role || "user",
+      email: decoded.email
+    };
+
+    next();
+  } catch (error) {
+    logger.error("Token verification failed:", error);
+    res.status(401).json({ error: "Invalid token" });
+  }
+};
+
+// Mock middleware for development/testing
+export const mockAuth = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  // Mock user for testing
+  req.user = {
+    id: 1,
+    role: "parent",
+    email: "test@example.com"
+  };
+  next();
+};
       role: user.role,
       username: user.username
     };

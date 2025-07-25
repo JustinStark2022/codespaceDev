@@ -3,5 +3,8 @@
     "@types/http-proxy": "^1.17.16",
     "@vitejs/plugin-react-swc": "^3.10.1",
     "http-proxy": "^1.18.1"
+  },
+  "dependencies": {
+    "zod": "^4.0.9"
   }
 }

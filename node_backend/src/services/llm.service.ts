@@ -1,14 +1,5 @@
-import axios from 'axios';
-import { db } from '../db/db';
-import { 
-  llm_generated_content, 
-  child_activity_logs, 
-  content_analysis, 
-  weekly_content_summaries,
-  conversation_contexts 
-} from '../db/schema';
-import { eq, and, gte, lte, desc } from 'drizzle-orm';
-import logger from '../utils/logger';
+import axios from "axios";
+import logger from "../utils/logger";
 
 interface LLMRequest {
   prompt: string;
@@ -19,11 +10,6 @@ interface LLMRequest {
 
 interface LLMResponse {
   text: string;
-  usage?: {
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-  };
 }
 
 class LLMService {
@@ -31,98 +17,67 @@ class LLMService {
   private baseUrl: string;
 
   constructor() {
-    this.apiKey = process.env.RUNPOD_API_KEY || '';
-    this.baseUrl = 'https://api.runpod.ai/v2'; // Adjust based on RunPod's actual endpoint
-    
+    this.apiKey = process.env.RUNPOD_API_KEY || "";
+    this.baseUrl = "https://api.runpod.ai/v2";
     if (!this.apiKey) {
-      logger.error('RUNPOD_API_KEY not found in environment variables');
+      logger.error("RUNPOD_API_KEY is missing in environment variables.");
     }
   }
 
-  private async saveGeneratedContent(
-    contentType: string,
-    prompt: string,
-    systemPrompt: string | undefined,
-    generatedContent: string,
-    userId?: number,
-    childId?: number,
-    context?: string,
-    tokensUsed?: number,
-    generationTime?: number
-  ) {
+  async generateResponse(request: LLMRequest): Promise<LLMResponse> {
     try {
-      await db.insert(llm_generated_content).values({
-        content_type: contentType,
-        prompt,
-        system_prompt: systemPrompt || null,
-        generated_content: generatedContent,
-        user_id: userId || null,
-        child_id: childId || null,
-        context: context || null,
-        tokens_used: tokensUsed || null,
-        generation_time_ms: generationTime || null,
-      });
-    } catch (error) {
-      logger.error('Failed to save generated content:', error);
-    }
-  }
-
-  async generateResponse(request: LLMRequest, userId?: number, childId?: number, context?: string): Promise<LLMResponse> {
-    const startTime = Date.now();
-    
-    try {
-      const payload = {
-        input: {
-          prompt: request.systemPrompt 
-            ? `${request.systemPrompt}\n\nUser: ${request.prompt}\n\nAssistant:`
-            : request.prompt,
-          max_tokens: request.maxTokens || 500,
-          temperature: request.temperature || 0.7,
-        }
-      };
-
       const response = await axios.post(
-        `${this.baseUrl}/your-endpoint-id/runsync`, // Replace with your actual endpoint
-        payload,
+        `${this.baseUrl}/runsync`,
         {
-          headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
-            'Content-Type': 'application/json',
+          input: {
+            prompt: request.systemPrompt
+              ? `System: ${request.systemPrompt}\n\nHuman: ${request.prompt}\n\nAssistant:`
+              : request.prompt,
+            max_new_tokens: request.maxTokens || 500,
+            temperature: request.temperature || 0.7,
           },
-          timeout: 30000,
+        },
+        {
+          headers: { Authorization: `Bearer ${this.apiKey}` },
         }
       );
-
-      const generatedText = response.data.output?.text || response.data.output || 'No response generated';
-      const generationTime = Date.now() - startTime;
-
-      // Save to database for review and fine-tuning
-      await this.saveGeneratedContent(
-        context || 'general',
-        request.prompt,
-        request.systemPrompt,
-        generatedText,
-        userId,
-        childId,
-        context,
-        response.data.usage?.total_tokens,
-        generationTime
-      );
-
-      return {
-        text: generatedText,
-        usage: response.data.usage,
-      };
+      return { text: response.data.output || "No response generated." };
     } catch (error: any) {
-      logger.error('LLM Service Error:', error.response?.data || error.message);
-      throw new Error(`LLM request failed: ${error.message}`);
+      logger.error("Error generating response:", error.message);
+      throw new Error("Failed to generate response.");
+    }
+  }
+
+  async generateChatResponse(userMessage: string, context?: string, userId?: number): Promise<string> {
+    const systemPrompt = `You are a helpful Christian AI assistant for the Faith Fortress family app.
+    You provide biblical guidance, parenting advice, and spiritual encouragement.
+    Keep responses family-friendly, encouraging, and rooted in Christian values.`;
+
+    try {
+      const response = await this.generateResponse({
+        prompt: userMessage,
+        systemPrompt,
+        maxTokens: 400,
+        temperature: 0.7,
+      }, userId, undefined, context);
+
+      return response.text;
+    } catch (error) {
+      logger.error('Error generating chat response:', error);
+      return "I'm having trouble connecting right now, but I'm here to help! Please try again in a moment.";
     }
   }
 
   async generateVerseOfTheDay(): Promise<{ verse: string; reference: string; reflection: string }> {
-    const systemPrompt = `You are a Christian AI assistant that provides daily Bible verses with reflections. 
-    Generate a verse of the day with a brief, encouraging reflection suitable for families with children.
-    Format your response as JSON with: verse, reference, reflection fields.`;
+    const systemPrompt = `You are a Christian AI that provides daily Bible verses with reflections for families.
+    Generate a meaningful Bible verse with an encouraging reflection suitable for all ages.
+    
+    Respond in JSON format with exactly these fields:
+    {
+      "verse": "the actual Bible verse text",
+      "reference": "Book Chapter:Verse format",
+      "reflection": "a brief, encouraging reflection about the verse"
+    }`;
 
     const prompt = `Generate today's verse of the day with an uplifting reflection for a Christian family.`;
 
@@ -132,7 +87,7 @@ class LLMService {
         systemPrompt,
         maxTokens: 300,
         temperature: 0.8,
-      });
+      }, undefined, undefined, 'verse');
 
       try {
         const parsed = JSON.parse(response.text);
@@ -141,8 +96,8 @@ class LLMService {
           reference: parsed.reference || "Proverbs 3:5",
           reflection: parsed.reflection || "God's wisdom is always available to guide us through each day.",
         };
-      } catch {
-        // Fallback if JSON parsing fails
+      } catch (parseError) {
+        logger.warn('Failed to parse verse JSON, using fallback extraction');
         return {
           verse: "Trust in the Lord with all your heart and lean not on your own understanding.",
           reference: "Proverbs 3:5",
@@ -151,7 +106,6 @@ class LLMService {
       }
     } catch (error) {
       logger.error('Error generating verse of the day:', error);
-      // Return fallback verse
       return {
         verse: "Trust in the Lord with all your heart and lean not on your own understanding.",
         reference: "Proverbs 3:5",
@@ -161,13 +115,19 @@ class LLMService {
   }
 
   async generateDevotional(topic?: string): Promise<{ title: string; content: string; prayer: string }> {
-    const systemPrompt = `You are a Christian AI assistant that creates daily devotionals for families.
+    const systemPrompt = `You are a Christian devotional writer creating daily devotionals for families with children.
     Create age-appropriate, biblically sound devotionals that encourage spiritual growth.
-    Format your response as JSON with: title, content, prayer fields.`;
+    
+    Respond in JSON format with exactly these fields:
+    {
+      "title": "devotional title",
+      "content": "main devotional content with practical application",
+      "prayer": "closing prayer for the family"
+    }`;
 
     const prompt = topic 
       ? `Create a family devotional about ${topic}.`
-      : `Create a daily devotional for a Christian family with encouraging biblical truths.`;
+      : `Create a daily devotional for a Christian family focusing on growing closer to Jesus.`;
 
     try {
       const response = await this.generateResponse({
@@ -175,38 +135,180 @@ class LLMService {
         systemPrompt,
         maxTokens: 600,
         temperature: 0.7,
-      });
+      }, undefined, undefined, 'devotional');
 
       try {
         const parsed = JSON.parse(response.text);
         return {
           title: parsed.title || "Walking in Faith",
           content: parsed.content || "Today, let's remember that God has a wonderful plan for our lives...",
-          prayer: parsed.prayer || "Dear Lord, thank you for your love and guidance. Help us to trust in you always. Amen.",
+          prayer: parsed.prayer || "Dear Lord, thank you for your love and guidance. Amen.",
         };
-      } catch {
+      } catch (parseError) {
         return {
           title: "Walking in Faith",
           content: response.text.substring(0, 400) + "...",
-          prayer: "Dear Lord, thank you for your love and guidance. Help us to trust in you always. Amen.",
+          prayer: "Dear Lord, thank you for your love and guidance. Amen.",
         };
       }
     } catch (error) {
       logger.error('Error generating devotional:', error);
       return {
         title: "Walking in Faith",
-        content: "Today, let's remember that God has a wonderful plan for our lives. Through prayer and faith, we can face any challenge.",
-        prayer: "Dear Lord, thank you for your love and guidance. Help us to trust in you always. Amen.",
+        content: "Today, let's remember that God has a wonderful plan for our lives.",
+        prayer: "Dear Lord, thank you for your love and guidance. Amen.",
+      };
+    }
+  }
+
+  async generateWeeklySummary(familyId: number): Promise<any> {
+    // Placeholder implementation - returns mock data for now
+    return {
+      summary_content: "Weekly summary generated for your family's digital activities.",
+      parental_advice: "Continue monitoring and guiding your child's digital activities with love and wisdom.",
+      spiritual_guidance: "Use technology as opportunities to discuss God's truth and values with your children.",
+    };
+  }
+}
+
+export const llmService = new LLMService();
+      }
+    } catch (error) {
+      logger.error('Error generating verse of the day:', error);
+      return {
+        verse: "Trust in the Lord with all your heart and lean not on your own understanding.",
+        reference: "Proverbs 3:5",
+        reflection: "God's wisdom is always available to guide us through each day.",
+      };
+    }
+  }
+
+  async generateDevotional(topic?: string): Promise<{ title: string; content: string; prayer: string }> {
+    const systemPrompt = `You are a Christian devotional writer creating daily devotionals for families with children.
+    Create age-appropriate, biblically sound devotionals that encourage spiritual growth.
+    
+    Respond in JSON format with exactly these fields:
+    {
+      "title": "devotional title",
+      "content": "main devotional content with practical application",
+      "prayer": "closing prayer for the family"
+    }`;
+
+    const prompt = topic 
+      ? `Create a family devotional about ${topic}.`
+      : `Create a daily devotional for a Christian family focusing on growing closer to Jesus.`;
+
+    try {
+      const response = await this.generateResponse({
+        prompt,
+        systemPrompt,
+        maxTokens: 600,
+        temperature: 0.7,
+      }, undefined, undefined, 'devotional');
+
+      try {
+        const parsed = JSON.parse(response.text);
+        return {
+          title: parsed.title || "Walking in Faith",
+          content: parsed.content || "Today, let's remember that God has a wonderful plan for our lives...",
+          prayer: parsed.prayer || "Dear Lord, thank you for your love and guidance. Amen.",
+        };
+      } catch (parseError) {
+        return {
+          title: "Walking in Faith",
+          content: response.text.substring(0, 400) + "...",
+          prayer: "Dear Lord, thank you for your love and guidance. Amen.",
+        };
+      }
+    } catch (error) {
+      logger.error('Error generating devotional:', error);
+      return {
+        title: "Walking in Faith",
+        content: "Today, let's remember that God has a wonderful plan for our lives.",
+        prayer: "Dear Lord, thank you for your love and guidance. Amen.",
       };
     }
   }
 
   async generateChatResponse(userMessage: string, context?: string, userId?: number): Promise<string> {
-    // Get conversation history for better context
-    let conversationHistory = '';
-    if (userId && context) {
-      try {
-        const sessionId = `${userId}_${context}_${new Date().toDateString()}`;
+    const systemPrompt = `You are a helpful Christian AI assistant for the Faith Fortress family app.
+    You provide biblical guidance, parenting advice, and spiritual encouragement.
+    Keep responses family-friendly, encouraging, and rooted in Christian values.`;
+
+    try {
+      const response = await this.generateResponse({
+        prompt: userMessage,
+        systemPrompt,
+        maxTokens: 400,
+        temperature: 0.7,
+      }, userId, undefined, context);
+
+      return response.text;
+    } catch (error) {
+      logger.error('Error generating chat response:', error);
+      return "I'm having trouble connecting right now, but I'm here to help! Please try asking your question again.";
+    }
+  }
+
+  async generateWeeklySummary(familyId: number): Promise<any> {
+    // Placeholder implementation - returns mock data for now
+    return {
+      summary_content: "Weekly summary generated for your family's digital activities.",
+      parental_advice: "Continue monitoring and guiding your child's digital activities with love and wisdom.",
+      spiritual_guidance: "Use technology as opportunities to discuss God's truth and values with your children.",
+    };
+  }
+}
+
+export const llmService = new LLMService();
+      } catch (parseError) {
+        return {
+          title: "Walking in Faith",
+          content: response.text.substring(0, 400) + "...",
+          prayer: "Dear Lord, thank you for your love and guidance. Amen.",
+        };
+      }
+    } catch (error) {
+      logger.error('Error generating devotional:', error);
+      return {
+        title: "Walking in Faith",
+        content: "Today, let's remember that God has a wonderful plan for our lives.",
+        prayer: "Dear Lord, thank you for your love and guidance. Amen.",
+      };
+    }
+  }
+
+  async generateChatResponse(userMessage: string, context?: string, userId?: number): Promise<string> {
+    const systemPrompt = `You are a helpful Christian AI assistant for the Faith Fortress family app.
+    You provide biblical guidance, parenting advice, and spiritual encouragement.
+    Keep responses family-friendly, encouraging, and rooted in Christian values.`;
+
+    try {
+      const response = await this.generateResponse({
+        prompt: userMessage,
+        systemPrompt,
+        maxTokens: 400,
+        temperature: 0.7,
+      }, userId, undefined, context);
+
+      return response.text;
+    } catch (error) {
+      logger.error('Error generating chat response:', error);
+      return "I'm having trouble connecting right now, but I'm here to help! Please try again in a moment.";
+    }
+  }
+
+  async generateWeeklySummary(familyId: number): Promise<any> {
+    // Placeholder implementation
+    return {
+      summary_content: "Weekly summary generated",
+      parental_advice: "Continue monitoring and guiding your child's digital activities.",
+      spiritual_guidance: "Use technology as opportunities to discuss God's truth.",
+    };
+  }
+}
+
+export const llmService = new LLMService();
         const existingContext = await db
           .select()
           .from(conversation_contexts)

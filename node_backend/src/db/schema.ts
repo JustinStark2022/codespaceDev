@@ -323,3 +323,16 @@ export type MonitoringSettings = InferModel<typeof monitoring_settings>;
 export type NewMonitoringSettings = InferModel<typeof monitoring_settings, "insert">;
 export type Game = InferModel<typeof games>;
 export type NewGame = InferModel<typeof games, "insert">;
+
+// Basic schema stub for now
+export const users = {
+  id: 'id',
+  role: 'role',
+  parent_id: 'parent_id'
+};
+
+export const llm_generated_content = {};
+export const child_activity_logs = {};
+export const content_analysis = {};
+export const weekly_content_summaries = {};
+export const conversation_contexts = {};
