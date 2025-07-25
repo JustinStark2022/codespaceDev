@@ -40,8 +40,24 @@ import {
   Sparkles
 } from "lucide-react";
 
+// Define Lesson type to match backend schema
+interface Lesson {
+  id: number;
+  title: string;
+  description: string;
+  category: string;
+  difficulty: "beginner" | "intermediate" | "advanced";
+  estimated_time: number;
+  scripture_reference: string;
+  age_range: string;
+  rewards: { screen_time: number; points: number };
+  objectives: string[];
+  activities: { type: string; title: string; duration: number }[];
+  content: string;
+}
+
 // Enhanced lesson data with more features
-const sampleLessons = [
+const sampleLessons: Lesson[] = [
   {
     id: 1,
     title: "David and Goliath",
@@ -318,7 +334,7 @@ export default function LessonsSimple() {
     { id: 3, name: "Sophia", age: 6, avatar: "👧" }
   ];
 
-  const [selectedLesson, setSelectedLesson] = useState<typeof sampleLessons[0] | null>(null);
+  const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
   const [completedLessons, setCompletedLessons] = useState<number[]>([1]); // Sample: lesson 1 completed
   const [assignedLessons, setAssignedLessons] = useState<{[key: number]: number[]}>({
     1: [1, 2], // Emma has lessons 1 and 2 assigned
@@ -336,14 +352,21 @@ export default function LessonsSimple() {
   const [isAiTyping, setIsAiTyping] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  const handleStartLesson = (lesson: typeof sampleLessons[0]) => {
+  const handleStartLesson = (lesson: Lesson) => {
     setSelectedLesson(lesson);
   };
 
-  const handleCompleteLesson = () => {
+  const handleCompleteLesson = async () => {
     if (selectedLesson) {
-      setCompletedLessons(prev => [...prev, selectedLesson.id]);
-      setSelectedLesson(null);
+      try {
+        await apiRequest("POST", "/api/lessons/complete", {
+          lessonId: selectedLesson.id,
+        });
+        setCompletedLessons((prev) => [...prev, selectedLesson.id]);
+        setSelectedLesson(null);
+      } catch (error) {
+        console.error("Failed to complete lesson:", error);
+      }
     }
   };
 
@@ -433,7 +456,7 @@ export default function LessonsSimple() {
 
   // Filter lessons based on child's age
   const filteredLessons = isChild && childProfile?.age
-    ? sampleLessons.filter(lesson => isAgeAppropriate(lesson.age_range, childProfile.age))
+    ? sampleLessons.filter((lesson) => isAgeAppropriate(lesson.age_range, childProfile.age))
     : sampleLessons;
 
   // Render different versions for parents and children

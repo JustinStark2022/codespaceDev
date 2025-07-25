@@ -1,8 +1,10 @@
+// src/controllers/content.controller.ts
 import { Request, Response } from "express";
 import { callLLMWithRetry } from "../utils/llm";
 import { db } from "../db/db";
 import { content_monitoring } from "../db/schema";
 import logger from "../utils/logger";
+import { eq, desc } from "drizzle-orm";
 
 interface AuthenticatedRequest extends Request {
   user?: {
@@ -19,57 +21,29 @@ export async function analyzeContent(req: AuthenticatedRequest, res: Response) {
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-
     if (!content) {
       return res.status(400).json({ error: "Content is required for analysis" });
     }
 
-    const prompt = `You are a Christian parental guidance AI assistant specializing in content safety for children.
-
-Analyze this ${contentType || 'content'} for potential concerns:
-
-"${content}"
-
-Provide a JSON response with:
-{
-  "safetyLevel": "SAFE" | "CAUTION" | "UNSAFE",
-  "concerns": ["list of specific concerns if any"],
-  "reasoning": "brief explanation of your assessment",
-  "ageAppropriate": "recommended minimum age or 'all ages'",
-  "parentalGuidance": "specific advice for parents",
-  "biblicalPerspective": "relevant Christian values or biblical principles",
-  "discussionPoints": ["suggestions for family conversations if needed"]
-}
-
-Consider these Christian family values:
-- Biblical morality and ethics
-- Age-appropriate content
-- Language and behavior standards
-- Spiritual and emotional well-being
-- Protection from harmful influences
-
-Be thorough but balanced - not everything needs to be flagged, but genuine concerns should be clearly identified.`;
+    const prompt = `You are a Christian parental guidance AI assistant specializing in content safety for children.\n\nAnalyze this ${contentType || 'content'} for potential concerns:\n\n"${content}"\n\nProvide a JSON response with:\n{\n  "safetyLevel": "SAFE" | "CAUTION" | "UNSAFE",\n  "concerns": ["list of specific concerns if any"],\n  "reasoning": "brief explanation of your assessment",\n  "ageAppropriate": "recommended minimum age or 'all ages'",\n  "parentalGuidance": "specific advice for parents",\n  "biblicalPerspective": "relevant Christian values or biblical principles",\n  "discussionPoints": ["suggestions for family conversations if needed"]\n}\n\nConsider these Christian family values:\n- Biblical morality and ethics\n- Age-appropriate content\n- Language and behavior standards\n- Spiritual and emotional well-being\n- Protection from harmful influences\n\nBe thorough but balanced.`;
 
     const analysis = await callLLMWithRetry(prompt);
 
-    // Parse the JSON response
     let parsedAnalysis;
     try {
       parsedAnalysis = JSON.parse(analysis);
-    } catch (parseError) {
-      // If JSON parsing fails, create a structured response
+    } catch {
       parsedAnalysis = {
-        safetyLevel: analysis.toLowerCase().includes('unsafe') ? 'UNSAFE' : 
-                    analysis.toLowerCase().includes('caution') ? 'CAUTION' : 'SAFE',
+        safetyLevel: analysis.toLowerCase().includes('unsafe') ? 'UNSAFE' :
+                     analysis.toLowerCase().includes('caution') ? 'CAUTION' : 'SAFE',
         reasoning: analysis,
         concerns: [],
         parentalGuidance: "Please review this content with your child.",
-        biblicalPerspective: "Encourage discernment and biblical values.",
+        biblicalPerspective: "Encourage discernment grounded in biblical values.",
         discussionPoints: []
       };
     }
 
-    // Log the monitoring event
     if (contentType && source) {
       await db.insert(content_monitoring).values({
         user_id: childId || userId,
@@ -79,25 +53,28 @@ Be thorough but balanced - not everything needs to be flagged, but genuine conce
         content_snippet: content.substring(0, 500),
         analysis_result: JSON.stringify(parsedAnalysis),
         safety_level: parsedAnalysis.safetyLevel,
-        flagged: parsedAnalysis.safetyLevel !== 'SAFE'
+        flagged: parsedAnalysis.safetyLevel !== "SAFE",
+        created_at: new Date()
       });
     }
 
-    logger.info('Content analyzed', { 
-      userId, 
-      childId, 
+    logger.info("Content analyzed", {
+      userId,
+      childId,
       safetyLevel: parsedAnalysis.safetyLevel,
-      contentType 
+      contentType
     });
 
     res.json({
       analysis: parsedAnalysis,
       analyzedAt: new Date().toISOString()
     });
-
   } catch (error: any) {
-    logger.error('Error analyzing content', { error: error.message, userId: req.user?.id });
-    res.status(500).json({ 
+    logger.error("Error analyzing content", {
+      error: error.message,
+      userId: req.user?.id
+    });
+    res.status(500).json({
       error: "Failed to analyze content",
       message: "Please try again later"
     });
@@ -113,70 +90,35 @@ export async function generateWeeklySummary(req: AuthenticatedRequest, res: Resp
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    // Get monitoring data for the week
-    const monitoringData = await db
+    const rows = await db
       .select()
       .from(content_monitoring)
       .where(eq(content_monitoring.user_id, childId || userId))
       .orderBy(desc(content_monitoring.created_at))
       .limit(50);
 
-    const contentSummary = monitoringData.map(item => 
+    const contentSummary = rows.map(item =>
       `${item.content_type}: ${item.content_snippet} (${item.safety_level})`
-    ).join('\n');
+    ).join("\n");
 
-    const prompt = `You are a Christian parenting coach providing a weekly family digital wellness summary.
+    const prompt = `You are a Christian parenting coach providing a weekly family digital wellness summary.\n\nBased on this week's monitored content activity:\n${contentSummary}\n\nCreate a comprehensive weekly summary with:\n\nWEEK OVERVIEW\n- General assessment of the child's digital consumption\n- Positive highlights and areas of growth\n- Any noticed trends or patterns\n\nSAFETY ASSESSMENT\n- Summary of flagged vs safe content\n- Key concerns that need attention\n- Examples of good discernment\n\nPARENTAL GUIDANCE\n- Conversation starters for the family\n- Suggested boundaries or guidelines\n- Ideas for digital discipleship activities\n\nBIBLICAL WISDOM\n- Relevant scripture verses\n- Christian principles for discussion\n- Prayer points for reflection\n\nACTION STEPS\n- 3–5 concrete steps parents can take\n- Age‑appropriate ways to involve children\n- Recommended resources or activities\n\nENCOURAGEMENT\n- Affirmations for parents\n- Reminders of God’s grace in parenting\n- Celebrating progress made`;
 
-Based on this week's monitored content activity:
-${contentSummary}
+    const summaryText = await callLLMWithRetry(prompt);
 
-Create a comprehensive weekly summary with:
+    logger.info("Weekly summary generated", { userId, childId });
 
-**WEEK OVERVIEW**
-- General assessment of the child's digital consumption
-- Positive highlights and areas of growth
-- Any patterns or trends noticed
-
-**SAFETY ASSESSMENT**
-- Summary of flagged vs safe content
-- Specific concerns that need attention
-- Areas where the child showed good discernment
-
-**PARENTAL GUIDANCE**
-- Specific conversation starters for the family
-- Recommended family activities or discussions
-- Suggested boundaries or guidelines to consider
-
-**BIBLICAL WISDOM**
-- Relevant scripture verses for family reflection
-- Christian principles to discuss with your child
-- Prayer points for your family's digital wellness
-
-**ACTION STEPS**
-- 3-5 concrete steps parents can take this week
-- Age-appropriate ways to involve the child in the conversation
-- Resources or activities to support digital discipleship
-
-**ENCOURAGEMENT**
-- Positive affirmations for parents
-- Reminders of God's grace in parenting
-- Celebration of progress made
-
-Keep the tone encouraging, practical, and rooted in Christian values. Focus on building trust and open communication rather than fear or control.`;
-
-    const summary = await callLLMWithRetry(prompt);
-
-    logger.info('Weekly summary generated', { userId, childId });
     res.json({
-      summary,
+      summary: summaryText,
       weekPeriod: { start: weekStart, end: weekEnd },
       generatedAt: new Date().toISOString(),
-      totalItemsAnalyzed: monitoringData.length
+      totalItemsAnalyzed: rows.length
     });
-
   } catch (error: any) {
-    logger.error('Error generating weekly summary', { error: error.message, userId: req.user?.id });
-    res.status(500).json({ 
+    logger.error("Error generating weekly summary", {
+      error: error.message,
+      userId: req.user?.id
+    });
+    res.status(500).json({
       error: "Failed to generate weekly summary",
       message: "Please try again later"
     });
