@@ -1,7 +1,7 @@
 import cron from 'node-cron';
 import { db } from '../db/db';
 import { users, weekly_content_summaries } from '../db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { llmService } from './llm.service';
 import logger from '../utils/logger';
 
@@ -13,30 +13,32 @@ export class SchedulerService {
       
       try {
         // Get all parent users
-        const parents = await db
+        const parents: Array<{ id: number }> = await db
           .select()
           .from(users)
-          .where(eq(users.role, 'parent'));
+          .where(eq(users.role, 'parent'))
+          .limit(1000); // Await the query to get the array of parents
 
         for (const parent of parents) {
           try {
             // Check if summary already exists for this week
             const thisWeekStart = new Date();
             thisWeekStart.setDate(thisWeekStart.getDate() - thisWeekStart.getDay()); // Start of week (Sunday)
-            
+            thisWeekStart.setHours(0, 0, 0, 0); // Reset time to midnight
+
             const existingSummary = await db
               .select()
               .from(weekly_content_summaries)
               .where(
                 and(
                   eq(weekly_content_summaries.family_id, parent.id),
-                  eq(weekly_content_summaries.week_start_date, thisWeekStart.toISOString().split('T')[0])
+                  eq(weekly_content_summaries.week_start_date, thisWeekStart)
                 )
               )
               .limit(1);
 
             if (existingSummary.length === 0) {
-              await llmService.generateWeeklySummary(parent.id);
+              await llmService.generateWeeklySummary({ familyId: parent.id });
               logger.info(`Generated weekly summary for family ${parent.id}`);
             }
           } catch (error) {

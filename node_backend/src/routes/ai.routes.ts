@@ -3,8 +3,14 @@
 import express, { Request, Response, NextFunction } from "express";
 import { llmService } from "../services/llm.service";
 import logger from "../utils/logger";
-import { verifyToken } from "../middleware/auth";
-import { db, child_activity_logs, content_analysis, weekly_content_summaries } from "../db/schema";
+// If your auth middleware is located elsewhere, update the path accordingly.
+// Example: If it's in src/middleware/auth.middleware.ts, use:
+import { verifyToken } from "../middleware/auth.middleware";
+// Otherwise, create src/middleware/auth.ts and export verifyToken from there.
+// Adjust the import below to match where your database instance is actually exported.
+// For example, if your database instance is exported from '../db/db.ts', use:
+import { child_activity_logs, content_analysis, weekly_content_summaries } from "../db/schema";
+import { db } from "../db/db";
 import { eq, desc, gte, lte } from "drizzle-orm";
 
 const router = express.Router();
@@ -103,11 +109,19 @@ router.post(
 );
 
 // GET /api/ai/verse-of-the-day
+interface VerseOfTheDayResponse {
+  verse: string;
+  reference: string;
+  translation?: string;
+  explanation?: string;
+  timestamp: string;
+}
+
 router.get(
   "/verse-of-the-day",
-  asyncHandler(async (_req, res: Response) => {
+  asyncHandler(async (_req: Request, res: Response<VerseOfTheDayResponse | { error: string }>) => {
     try {
-      const verse = await llmService.generateVerseOfTheDay();
+      const verse: Omit<VerseOfTheDayResponse, "timestamp"> = await llmService.generateVerseOfTheDay();
       return res.json({ ...verse, timestamp: new Date().toISOString() });
     } catch (err) {
       logger.error("generateVerse error:", err);

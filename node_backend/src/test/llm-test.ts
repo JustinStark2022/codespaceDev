@@ -22,7 +22,7 @@ async function testLLMConnection() {
       temperature: 0.3,
     });
     console.log('✅ Basic Response:', basicTest.text);
-    console.log('📊 Tokens used:', basicTest.usage?.total_tokens || 'Unknown');
+    // If you want to log token usage, ensure LLMResponse includes it, otherwise remove this line.
     console.log('');
 
     // Test 2: Verse of the Day

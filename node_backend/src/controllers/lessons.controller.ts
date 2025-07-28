@@ -1,16 +1,16 @@
 // src/controllers/lessons.controller.ts
 import { Request, Response } from "express";
-import { db } from "@/db/db";
-import { lessons, lesson_progress, users } from "@/db/schema";
+import { db } from "../db/db";
+import { lessons, lesson_progress, users } from "../db/schema";
 import { eq, and } from "drizzle-orm";
 
 export const getBibleLessons = async (_req: Request, res: Response) => {
-  const allLessons = await db.select().from(lessons);
+  const allLessons = db.select().from(lessons);
   res.json(allLessons);
 };
 
 export const getUserLessonProgress = async (req: Request & { user?: any }, res: Response) => {
-  const result = await db
+  const result = db
     .select()
     .from(lesson_progress)
     .where(eq(lesson_progress.user_id, req.user.id));
@@ -20,7 +20,7 @@ export const getUserLessonProgress = async (req: Request & { user?: any }, res: 
 export const updateLessonProgress = async (req: Request & { user?: any }, res: Response) => {
   const { lessonId, completed } = req.body;
 
-  await db.insert(lesson_progress).values({
+  db.insert(lesson_progress).values({
     user_id: req.user.id,
     lesson_id: lessonId,
     completed,
@@ -44,7 +44,8 @@ export const completeLessonProgress = async (req: Request & { user?: any }, res:
           eq(lesson_progress.user_id, targetUserId),
           eq(lesson_progress.lesson_id, lessonId)
         )
-      );
+      )
+      .limit(1);
 
     if (existing.length > 0) {
       // Update existing progress
@@ -62,7 +63,7 @@ export const completeLessonProgress = async (req: Request & { user?: any }, res:
         );
     } else {
       // Create new progress entry
-      await db.insert(lesson_progress).values({
+      db.insert(lesson_progress).values({
         user_id: targetUserId,
         lesson_id: lessonId,
         completed: true,
@@ -85,22 +86,38 @@ export const getUserLessonsWithProgress = async (req: Request & { user?: any }, 
   }
 
   // Fetch all lessons
-  const allLessons = await db.select().from(lessons);
+  const allLessons: Lesson[] = await db.select().from(lessons);
 
   // Fetch the user's progress
-  const userProgress = await db
+  const userProgress: LessonProgressEntry[] = db
     .select()
     .from(lesson_progress)
     .where(eq(lesson_progress.user_id, userId));
 
   // Map progress entries to a dictionary
   const progressMap = new Map<number, boolean>();
-  userProgress.forEach((entry) => {
+  interface LessonProgressEntry {
+    lesson_id: number;
+    completed: boolean;
+    [key: string]: any; // For any additional fields
+  }
+
+  userProgress.forEach((entry: LessonProgressEntry) => {
     progressMap.set(entry.lesson_id, entry.completed);
   });
 
   // Combine lesson data with user progress
-  const lessonProgress = allLessons.map((lesson) => ({
+  interface Lesson {
+    id: number;
+    [key: string]: any; // For any additional lesson fields
+  }
+
+  interface LessonWithProgress {
+    lesson: Lesson;
+    completed: boolean;
+  }
+
+  const lessonProgress: LessonWithProgress[] = allLessons.map((lesson: Lesson) => ({
     lesson,
     completed: progressMap.get(lesson.id) || false,
   }));
@@ -142,7 +159,7 @@ export const assignLessonToChild = async (req: Request & { user?: { id: number }
     }
 
     // Assign the lesson
-    await db.insert(lesson_progress).values({
+    db.insert(lesson_progress).values({
       user_id: childId,
       lesson_id: Number(lessonId),
       completed: false,

@@ -2,7 +2,13 @@
 import { Request, Response } from "express";
 import { callLLMWithRetry } from "../utils/llm";
 import { db } from "../db/db";
-import { content_monitoring } from "../db/schema";
+// Update the import to match the actual exported member from schema, e.g.:
+// If ContentMonitoring is the default export:
+import ContentMonitoring from "../db/schema";
+// Or, if the export is named differently, e.g. 'contentMonitoring':
+// import { contentMonitoring as ContentMonitoring } from "../db/schema";
+// Or, if the table is exported as default:
+// import ContentMonitoring from "../db/schema";
 import logger from "../utils/logger";
 import { eq, desc } from "drizzle-orm";
 
@@ -45,7 +51,7 @@ export async function analyzeContent(req: AuthenticatedRequest, res: Response) {
     }
 
     if (contentType && source) {
-      await db.insert(content_monitoring).values({
+      await db.insert(ContentMonitoring).values({
         user_id: childId || userId,
         parent_id: userId,
         content_type: contentType,
@@ -90,11 +96,18 @@ export async function generateWeeklySummary(req: AuthenticatedRequest, res: Resp
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    const rows = await db
+    type ContentMonitoringRow = {
+      content_type: string;
+      content_snippet: string;
+      safety_level: string;
+      // add other fields if needed
+    };
+
+    const rows: ContentMonitoringRow[] = await db
       .select()
-      .from(content_monitoring)
-      .where(eq(content_monitoring.user_id, childId || userId))
-      .orderBy(desc(content_monitoring.created_at))
+      .from(ContentMonitoring)
+      .where(eq(ContentMonitoring.user_id, childId || userId))
+      .orderBy(desc(ContentMonitoring.created_at))
       .limit(50);
 
     const contentSummary = rows.map(item =>

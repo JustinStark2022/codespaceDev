@@ -26,7 +26,7 @@ class LLMService {
     }
   }
 
-  private async generateResponse(request: LLMRequest): Promise<LLMResponse> {
+  public async generateResponse(request: LLMRequest): Promise<LLMResponse> {
     try {
       const response = await axios.post(
         `${this.baseUrl}/runsync`,
@@ -61,7 +61,12 @@ class LLMService {
       });
       return response.text;
     } catch (error) {
-      logger.error("Error generating chat response:", error.message);
+      logger.error(
+        "Error generating chat response:",
+        typeof error === "object" && error !== null && "message" in error
+          ? (error as { message?: string }).message
+          : String(error)
+      );
       return "I'm having trouble connecting right now. Please try again later.";
     }
   }
@@ -119,7 +124,12 @@ class LLMService {
         prayer: parsed.prayer || "Dear Lord, thank you for your love and guidance. Amen.",
       };
     } catch (error) {
-      logger.error("Error generating devotional:", error.message);
+      logger.error(
+        "Error generating devotional:",
+        typeof error === "object" && error !== null && "message" in error
+          ? (error as { message?: string }).message
+          : String(error)
+      );
       return {
         title: "Walking in Faith",
         content: "Today, let's remember that God has a wonderful plan for our lives.",
@@ -151,7 +161,12 @@ class LLMService {
       });
       return JSON.parse(response.text);
     } catch (error) {
-      logger.error("Error generating lesson:", error.message);
+      logger.error(
+        "Error generating lesson:",
+        typeof error === "object" && error !== null && "message" in error
+          ? (error as { message?: string }).message
+          : String(error)
+      );
       throw new Error("Failed to generate lesson.");
     }
   }
@@ -169,7 +184,12 @@ class LLMService {
       });
       return JSON.parse(response.text);
     } catch (error) {
-      logger.error("Error generating weekly summary:", error.message);
+      logger.error(
+        "Error generating weekly summary:",
+        typeof error === "object" && error !== null && "message" in error
+          ? (error as { message?: string }).message
+          : String(error)
+      );
       throw new Error("Failed to generate weekly summary.");
     }
   }
@@ -190,7 +210,12 @@ class LLMService {
       });
       return response.text;
     } catch (error) {
-      logger.error("Error generating content scan:", error.message);
+      logger.error(
+        "Error generating content scan:",
+        typeof error === "object" && error !== null && "message" in error
+          ? (error as { message?: string }).message
+          : String(error)
+      );
       throw new Error("Failed to generate content scan.");
     }
   }

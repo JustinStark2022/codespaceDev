@@ -32,7 +32,11 @@ export async function callLLM(prompt: string): Promise<string> {
       throw new Error(`RunPod error: ${response.status} - ${errorText}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as {
+      output?: string;
+      choices?: { text?: string }[];
+      generated_text?: string;
+    };
     logger.info('RunPod LLM response received');
     
     return data.output || data.choices?.[0]?.text || data.generated_text || 'No response generated';
