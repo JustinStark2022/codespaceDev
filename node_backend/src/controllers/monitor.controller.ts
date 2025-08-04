@@ -2,13 +2,7 @@
 import { Request, Response } from "express";
 import { callLLMWithRetry } from "../utils/llm";
 import { db } from "../db/db";
-// Update the import to match the actual exported member from schema, e.g.:
-// If ContentMonitoring is the default export:
-import ContentMonitoring from "../db/schema";
-// Or, if the export is named differently, e.g. 'contentMonitoring':
-// import { contentMonitoring as ContentMonitoring } from "../db/schema";
-// Or, if the table is exported as default:
-// import ContentMonitoring from "../db/schema";
+import { content_monitoring } from "../db/schema"; // Import just the table
 import logger from "../utils/logger";
 import { eq, desc } from "drizzle-orm";
 
@@ -51,7 +45,7 @@ export async function analyzeContent(req: AuthenticatedRequest, res: Response) {
     }
 
     if (contentType && source) {
-      await db.insert(ContentMonitoring).values({
+      await db.insert(content_monitoring).values({
         user_id: childId || userId,
         parent_id: userId,
         content_type: contentType,
@@ -105,28 +99,28 @@ export async function generateWeeklySummary(req: AuthenticatedRequest, res: Resp
 
     const rows: ContentMonitoringRow[] = await db
       .select()
-      .from(ContentMonitoring)
-      .where(eq(ContentMonitoring.user_id, childId || userId))
-      .orderBy(desc(ContentMonitoring.created_at))
+      .from(content_monitoring)
+      .where(eq(content_monitoring.user_id, childId || userId))
+      .orderBy(desc(content_monitoring.created_at))
       .limit(50);
 
-    const contentSummary = rows.map(item =>
+    const contentSummary = rows.map((item) =>
       `${item.content_type}: ${item.content_snippet} (${item.safety_level})`
     ).join("\n");
 
-    const prompt = `You are a Christian parenting coach providing a weekly family digital wellness summary.\n\nBased on this week's monitored content activity:\n${contentSummary}\n\nCreate a comprehensive weekly summary with:\n\nWEEK OVERVIEW\n- General assessment of the child's digital consumption\n- Positive highlights and areas of growth\n- Any noticed trends or patterns\n\nSAFETY ASSESSMENT\n- Summary of flagged vs safe content\n- Key concerns that need attention\n- Examples of good discernment\n\nPARENTAL GUIDANCE\n- Conversation starters for the family\n- Suggested boundaries or guidelines\n- Ideas for digital discipleship activities\n\nBIBLICAL WISDOM\n- Relevant scripture verses\n- Christian principles for discussion\n- Prayer points for reflection\n\nACTION STEPS\n- 3–5 concrete steps parents can take\n- Age‑appropriate ways to involve children\n- Recommended resources or activities\n\nENCOURAGEMENT\n- Affirmations for parents\n- Reminders of God’s grace in parenting\n- Celebrating progress made`;
+    const prompt = `You are a Christian parenting coach providing a weekly family digital wellness summary.\n\nBased on this week's monitored content activity:\n${contentSummary}\n\nCreate a comprehensive weekly summary with:\n\nWEEK OVERVIEW\n- General assessment of the child's digital consumption\n- Positive highlights and areas of growth\n- Any noticed trends or patterns\n\nSAFETY ASSESSMENT\n- Summary of flagged vs safe content\n- Key concerns that need attention\n- Examples of good discernment\n\nPARENTAL GUIDANCE\n- Conversation starters for the family\n- Suggested boundaries or guidelines\n- Ideas for digital discipleship activities\n\nBIBLICAL WISDOM\n- Relevant scripture verses\n- Christian principles for discussion\n- Prayer points for reflection\n\nACTION STEPS\n- 3–5 concrete steps parents can take\n- Age‑appropriate ways to involve children\n- Recommended resources or activities\n\nENCOURAGEMENT\n- Affirmations for parents\n- Reminders of God's grace in parenting\n- Celebrating progress made`;
 
     const summaryText = await callLLMWithRetry(prompt);
 
     logger.info("Weekly summary generated", { userId, childId });
 
-    res.json({
-      summary: summaryText,
-      weekPeriod: { start: weekStart, end: weekEnd },
-      generatedAt: new Date().toISOString(),
-      totalItemsAnalyzed: rows.length
-    });
-  } catch (error: any) {
+  res.json({
+    summary: summaryText,
+    weekPeriod: { start: weekStart, end: weekEnd },
+    generatedAt: new Date().toISOString(),
+    totalItemsAnalyzed: rows.length
+  });
+} catch (error: any) {
     logger.error("Error generating weekly summary", {
       error: error.message,
       userId: req.user?.id

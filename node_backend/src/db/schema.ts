@@ -145,6 +145,24 @@ export const llm_generated_content = pgTable("llm_generated_content", {
   updated_at: timestamp("updated_at").defaultNow(),
 });
 
+// ─── Content Monitoring ────────────────────────────────────────────────────────
+export const content_monitoring = pgTable("content_monitoring", {
+  id: serial("id").primaryKey(),
+  user_id: integer("user_id")
+    .notNull()
+    .references((): AnyPgColumn => users.id, { onDelete: "cascade" }),
+  parent_id: integer("parent_id")
+    .notNull()
+    .references((): AnyPgColumn => users.id, { onDelete: "cascade" }),
+  content_type: varchar("content_type", { length: 50 }).notNull(),
+  content_source: varchar("content_source", { length: 255 }),
+  content_snippet: text("content_snippet").notNull(),
+  analysis_result: text("analysis_result").notNull(),
+  safety_level: varchar("safety_level", { length: 20 }).notNull(),
+  flagged: boolean("flagged").default(false),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
 // ─── Infer Types ────────────────────────────────────────────────────────────────
 export type User = InferModel<typeof users>;
 export type NewUser = InferModel<typeof users, "insert">;
@@ -155,3 +173,4 @@ export type ActivityLog = InferModel<typeof child_activity_logs>;
 export type ContentAnalysis = InferModel<typeof content_analysis>;
 export type WeeklySummary = InferModel<typeof weekly_content_summaries>;
 export type LLMGenerated = InferModel<typeof llm_generated_content>;
+export type ContentMonitoring = InferModel<typeof content_monitoring>;
