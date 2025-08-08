@@ -1,40 +1,18 @@
-// src/db/db.ts
-import { drizzle } from 'drizzle-orm/node-postgres';
-// pg v8+ ships as a default export under ESM
-import pkg from 'pg';
-const { Pool } = pkg;
+// node_backend/src/db/db.ts
+import { drizzle } from "drizzle-orm/neon-http";
+import { neon } from "@neondatabase/serverless";
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false,
-  },
-});
+const { DATABASE_URL } = process.env;
+if (!DATABASE_URL) {
+  throw new Error("DATABASE_URL is not set");
+}
 
-// Database connection stub
-export const db = {
-  insert: (table: any) => ({
-    values: (data: any) => ({
-      returning: () => Promise.resolve([data]),
-    }),
-  }),
-  select: () => ({
-    from: (table: any) => ({
-      where: (condition: any) => ({
-        orderBy: (order: any) => ({
-          limit: (num: number) => Promise.resolve([]),
-        }),
-        limit: (num: number) => Promise.resolve([]),
-      }),
-      orderBy: (order: any) => ({
-        limit: (num: number) => Promise.resolve([]),
-      }),
-      limit: (num: number) => Promise.resolve([]),
-    }),
-  }),
-  update: (table: any) => ({
-    set: (data: any) => ({
-      where: (condition: any) => Promise.resolve(),
-    }),
-  }),
-};
+// Create the Neon HTTP client (serverless-friendly; no `pg` needed)
+export const sql = neon(DATABASE_URL);
+
+// Create the Drizzle client on top of Neon
+export const db = drizzle(sql as any);
+
+// If you want to pass schema for stronger typing, do:
+//   import * as schema from "../db/schema";
+//   export const db = drizzle(sql, { schema });

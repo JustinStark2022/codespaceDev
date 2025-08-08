@@ -1,14 +1,48 @@
+// Load environment variables first, before any other imports
+import * as dotenv from 'dotenv';
+import * as fs from 'fs';
+import * as path from 'path';
+
+// Try to load environment variables from different possible locations
+const envPaths = [
+  path.resolve(process.cwd(), '.env'),
+  path.resolve(__dirname, '../.env')
+];
+
+let envLoaded = false;
+for (const envPath of envPaths) {
+  if (fs.existsSync(envPath)) {
+    console.log(`Loading environment from: ${envPath}`);
+    dotenv.config({ path: envPath });
+    envLoaded = true;
+    break;
+  }
+}
+
+if (!envLoaded) {
+  console.warn('No .env file found! Using default environment variables if available.');
+  dotenv.config(); // Try default location as last resort
+}
+
+// Emergency fallback for critical variables
+if (!process.env.PORT) {
+  process.env.PORT = '3001';
+  console.log('Using default PORT=3001');
+}
+
+if (!process.env.NODE_ENV) {
+  process.env.NODE_ENV = 'development';
+  console.log('Using default NODE_ENV=development');
+}
+
+// Now continue with the rest of your imports and server setup
 import express from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
-import * as dotenv from "dotenv";
-import path from "path";
 
-// Load environment variables
-dotenv.config({ path: path.join(__dirname, '../.env.node_backend') });
-
+// Now continue with the rest of your imports and server setup
 import logger from "./utils/logger";
 import aiRoutes from "./routes/ai.routes";
 

@@ -7,14 +7,9 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  CardDescription
+  CardDescription,
 } from "@/components/ui/card";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger
-} from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -26,7 +21,7 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue
+  SelectValue,
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Child } from "@/types/user";
@@ -50,7 +45,7 @@ import {
   Eye,
   Palette,
   Database,
-  Wifi
+  Wifi,
 } from "lucide-react";
 
 export default function Settings() {
@@ -59,16 +54,16 @@ export default function Settings() {
 
   // Get tab from URL parameters
   const urlParams = new URLSearchParams(window.location.search);
-  const tabFromUrl = urlParams.get('tab') || 'general';
+  const tabFromUrl = urlParams.get("tab") || "general";
 
-  const [activeTab, setActiveTab] = useState(tabFromUrl);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>(tabFromUrl);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   // Update URL when tab changes
   useEffect(() => {
     const newUrl = `/settings?tab=${activeTab}`;
     if (location !== newUrl) {
-      window.history.replaceState({}, '', newUrl);
+      window.history.replaceState({}, "", newUrl);
     }
   }, [activeTab, location]);
 
@@ -83,7 +78,7 @@ export default function Settings() {
     screenTimeAlerts: true,
     lessonCompletions: true,
     deviceUsage: true,
-    biblePlan: true
+    biblePlan: true,
   });
   const [contentFilters, setContentFilters] = useState({
     blockViolence: true,
@@ -91,7 +86,7 @@ export default function Settings() {
     blockOccult: true,
     blockBullying: true,
     blockSexual: true,
-    blockBlasphemy: true
+    blockBlasphemy: true,
   });
   const [screenTimeSettings, setScreenTimeSettings] = useState({
     weekdayLimit: 120,
@@ -99,21 +94,22 @@ export default function Settings() {
     lockafter9pm: true,
     pauseDuringBedtime: true,
     allowRewards: true,
-    maxRewardTime: 60
+    maxRewardTime: 60,
   });
 
   const saveGeneralSettings = async () => {
     setIsSubmitting(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       toast({
         title: "Settings saved",
         description: "Your general settings have been updated successfully.",
       });
-    } catch (error) {
+    } catch {
       toast({
         title: "Error saving settings",
-        description: "There was a problem saving your settings. Please try again.",
+        description:
+          "There was a problem saving your settings. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -124,15 +120,18 @@ export default function Settings() {
   const saveContentFilters = async () => {
     setIsSubmitting(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       toast({
         title: "Content filters updated",
-        description: `Content filters have been updated for ${selectedChild === "all" ? "all children" : selectedChild}.`,
+        description: `Content filters have been updated for ${
+          selectedChild === "all" ? "all children" : selectedChild
+        }.`,
       });
-    } catch (error) {
+    } catch {
       toast({
         title: "Error saving content filters",
-        description: "There was a problem saving your content filters. Please try again.",
+        description:
+          "There was a problem saving your content filters. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -143,15 +142,18 @@ export default function Settings() {
   const saveScreenTimeSettings = async () => {
     setIsSubmitting(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       toast({
         title: "Screen time settings updated",
-        description: `Screen time settings have been updated for ${selectedChild === "all" ? "all children" : selectedChild}.`,
+        description: `Screen time settings have been updated for ${
+          selectedChild === "all" ? "all children" : selectedChild
+        }.`,
       });
-    } catch (error) {
+    } catch {
       toast({
         title: "Error saving screen time settings",
-        description: "There was a problem saving your screen time settings. Please try again.",
+        description:
+          "There was a problem saving your screen time settings. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -176,22 +178,38 @@ export default function Settings() {
         <div className="flex-1 max-w-6xl mx-auto w-full pt-4 min-h-0">
           <Card className="shadow-md border-0 h-full flex flex-col">
             <CardContent className="pt-3 flex-1 flex flex-col min-h-0">
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex flex-col h-full">
+              <Tabs
+                value={activeTab}
+                onValueChange={(v) => setActiveTab(v)}
+                className="w-full flex flex-col h-full"
+              >
                 <ScrollArea className="w-full mb-4">
                   <TabsList className="inline-flex w-max min-w-full">
-                    <TabsTrigger value="general" className="flex items-center text-xs px-3 whitespace-nowrap">
+                    <TabsTrigger
+                      value="general"
+                      className="flex items-center text-xs px-3 whitespace-nowrap"
+                    >
                       <Bell className="h-3 w-3 mr-1" />
                       General
                     </TabsTrigger>
-                    <TabsTrigger value="content" className="flex items-center text-xs px-3 whitespace-nowrap">
+                    <TabsTrigger
+                      value="content"
+                      className="flex items-center text-xs px-3 whitespace-nowrap"
+                    >
                       <Shield className="h-3 w-3 mr-1" />
                       Content
                     </TabsTrigger>
-                    <TabsTrigger value="screentime" className="flex items-center text-xs px-3 whitespace-nowrap">
+                    <TabsTrigger
+                      value="screentime"
+                      className="flex items-center text-xs px-3 whitespace-nowrap"
+                    >
                       <Clock className="h-3 w-3 mr-1" />
                       Screen Time
                     </TabsTrigger>
-                    <TabsTrigger value="monitoring" className="flex items-center text-xs px-3 whitespace-nowrap">
+                    <TabsTrigger
+                      value="monitoring"
+                      className="flex items-center text-xs px-3 whitespace-nowrap"
+                    >
                       <Monitor className="h-3 w-3 mr-1" />
                       Monitoring
                     </TabsTrigger>
@@ -210,12 +228,19 @@ export default function Settings() {
                             <Bell className="h-4 w-4 mr-2 text-primary-500" />
                             Notification Settings
                           </CardTitle>
-                          <CardDescription className="text-xs">Configure alert preferences</CardDescription>
+                          <CardDescription className="text-xs">
+                            Configure alert preferences
+                          </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-3 pt-0">
                           <div className="flex items-center justify-between">
                             <div>
-                              <Label htmlFor="content-alerts" className="font-medium text-sm">Content Alerts</Label>
+                              <Label
+                                htmlFor="content-alerts"
+                                className="font-medium text-sm"
+                              >
+                                Content Alerts
+                              </Label>
                               <p className="text-xs text-gray-500">
                                 Inappropriate content detected
                               </p>
@@ -223,13 +248,23 @@ export default function Settings() {
                             <Switch
                               id="content-alerts"
                               checked={notifications.contentAlerts}
-                              onCheckedChange={(checked) => setNotifications({...notifications, contentAlerts: checked})}
+                              onCheckedChange={(checked) =>
+                                setNotifications({
+                                  ...notifications,
+                                  contentAlerts: checked,
+                                })
+                              }
                             />
                           </div>
 
                           <div className="flex items-center justify-between">
                             <div>
-                              <Label htmlFor="screentime-alerts" className="font-medium text-sm">Screen Time Alerts</Label>
+                              <Label
+                                htmlFor="screentime-alerts"
+                                className="font-medium text-sm"
+                              >
+                                Screen Time Alerts
+                              </Label>
                               <p className="text-xs text-gray-500">
                                 Time limit notifications
                               </p>
@@ -237,13 +272,23 @@ export default function Settings() {
                             <Switch
                               id="screentime-alerts"
                               checked={notifications.screenTimeAlerts}
-                              onCheckedChange={(checked) => setNotifications({...notifications, screenTimeAlerts: checked})}
+                              onCheckedChange={(checked) =>
+                                setNotifications({
+                                  ...notifications,
+                                  screenTimeAlerts: checked,
+                                })
+                              }
                             />
                           </div>
 
                           <div className="flex items-center justify-between">
                             <div>
-                              <Label htmlFor="lesson-completions" className="font-medium text-sm">Lesson Completions</Label>
+                              <Label
+                                htmlFor="lesson-completions"
+                                className="font-medium text-sm"
+                              >
+                                Lesson Completions
+                              </Label>
                               <p className="text-xs text-gray-500">
                                 Bible lesson achievements
                               </p>
@@ -251,13 +296,23 @@ export default function Settings() {
                             <Switch
                               id="lesson-completions"
                               checked={notifications.lessonCompletions}
-                              onCheckedChange={(checked) => setNotifications({...notifications, lessonCompletions: checked})}
+                              onCheckedChange={(checked) =>
+                                setNotifications({
+                                  ...notifications,
+                                  lessonCompletions: checked,
+                                })
+                              }
                             />
                           </div>
 
                           <div className="flex items-center justify-between">
                             <div>
-                              <Label htmlFor="device-usage" className="font-medium text-sm">Device Usage</Label>
+                              <Label
+                                htmlFor="device-usage"
+                                className="font-medium text-sm"
+                              >
+                                Device Usage
+                              </Label>
                               <p className="text-xs text-gray-500">
                                 New logins & unusual activity
                               </p>
@@ -265,7 +320,12 @@ export default function Settings() {
                             <Switch
                               id="device-usage"
                               checked={notifications.deviceUsage}
-                              onCheckedChange={(checked) => setNotifications({...notifications, deviceUsage: checked})}
+                              onCheckedChange={(checked) =>
+                                setNotifications({
+                                  ...notifications,
+                                  deviceUsage: checked,
+                                })
+                              }
                             />
                           </div>
                         </CardContent>
@@ -278,20 +338,43 @@ export default function Settings() {
                             <Lock className="h-4 w-4 mr-2 text-green-500" />
                             Account Security
                           </CardTitle>
-                          <CardDescription className="text-xs">Password and security settings</CardDescription>
+                          <CardDescription className="text-xs">
+                            Password and security settings
+                          </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-3 pt-0">
                           <div className="space-y-2">
-                            <Label htmlFor="current-password" className="text-sm">Current Password</Label>
-                            <Input id="current-password" type="password" placeholder="••••••••" className="h-8 text-xs" />
+                            <Label htmlFor="current-password" className="text-sm">
+                              Current Password
+                            </Label>
+                            <Input
+                              id="current-password"
+                              type="password"
+                              placeholder="••••••••"
+                              className="h-8 text-xs"
+                            />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="new-password" className="text-sm">New Password</Label>
-                            <Input id="new-password" type="password" placeholder="••••••••" className="h-8 text-xs" />
+                            <Label htmlFor="new-password" className="text-sm">
+                              New Password
+                            </Label>
+                            <Input
+                              id="new-password"
+                              type="password"
+                              placeholder="••••••••"
+                              className="h-8 text-xs"
+                            />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="confirm-password" className="text-sm">Confirm New Password</Label>
-                            <Input id="confirm-password" type="password" placeholder="••••••••" className="h-8 text-xs" />
+                            <Label htmlFor="confirm-password" className="text-sm">
+                              Confirm New Password
+                            </Label>
+                            <Input
+                              id="confirm-password"
+                              type="password"
+                              placeholder="••••••••"
+                              className="h-8 text-xs"
+                            />
                           </div>
                           <Button className="w-full h-7 text-xs" variant="outline">
                             Update Password
@@ -308,44 +391,84 @@ export default function Settings() {
                             <BookOpen className="h-4 w-4 mr-2 text-accent-500" />
                             Bible Settings
                           </CardTitle>
-                          <CardDescription className="text-xs">Reading preferences and plans</CardDescription>
+                          <CardDescription className="text-xs">
+                            Reading preferences and plans
+                          </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-3 pt-0">
                           <div className="space-y-2">
-                            <Label htmlFor="default-translation" className="text-sm">Default Bible Translation</Label>
+                            <Label
+                              htmlFor="default-translation"
+                              className="text-sm"
+                            >
+                              Default Bible Translation
+                            </Label>
                             <Select defaultValue="NIV">
-                              <SelectTrigger id="default-translation" className="h-8 text-xs">
+                              <SelectTrigger
+                                id="default-translation"
+                                className="h-8 text-xs"
+                              >
                                 <SelectValue placeholder="Select translation" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="NIrV">NIrV (Reader's Version)</SelectItem>
-                                <SelectItem value="NIV">NIV (New International)</SelectItem>
-                                <SelectItem value="NLT">NLT (New Living)</SelectItem>
-                                <SelectItem value="ERV">ERV (Easy-to-Read)</SelectItem>
-                                <SelectItem value="CSB">CSB (Christian Standard)</SelectItem>
+                                <SelectItem value="NIrV">
+                                  NIrV (Reader&apos;s Version)
+                                </SelectItem>
+                                <SelectItem value="NIV">
+                                  NIV (New International)
+                                </SelectItem>
+                                <SelectItem value="NLT">
+                                  NLT (New Living)
+                                </SelectItem>
+                                <SelectItem value="ERV">
+                                  ERV (Easy-to-Read)
+                                </SelectItem>
+                                <SelectItem value="CSB">
+                                  CSB (Christian Standard)
+                                </SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
 
                           <div className="space-y-2">
-                            <Label htmlFor="reading-plan" className="text-sm">Daily Reading Plan</Label>
+                            <Label htmlFor="reading-plan" className="text-sm">
+                              Daily Reading Plan
+                            </Label>
                             <Select defaultValue="chronological">
-                              <SelectTrigger id="reading-plan" className="h-8 text-xs">
+                              <SelectTrigger
+                                id="reading-plan"
+                                className="h-8 text-xs"
+                              >
                                 <SelectValue placeholder="Select plan" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="chronological">Chronological</SelectItem>
-                                <SelectItem value="beginner">Beginner's Journey</SelectItem>
-                                <SelectItem value="wisdom">Wisdom Literature</SelectItem>
-                                <SelectItem value="gospels">Through the Gospels</SelectItem>
-                                <SelectItem value="psalms">Psalms & Proverbs</SelectItem>
+                                <SelectItem value="chronological">
+                                  Chronological
+                                </SelectItem>
+                                <SelectItem value="beginner">
+                                  Beginner&apos;s Journey
+                                </SelectItem>
+                                <SelectItem value="wisdom">
+                                  Wisdom Literature
+                                </SelectItem>
+                                <SelectItem value="gospels">
+                                  Through the Gospels
+                                </SelectItem>
+                                <SelectItem value="psalms">
+                                  Psalms &amp; Proverbs
+                                </SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
 
                           <div className="flex items-center justify-between">
                             <div>
-                              <Label htmlFor="bible-plan-notifications" className="font-medium text-sm">Daily Reminders</Label>
+                              <Label
+                                htmlFor="bible-plan-notifications"
+                                className="font-medium text-sm"
+                              >
+                                Daily Reminders
+                              </Label>
                               <p className="text-xs text-gray-500">
                                 Bible reading notifications
                               </p>
@@ -353,7 +476,12 @@ export default function Settings() {
                             <Switch
                               id="bible-plan-notifications"
                               checked={notifications.biblePlan}
-                              onCheckedChange={(checked) => setNotifications({...notifications, biblePlan: checked})}
+                              onCheckedChange={(checked) =>
+                                setNotifications({
+                                  ...notifications,
+                                  biblePlan: checked,
+                                })
+                              }
                             />
                           </div>
                         </CardContent>
@@ -366,11 +494,15 @@ export default function Settings() {
                             <Palette className="h-4 w-4 mr-2 text-purple-500" />
                             App Preferences
                           </CardTitle>
-                          <CardDescription className="text-xs">Interface and display settings</CardDescription>
+                          <CardDescription className="text-xs">
+                            Interface and display settings
+                          </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-3 pt-0">
                           <div className="space-y-2">
-                            <Label htmlFor="theme-mode" className="text-sm">Theme Mode</Label>
+                            <Label htmlFor="theme-mode" className="text-sm">
+                              Theme Mode
+                            </Label>
                             <Select defaultValue="light">
                               <SelectTrigger id="theme-mode" className="h-8 text-xs">
                                 <SelectValue placeholder="Select theme" />
@@ -384,7 +516,9 @@ export default function Settings() {
                           </div>
 
                           <div className="space-y-2">
-                            <Label htmlFor="language" className="text-sm">Language</Label>
+                            <Label htmlFor="language" className="text-sm">
+                              Language
+                            </Label>
                             <Select defaultValue="en">
                               <SelectTrigger id="language" className="h-8 text-xs">
                                 <SelectValue placeholder="Select language" />
@@ -400,7 +534,9 @@ export default function Settings() {
 
                           <div className="flex items-center justify-between">
                             <div>
-                              <Label htmlFor="sound-effects" className="font-medium text-sm">Sound Effects</Label>
+                              <Label htmlFor="sound-effects" className="font-medium text-sm">
+                                Sound Effects
+                              </Label>
                               <p className="text-xs text-gray-500">
                                 App sounds and notifications
                               </p>
@@ -430,8 +566,10 @@ export default function Settings() {
                   {/* Content Filters Tab */}
                   <TabsContent value="content" className="space-y-3">
                     <div className="mb-3">
-                      <Label htmlFor="child-selector" className="text-sm font-medium">Apply Settings To:</Label>
-                      <Select value={selectedChild} onValueChange={setSelectedChild}>
+                      <Label htmlFor="child-selector" className="text-sm font-medium">
+                        Apply Settings To:
+                      </Label>
+                      <Select value={selectedChild} onValueChange={(v) => setSelectedChild(v)}>
                         <SelectTrigger id="child-selector" className="mt-1 h-8 text-xs">
                           <SelectValue placeholder="Select child" />
                         </SelectTrigger>
@@ -455,13 +593,16 @@ export default function Settings() {
                             Content Filtering
                           </CardTitle>
                           <CardDescription className="text-xs">
-                            Block inappropriate content for {selectedChild === "all" ? "all children" : selectedChild}
+                            Block inappropriate content for{" "}
+                            {selectedChild === "all" ? "all children" : selectedChild}
                           </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-2 pt-0">
                           <div className="flex items-center justify-between">
                             <div>
-                              <Label htmlFor="filter-violence" className="font-medium text-sm">Block Violent Content</Label>
+                              <Label htmlFor="filter-violence" className="font-medium text-sm">
+                                Block Violent Content
+                              </Label>
                               <p className="text-xs text-gray-500">
                                 Games, videos with violent themes
                               </p>
@@ -469,13 +610,17 @@ export default function Settings() {
                             <Switch
                               id="filter-violence"
                               checked={contentFilters.blockViolence}
-                              onCheckedChange={(checked) => setContentFilters({...contentFilters, blockViolence: checked})}
+                              onCheckedChange={(checked) =>
+                                setContentFilters({ ...contentFilters, blockViolence: checked })
+                              }
                             />
                           </div>
 
                           <div className="flex items-center justify-between">
                             <div>
-                              <Label htmlFor="filter-language" className="font-medium text-sm">Block Bad Language</Label>
+                              <Label htmlFor="filter-language" className="font-medium text-sm">
+                                Block Bad Language
+                              </Label>
                               <p className="text-xs text-gray-500">
                                 Profanity and inappropriate language
                               </p>
@@ -483,13 +628,17 @@ export default function Settings() {
                             <Switch
                               id="filter-language"
                               checked={contentFilters.blockLanguage}
-                              onCheckedChange={(checked) => setContentFilters({...contentFilters, blockLanguage: checked})}
+                              onCheckedChange={(checked) =>
+                                setContentFilters({ ...contentFilters, blockLanguage: checked })
+                              }
                             />
                           </div>
 
                           <div className="flex items-center justify-between">
                             <div>
-                              <Label htmlFor="filter-occult" className="font-medium text-sm">Block Occult Content</Label>
+                              <Label htmlFor="filter-occult" className="font-medium text-sm">
+                                Block Occult Content
+                              </Label>
                               <p className="text-xs text-gray-500">
                                 Witchcraft, magic, occult themes
                               </p>
@@ -497,13 +646,17 @@ export default function Settings() {
                             <Switch
                               id="filter-occult"
                               checked={contentFilters.blockOccult}
-                              onCheckedChange={(checked) => setContentFilters({...contentFilters, blockOccult: checked})}
+                              onCheckedChange={(checked) =>
+                                setContentFilters({ ...contentFilters, blockOccult: checked })
+                              }
                             />
                           </div>
 
                           <div className="flex items-center justify-between">
                             <div>
-                              <Label htmlFor="filter-bullying" className="font-medium text-sm">Block Bullying Content</Label>
+                              <Label htmlFor="filter-bullying" className="font-medium text-sm">
+                                Block Bullying Content
+                              </Label>
                               <p className="text-xs text-gray-500">
                                 Promotes bullying or harmful behavior
                               </p>
@@ -511,13 +664,17 @@ export default function Settings() {
                             <Switch
                               id="filter-bullying"
                               checked={contentFilters.blockBullying}
-                              onCheckedChange={(checked) => setContentFilters({...contentFilters, blockBullying: checked})}
+                              onCheckedChange={(checked) =>
+                                setContentFilters({ ...contentFilters, blockBullying: checked })
+                              }
                             />
                           </div>
 
                           <div className="flex items-center justify-between">
                             <div>
-                              <Label htmlFor="filter-sexual" className="font-medium text-sm">Block Sexual Content</Label>
+                              <Label htmlFor="filter-sexual" className="font-medium text-sm">
+                                Block Sexual Content
+                              </Label>
                               <p className="text-xs text-gray-500">
                                 Sexual themes or inappropriate imagery
                               </p>
@@ -525,13 +682,17 @@ export default function Settings() {
                             <Switch
                               id="filter-sexual"
                               checked={contentFilters.blockSexual}
-                              onCheckedChange={(checked) => setContentFilters({...contentFilters, blockSexual: checked})}
+                              onCheckedChange={(checked) =>
+                                setContentFilters({ ...contentFilters, blockSexual: checked })
+                              }
                             />
                           </div>
 
                           <div className="flex items-center justify-between">
                             <div>
-                              <Label htmlFor="filter-blasphemy" className="font-medium text-sm">Block Blasphemous Content</Label>
+                              <Label htmlFor="filter-blasphemy" className="font-medium text-sm">
+                                Block Blasphemous Content
+                              </Label>
                               <p className="text-xs text-gray-500">
                                 Blasphemy against Christian beliefs
                               </p>
@@ -539,7 +700,9 @@ export default function Settings() {
                             <Switch
                               id="filter-blasphemy"
                               checked={contentFilters.blockBlasphemy}
-                              onCheckedChange={(checked) => setContentFilters({...contentFilters, blockBlasphemy: checked})}
+                              onCheckedChange={(checked) =>
+                                setContentFilters({ ...contentFilters, blockBlasphemy: checked })
+                              }
                             />
                           </div>
                         </CardContent>
@@ -552,32 +715,55 @@ export default function Settings() {
                             <CheckCircle className="h-4 w-4 mr-2 text-green-500" />
                             Approved Content
                           </CardTitle>
-                          <CardDescription className="text-xs">Manage trusted apps and websites</CardDescription>
+                          <CardDescription className="text-xs">
+                            Manage trusted apps and websites
+                          </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-2 pt-0">
                           <div className="space-y-2">
                             <Label className="text-sm">Trusted Websites</Label>
                             <div className="space-y-1">
-                              {['bible.com', 'youtube.com/kids', 'khan-academy.org'].map((site) => (
-                                <div key={site} className="flex items-center justify-between p-2 bg-green-50 rounded text-xs">
-                                  <span>{site}</span>
-                                  <Button variant="ghost" size="sm" className="h-5 w-5 p-0">×</Button>
-                                </div>
-                              ))}
+                              {["bible.com", "youtube.com/kids", "khan-academy.org"].map(
+                                (site) => (
+                                  <div
+                                    key={site}
+                                    className="flex items-center justify-between p-2 bg-green-50 rounded text-xs"
+                                  >
+                                    <span>{site}</span>
+                                    <Button variant="ghost" size="sm" className="h-5 w-5 p-0">
+                                      ×
+                                    </Button>
+                                  </div>
+                                )
+                              )}
                             </div>
                             <div className="flex gap-2">
-                              <Input placeholder="Add website..." className="h-7 text-xs flex-1" />
-                              <Button size="sm" className="h-7 text-xs">Add</Button>
+                              <Input
+                                placeholder="Add website..."
+                                className="h-7 text-xs flex-1"
+                              />
+                              <Button size="sm" className="h-7 text-xs">
+                                Add
+                              </Button>
                             </div>
                           </div>
 
                           <div className="space-y-2">
                             <Label className="text-sm">Approved Apps</Label>
                             <div className="space-y-1">
-                              {['Bible App for Kids', 'Minecraft Education', 'Khan Academy Kids'].map((app) => (
-                                <div key={app} className="flex items-center justify-between p-2 bg-blue-50 rounded text-xs">
+                              {[
+                                "Bible App for Kids",
+                                "Minecraft Education",
+                                "Khan Academy Kids",
+                              ].map((app) => (
+                                <div
+                                  key={app}
+                                  className="flex items-center justify-between p-2 bg-blue-50 rounded text-xs"
+                                >
                                   <span>{app}</span>
-                                  <Badge variant="secondary" className="text-xs">Approved</Badge>
+                                  <Badge variant="secondary" className="text-xs">
+                                    Approved
+                                  </Badge>
                                 </div>
                               ))}
                             </div>
@@ -594,11 +780,15 @@ export default function Settings() {
                             <Smile className="h-4 w-4 mr-2 text-green-500" />
                             Kingdom AI Settings
                           </CardTitle>
-                          <CardDescription className="text-xs">Configure AI content analysis</CardDescription>
+                          <CardDescription className="text-xs">
+                            Configure AI content analysis
+                          </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-3 pt-0">
                           <div className="space-y-2">
-                            <Label htmlFor="filter-sensitivity" className="text-sm">Filter Sensitivity</Label>
+                            <Label htmlFor="filter-sensitivity" className="text-sm">
+                              Filter Sensitivity
+                            </Label>
                             <div className="flex items-center space-x-2">
                               <span className="text-xs text-gray-500">Low</span>
                               <Slider
@@ -613,15 +803,23 @@ export default function Settings() {
                           </div>
 
                           <div className="space-y-2">
-                            <Label htmlFor="ai-detection-mode" className="text-sm">AI Detection Mode</Label>
+                            <Label htmlFor="ai-detection-mode" className="text-sm">
+                              AI Detection Mode
+                            </Label>
                             <Select defaultValue="balanced">
                               <SelectTrigger id="ai-detection-mode" className="h-8 text-xs">
                                 <SelectValue placeholder="Select mode" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="relaxed">Relaxed - Less false positives</SelectItem>
-                                <SelectItem value="balanced">Balanced - Recommended</SelectItem>
-                                <SelectItem value="strict">Strict - Maximum protection</SelectItem>
+                                <SelectItem value="relaxed">
+                                  Relaxed - Less false positives
+                                </SelectItem>
+                                <SelectItem value="balanced">
+                                  Balanced - Recommended
+                                </SelectItem>
+                                <SelectItem value="strict">
+                                  Strict - Maximum protection
+                                </SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
@@ -645,7 +843,9 @@ export default function Settings() {
                             <Database className="h-4 w-4 mr-2 text-blue-500" />
                             Content Statistics
                           </CardTitle>
-                          <CardDescription className="text-xs">Filter performance overview</CardDescription>
+                          <CardDescription className="text-xs">
+                            Filter performance overview
+                          </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-3 pt-0">
                           <div className="grid grid-cols-2 gap-3">
@@ -693,8 +893,13 @@ export default function Settings() {
                   {/* Screen Time Tab */}
                   <TabsContent value="screentime" className="space-y-3">
                     <div className="mb-3">
-                      <Label htmlFor="child-time-selector" className="text-sm font-medium">Apply Settings To:</Label>
-                      <Select value={selectedChild} onValueChange={setSelectedChild}>
+                      <Label
+                        htmlFor="child-time-selector"
+                        className="text-sm font-medium"
+                      >
+                        Apply Settings To:
+                      </Label>
+                      <Select value={selectedChild} onValueChange={(v) => setSelectedChild(v)}>
                         <SelectTrigger id="child-time-selector" className="mt-1 h-8 text-xs">
                           <SelectValue placeholder="Select child" />
                         </SelectTrigger>
@@ -717,13 +922,20 @@ export default function Settings() {
                             <Clock className="h-4 w-4 mr-2 text-blue-500" />
                             Daily Time Limits
                           </CardTitle>
-                          <CardDescription className="text-xs">Set screen time allowances</CardDescription>
+                          <CardDescription className="text-xs">
+                            Set screen time allowances
+                          </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-3 pt-0">
                           <div className="space-y-2">
                             <div className="flex justify-between">
-                              <Label htmlFor="weekday-limit" className="text-sm">Weekday Limit</Label>
-                              <span className="text-xs text-gray-500">{Math.floor(screenTimeSettings.weekdayLimit / 60)}h {screenTimeSettings.weekdayLimit % 60}m</span>
+                              <Label htmlFor="weekday-limit" className="text-sm">
+                                Weekday Limit
+                              </Label>
+                              <span className="text-xs text-gray-500">
+                                {Math.floor(screenTimeSettings.weekdayLimit / 60)}h{" "}
+                                {screenTimeSettings.weekdayLimit % 60}m
+                              </span>
                             </div>
                             <Slider
                               id="weekday-limit"
@@ -731,14 +943,24 @@ export default function Settings() {
                               min={30}
                               max={360}
                               step={15}
-                              onValueChange={(value) => setScreenTimeSettings({...screenTimeSettings, weekdayLimit: value[0]})}
+                              onValueChange={(value) =>
+                                setScreenTimeSettings({
+                                  ...screenTimeSettings,
+                                  weekdayLimit: value[0],
+                                })
+                              }
                             />
                           </div>
 
                           <div className="space-y-2">
                             <div className="flex justify-between">
-                              <Label htmlFor="weekend-limit" className="text-sm">Weekend Limit</Label>
-                              <span className="text-xs text-gray-500">{Math.floor(screenTimeSettings.weekendLimit / 60)}h {screenTimeSettings.weekendLimit % 60}m</span>
+                              <Label htmlFor="weekend-limit" className="text-sm">
+                                Weekend Limit
+                              </Label>
+                              <span className="text-xs text-gray-500">
+                                {Math.floor(screenTimeSettings.weekendLimit / 60)}h{" "}
+                                {screenTimeSettings.weekendLimit % 60}m
+                              </span>
                             </div>
                             <Slider
                               id="weekend-limit"
@@ -746,13 +968,22 @@ export default function Settings() {
                               min={30}
                               max={480}
                               step={15}
-                              onValueChange={(value) => setScreenTimeSettings({...screenTimeSettings, weekendLimit: value[0]})}
+                              onValueChange={(value) =>
+                                setScreenTimeSettings({
+                                  ...screenTimeSettings,
+                                  weekendLimit: value[0],
+                                })
+                              }
                             />
                           </div>
 
                           <div className="grid grid-cols-2 gap-2 mt-3">
-                            <Button variant="outline" className="h-7 text-xs">Quick: 1h</Button>
-                            <Button variant="outline" className="h-7 text-xs">Quick: 2h</Button>
+                            <Button variant="outline" className="h-7 text-xs">
+                              Quick: 1h
+                            </Button>
+                            <Button variant="outline" className="h-7 text-xs">
+                              Quick: 2h
+                            </Button>
                           </div>
                         </CardContent>
                       </Card>
@@ -764,7 +995,9 @@ export default function Settings() {
                             <Wifi className="h-4 w-4 mr-2 text-purple-500" />
                             Schedule Settings
                           </CardTitle>
-                          <CardDescription className="text-xs">Bedtime and break schedules</CardDescription>
+                          <CardDescription className="text-xs">
+                            Bedtime and break schedules
+                          </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-3 pt-0">
                           <div className="space-y-2">
@@ -821,12 +1054,16 @@ export default function Settings() {
                             <User className="h-4 w-4 mr-2 text-purple-500" />
                             Additional Controls
                           </CardTitle>
-                          <CardDescription className="text-xs">Device management options</CardDescription>
+                          <CardDescription className="text-xs">
+                            Device management options
+                          </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-3 pt-0">
                           <div className="flex items-center justify-between">
                             <div>
-                              <Label htmlFor="lock-after-9" className="font-medium text-sm">Auto-Lock at Bedtime</Label>
+                              <Label htmlFor="lock-after-9" className="font-medium text-sm">
+                                Auto-Lock at Bedtime
+                              </Label>
                               <p className="text-xs text-gray-500">
                                 Lock devices at scheduled bedtime
                               </p>
@@ -834,13 +1071,20 @@ export default function Settings() {
                             <Switch
                               id="lock-after-9"
                               checked={screenTimeSettings.lockafter9pm}
-                              onCheckedChange={(checked) => setScreenTimeSettings({...screenTimeSettings, lockafter9pm: checked})}
+                              onCheckedChange={(checked) =>
+                                setScreenTimeSettings({
+                                  ...screenTimeSettings,
+                                  lockafter9pm: checked,
+                                })
+                              }
                             />
                           </div>
 
                           <div className="flex items-center justify-between">
                             <div>
-                              <Label htmlFor="pause-bedtime" className="font-medium text-sm">Pause During Bedtime</Label>
+                              <Label htmlFor="pause-bedtime" className="font-medium text-sm">
+                                Pause During Bedtime
+                              </Label>
                               <p className="text-xs text-gray-500">
                                 Pause apps during sleep hours
                               </p>
@@ -848,7 +1092,12 @@ export default function Settings() {
                             <Switch
                               id="pause-bedtime"
                               checked={screenTimeSettings.pauseDuringBedtime}
-                              onCheckedChange={(checked) => setScreenTimeSettings({...screenTimeSettings, pauseDuringBedtime: checked})}
+                              onCheckedChange={(checked) =>
+                                setScreenTimeSettings({
+                                  ...screenTimeSettings,
+                                  pauseDuringBedtime: checked,
+                                })
+                              }
                             />
                           </div>
 
@@ -881,12 +1130,16 @@ export default function Settings() {
                             <Gift className="h-4 w-4 mr-2 text-accent-500" />
                             Reward Settings
                           </CardTitle>
-                          <CardDescription className="text-xs">Bible lesson incentives</CardDescription>
+                          <CardDescription className="text-xs">
+                            Bible lesson incentives
+                          </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-3 pt-0">
                           <div className="flex items-center justify-between">
                             <div>
-                              <Label htmlFor="allow-rewards" className="font-medium text-sm">Allow Bible Rewards</Label>
+                              <Label htmlFor="allow-rewards" className="font-medium text-sm">
+                                Allow Bible Rewards
+                              </Label>
                               <p className="text-xs text-gray-500">
                                 Extra time for completing lessons
                               </p>
@@ -894,7 +1147,12 @@ export default function Settings() {
                             <Switch
                               id="allow-rewards"
                               checked={screenTimeSettings.allowRewards}
-                              onCheckedChange={(checked) => setScreenTimeSettings({...screenTimeSettings, allowRewards: checked})}
+                              onCheckedChange={(checked) =>
+                                setScreenTimeSettings({
+                                  ...screenTimeSettings,
+                                  allowRewards: checked,
+                                })
+                              }
                             />
                           </div>
 
@@ -902,8 +1160,13 @@ export default function Settings() {
                             <>
                               <div className="space-y-2">
                                 <div className="flex justify-between">
-                                  <Label htmlFor="max-reward" className="text-sm">Max Daily Reward</Label>
-                                  <span className="text-xs text-gray-500">{Math.floor(screenTimeSettings.maxRewardTime / 60)}h {screenTimeSettings.maxRewardTime % 60}m</span>
+                                  <Label htmlFor="max-reward" className="text-sm">
+                                    Max Daily Reward
+                                  </Label>
+                                  <span className="text-xs text-gray-500">
+                                    {Math.floor(screenTimeSettings.maxRewardTime / 60)}h{" "}
+                                    {screenTimeSettings.maxRewardTime % 60}m
+                                  </span>
                                 </div>
                                 <Slider
                                   id="max-reward"
@@ -911,7 +1174,12 @@ export default function Settings() {
                                   min={15}
                                   max={120}
                                   step={15}
-                                  onValueChange={(value) => setScreenTimeSettings({...screenTimeSettings, maxRewardTime: value[0]})}
+                                  onValueChange={(value) =>
+                                    setScreenTimeSettings({
+                                      ...screenTimeSettings,
+                                      maxRewardTime: value[0],
+                                    })
+                                  }
                                 />
                               </div>
 
@@ -971,7 +1239,9 @@ export default function Settings() {
                             <Eye className="h-4 w-4 mr-2 text-blue-500" />
                             Real-time Monitoring
                           </CardTitle>
-                          <CardDescription className="text-xs">Live activity tracking settings</CardDescription>
+                          <CardDescription className="text-xs">
+                            Live activity tracking settings
+                          </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-3 pt-0">
                           <div className="flex items-center justify-between">
@@ -1027,7 +1297,9 @@ export default function Settings() {
                             <AlertTriangle className="h-4 w-4 mr-2 text-orange-500" />
                             Alert Settings
                           </CardTitle>
-                          <CardDescription className="text-xs">Configure monitoring notifications</CardDescription>
+                          <CardDescription className="text-xs">
+                            Configure monitoring notifications
+                          </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-3 pt-0">
                           <div className="flex items-center justify-between">
@@ -1086,15 +1358,15 @@ export default function Settings() {
                             <Globe className="h-4 w-4 mr-2 text-green-500" />
                             Location Tracking
                           </CardTitle>
-                          <CardDescription className="text-xs">Device location monitoring</CardDescription>
+                          <CardDescription className="text-xs">
+                            Device location monitoring
+                          </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-3 pt-0">
                           <div className="flex items-center justify-between">
                             <div>
                               <Label className="font-medium text-sm">GPS Tracking</Label>
-                              <p className="text-xs text-gray-500">
-                                Track device location
-                              </p>
+                              <p className="text-xs text-gray-500">Track device location</p>
                             </div>
                             <Switch defaultChecked />
                           </div>
@@ -1137,7 +1409,9 @@ export default function Settings() {
                             <Database className="h-4 w-4 mr-2 text-purple-500" />
                             Data & Privacy
                           </CardTitle>
-                          <CardDescription className="text-xs">Data retention and privacy settings</CardDescription>
+                          <CardDescription className="text-xs">
+                            Data retention and privacy settings
+                          </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-3 pt-0">
                           <div className="space-y-2">
@@ -1184,7 +1458,8 @@ export default function Settings() {
                           setIsSubmitting(false);
                           toast({
                             title: "Monitoring settings saved",
-                            description: "Your monitoring preferences have been updated successfully.",
+                            description:
+                              "Your monitoring preferences have been updated successfully.",
                           });
                         }, 1000);
                       }}
@@ -1201,29 +1476,6 @@ export default function Settings() {
                       )}
                     </Button>
                   </TabsContent>
-                </div>
-              </Tabs>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    </ParentLayout>
-  );
-}
-                  }}
-                  className="w-full h-8 text-xs"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    "Save Monitoring Settings"
-                  )}
-                </Button>
-                </TabsContent>
                 </div>
               </Tabs>
             </CardContent>

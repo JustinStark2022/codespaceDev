@@ -114,13 +114,13 @@ export async function generateWeeklySummary(req: AuthenticatedRequest, res: Resp
 
     logger.info("Weekly summary generated", { userId, childId });
 
-  res.json({
-    summary: summaryText,
-    weekPeriod: { start: weekStart, end: weekEnd },
-    generatedAt: new Date().toISOString(),
-    totalItemsAnalyzed: rows.length
-  });
-} catch (error: any) {
+    res.json({
+      summary: summaryText,
+      weekPeriod: { start: weekStart, end: weekEnd },
+      generatedAt: new Date().toISOString(),
+      totalItemsAnalyzed: rows.length
+    });
+  } catch (error: any) {
     logger.error("Error generating weekly summary", {
       error: error.message,
       userId: req.user?.id
