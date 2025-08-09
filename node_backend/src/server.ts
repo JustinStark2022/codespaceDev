@@ -1,12 +1,12 @@
 // Load environment variables first, before any other imports
-import * as dotenv from 'dotenv';
-import * as fs from 'fs';
-import * as path from 'path';
+import * as dotenv from "dotenv";
+import * as fs from "fs";
+import * as path from "path";
 
 // Try to load environment variables from different possible locations
 const envPaths = [
-  path.resolve(process.cwd(), '.env'),
-  path.resolve(__dirname, '../.env')
+  path.resolve(process.cwd(), ".env"),
+  path.resolve(__dirname, "../.env"),
 ];
 
 let envLoaded = false;
@@ -20,134 +20,115 @@ for (const envPath of envPaths) {
 }
 
 if (!envLoaded) {
-  console.warn('No .env file found! Using default environment variables if available.');
+  console.warn("No .env file found! Using default environment variables if available.");
   dotenv.config(); // Try default location as last resort
 }
 
 // Emergency fallback for critical variables
 if (!process.env.PORT) {
-  process.env.PORT = '3001';
-  console.log('Using default PORT=3001');
+  process.env.PORT = "3001";
+  console.log("Using default PORT=3001");
 }
-
 if (!process.env.NODE_ENV) {
-  process.env.NODE_ENV = 'development';
-  console.log('Using default NODE_ENV=development');
+  process.env.NODE_ENV = "development";
+  console.log("Using default NODE_ENV=development");
 }
 
-// Now continue with the rest of your imports and server setup
 import express from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 
-// Now continue with the rest of your imports and server setup
 import logger from "./utils/logger";
 import aiRoutes from "./routes/ai.routes";
 
 // Validate required environment variables
-const requiredEnvVars = ["PORT", "NODE_ENV", "RUNPOD_API_KEY"];
+const requiredEnvVars = ["PORT", "NODE_ENV", "RUNPOD_API_KEY"] as const;
 const missingVars = requiredEnvVars.filter((key) => !process.env[key]);
 if (missingVars.length > 0) {
   logger.error(`Missing required environment variables: ${missingVars.join(", ")}`);
   process.exit(1);
 }
 
-const PORT = process.env.PORT || 3001;
+const PORT = Number(process.env.PORT) || 3001;
 const NODE_ENV = process.env.NODE_ENV || "development";
 
 const app = express();
 
-// Middleware
-app.use(cors({ origin: process.env.FRONTEND_URL || "http://localhost:5173", credentials: true }));
+// -------- Middleware --------
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    credentials: true,
+  }),
+);
 app.use(helmet());
 app.use(cookieParser());
 app.use(express.json());
 app.use(morgan("dev"));
 
-// Routes
-app.use("/api/ai", aiRoutes);
-
-// Health check
+// -------- Routes --------
 app.get("/health", (_req, res) => {
   res.json({
-    status: 'healthy',
+    status: "healthy",
     timestamp: new Date().toISOString(),
     environment: NODE_ENV,
     port: PORT,
   });
 });
 
-// Error handling
-app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  logger.error(err.message);
-  res.status(500).json({ error: "Internal server error" });
-});
-
-// Start server
-app.listen(PORT, () => {
-  logger.info(`Server running on http://localhost:${PORT}`);
-});
-// API routes
 app.use("/api/ai", aiRoutes);
 
-// Error handling middleware
-app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  logger.error(err.stack || err.message);
-  res.status(500).json({
-    error: process.env.NODE_ENV === "production" ? "Internal server error" : err.message,
-  });
-});
-
-// 404 handler
+// -------- 404 handler (must be after routes) --------
 app.use((req, res) => {
   res.status(404).json({
     error: "Route not found",
     path: req.path,
-    method: req.method
+    method: req.method,
   });
 });
 
-// Start Express server
-app.listen(PORT, () => {
-  logger.info(`🚀 Express server running on http://localhost:${PORT}`);
-  logger.info(`📂 Environment: ${process.env.NODE_ENV}`);
-  logger.info(`🔑 API Key configured: ${!!process.env.RUNPOD_API_KEY}`);
-});
-// API routes
-// app.use("/api", authRoutes);
-// app.use("/api/user", userRoutes);
-// app.use("/api/bible", bibleRoutes);
-// app.use("/api/lessons", lessonsRoutes);
-// app.use("/api/alerts", alertsRoutes);
-// app.use("/api/chat", chatRoutes);
-// app.use("/api/friends", friendsRoutes);
-// app.use("/api/location", locationRoutes);
-// app.use("/api/screentime", screenTimeRoutes);
-// app.use("/api/child-dashboard", childDashboardRoutes);
-// app.use("/api/games", gamesRoutes);
-app.use("/api/ai", aiRoutes);
+// -------- Error handling (must be last) --------
+app.use(
+  (
+    err: Error,
+    _req: express.Request,
+    res: express.Response,
+    _next: express.NextFunction,
+  ) => {
+    logger.error(err.stack || err.message);
+    res.status(500).json({
+      error: process.env.NODE_ENV === "production" ? "Internal server error" : err.message,
+    });
+  },
+);
 
-// Error handling middleware
-app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  logger.error(err.stack || err.message);
-  res.status(500).json({
-    error: process.env.NODE_ENV === "production" ? "Internal server error" : err.message,
+// -------- Start server (only once) --------
+function start() {
+  const server = app.listen(PORT, () => {
+    logger.info(`🚀 Express server running on http://localhost:${PORT}`);
+    logger.info(`📂 Environment: ${process.env.NODE_ENV}`);
+    logger.info(`🔑 API Key configured: ${!!process.env.RUNPOD_API_KEY}`);
   });
-});
 
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({
-    error: "Route not found",
-    path: req.path,
-    method: req.method
-  });
-});
+  // Graceful shutdown
+  const shutdown = (signal: string) => {
+    logger.info(`[INFO] Received ${signal}. Closing server…`);
+    server.close(() => {
+      logger.info("[INFO] Server closed.");
+      process.exit(0);
+    });
+    setTimeout(() => process.exit(1), 5000).unref();
+  };
+  process.on("SIGINT", () => shutdown("SIGINT"));
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+}
 
-// Start server
-app.listen(PORT, () => {
-  logger.info(`Server running in ${process.env.NODE_ENV} mode on http://localhost:${PORT}`);
-  logger.info(`Environment loaded: ${Object.keys(requiredEnvVars).filter(key => requiredEnvVars[key as keyof typeof requiredEnvVars]).join(', ')}`);
-});
+// Start only if this file is the entry point (prevents double-starts if imported)
+if (require.main === module) {
+  start();
+}
+
+// Export for testing/import without starting
+export default app;

@@ -1,4 +1,3 @@
-
 services:
   backend:
     build:
@@ -6,11 +5,10 @@ services:
       dockerfile: Dockerfile
       target: development
     ports:
-      - "5000:3001"
+      - "3001:3001"
     working_dir: /workspace/node_backend
     env_file:
-      - .env
-      - .env.node_backend
+      - ./node_backend/.env
     environment:
       - NODE_ENV=${NODE_ENV:-development}
       - PORT=3001
@@ -19,9 +17,10 @@ services:
       - PGPASSWORD=${PGPASSWORD}
       - PGDATABASE=${PGDATABASE}
       - DATABASE_URL=${DATABASE_URL}
-      - NEON_API_KEY=${NEON_API_KEY}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
       - BIBLE_API_KEY=${BIBLE_API_KEY}
+      - RUNPOD_API_KEY=${RUNPOD_API_KEY}
+      - RUNPOD_ENDPOINT_ID=${RUNPOD_ENDPOINT_ID}
+      - JWT_SECRET=${JWT_SECRET}
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:5173}
       - NPM_CONFIG_PRODUCTION=false
     volumes:
@@ -40,14 +39,11 @@ services:
       - "5173:5173"
     working_dir: /workspace/client
     env_file:
-      - .env
-      - .env.client
+      - ./client/.env
     environment:
       - NODE_ENV=${NODE_ENV:-development}
-      - VITE_API_URL=${VITE_API_URL:-http://localhost:5000}
+      - VITE_API_URL=${VITE_API_URL:-http://localhost:3001}
       - VITE_FRONTEND_URL=${VITE_FRONTEND_URL:-http://localhost:5173}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - NEON_API_KEY=${NEON_API_KEY}
       - NPM_CONFIG_PRODUCTION=false
     volumes:
       - ./client:/workspace/client
