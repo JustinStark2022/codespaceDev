@@ -1,9 +1,20 @@
 import { z } from 'zod';
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
 
 // Load environment variables
 const envPath = path.join(__dirname, '../../.env');
+
+// Check if .env file exists and log the actual path
+if (fs.existsSync(envPath)) {
+  console.log(`✓ Found .env file at: ${envPath}`);
+} else {
+  console.error(`✗ .env file not found at: ${envPath}`);
+  console.log('Current directory:', __dirname);
+  console.log('Resolved path:', path.resolve(envPath));
+}
+
 dotenv.config({ path: envPath });
 
 // Define the schema for required environment variables
