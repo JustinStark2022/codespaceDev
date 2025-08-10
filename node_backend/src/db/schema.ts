@@ -10,6 +10,7 @@ import {
   date,
   boolean,
   AnyPgColumn,
+  time,
 } from "drizzle-orm/pg-core";
 import { InferModel } from "drizzle-orm";
 
@@ -17,7 +18,7 @@ import { InferModel } from "drizzle-orm";
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: varchar("username", { length: 255 }).notNull().unique(),
-  email: varchar("email", { length: 255 }).notNull(),
+  email: varchar("email", { length: 255 }).unique(),
   password: varchar("password", { length: 255 }).notNull(),
   display_name: varchar("display_name", { length: 255 }).notNull(),
   role: text("role").notNull().default("child"),
@@ -25,6 +26,11 @@ export const users = pgTable("users", {
     (): AnyPgColumn => users.id,
     { onDelete: "cascade" }
   ),
+
+  // legacy columns that exist in your DB and should be kept
+  age: integer("age"),
+  profile_picture: text("profile_picture"),
+
   first_name: varchar("first_name", { length: 255 }).notNull().default(""),
   last_name: varchar("last_name", { length: 255 }).notNull().default(""),
   created_at: timestamp("created_at").notNull().defaultNow(),
@@ -64,6 +70,33 @@ export const lesson_progress = pgTable("lesson_progress", {
     .references((): AnyPgColumn => lessons.id, { onDelete: "cascade" }),
   completed: boolean("completed").notNull().default(false),
   completed_at: timestamp("completed_at"),
+});
+
+// ─── Screen Time (keep legacy cols + your new ones) ────────────────────────────
+export const screen_time = pgTable("screen_time", {
+  id: serial("id").primaryKey(),
+  user_id: integer("user_id")
+    .notNull()
+    .references((): AnyPgColumn => users.id, { onDelete: "cascade" }),
+
+  // your desired fields
+  allowed_time_minutes: integer("allowed_time_minutes").notNull().default(120),
+  used_time_minutes: integer("used_time_minutes").notNull().default(0),
+  updated_at: timestamp("updated_at").notNull().defaultNow(),
+
+  // legacy fields already present in DB
+  daily_limits_total: integer("daily_limits_total"),
+  daily_limits_gaming: integer("daily_limits_gaming"),
+  daily_limits_social: integer("daily_limits_social"),
+  daily_limits_educational: integer("daily_limits_educational"),
+  created_at: timestamp("created_at").defaultNow(),
+  usage_today_total: integer("usage_today_total"),
+  usage_today_gaming: integer("usage_today_gaming"),
+  usage_today_social: integer("usage_today_social"),
+  usage_today_educational: integer("usage_today_educational"),
+  time_rewards_scripture: integer("time_rewards_scripture"),
+  time_rewards_lessons: integer("time_rewards_lessons"),
+  time_rewards_chores: integer("time_rewards_chores"),
 });
 
 // ─── Child Activity Logs ───────────────────────────────────────────────────────
@@ -163,14 +196,104 @@ export const content_monitoring = pgTable("content_monitoring", {
   created_at: timestamp("created_at").defaultNow(),
 });
 
+// ─── Blocked Apps ──────────────────────────────────────────────────────────────
+export const blocked_apps = pgTable("blocked_apps", {
+  id: serial("id").primaryKey(),
+  user_id: integer("user_id")
+    .notNull()
+    .references((): AnyPgColumn => users.id, { onDelete: "cascade" }),
+  name: varchar("name", { length: 255 }).notNull(),
+  category: text("category").notNull(),
+  blocked: boolean("blocked").notNull().default(false),
+  created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ─── Website History ───────────────────────────────────────────────────────────
+export const website_history = pgTable("website_history", {
+  id: serial("id").primaryKey(),
+  user_id: integer("user_id")
+    .notNull()
+    .references((): AnyPgColumn => users.id, { onDelete: "cascade" }),
+  url: text("url").notNull(),
+  title: varchar("title", { length: 255 }),
+  visited_at: timestamp("visited_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ─── Video History ─────────────────────────────────────────────────────────────
+export const video_history = pgTable("video_history", {
+  id: serial("id").primaryKey(),
+  user_id: integer("user_id")
+    .notNull()
+    .references((): AnyPgColumn => users.id, { onDelete: "cascade" }),
+  video_url: text("video_url").notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  watched_at: timestamp("watched_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ─── Games ─────────────────────────────────────────────────────────────────────
+export const games = pgTable("games", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  category: varchar("category", { length: 255 }),
+  flagged: boolean("flagged").notNull().default(false),
+  created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ─── Game History ──────────────────────────────────────────────────────────────
+export const game_history = pgTable("game_history", {
+  id: serial("id").primaryKey(),
+  user_id: integer("user_id")
+    .notNull()
+    .references((): AnyPgColumn => users.id, { onDelete: "cascade" }),
+  game_id: integer("game_id")
+    .notNull()
+    .references((): AnyPgColumn => games.id, { onDelete: "cascade" }),
+  played_at: timestamp("played_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ─── Schedules ─────────────────────────────────────────────────────────────────
+export const schedules = pgTable("schedules", {
+  id: serial("id").primaryKey(),
+  user_id: integer("user_id")
+    .notNull()
+    .references((): AnyPgColumn => users.id, { onDelete: "cascade" }),
+  day_of_week: varchar("day_of_week", { length: 20 }).notNull(),
+  // Your DB shows TIME WITHOUT TIME ZONE, so use `time()` here
+  start_time: time("start_time").notNull(),
+  end_time: time("end_time").notNull(),
+  enabled: boolean("enabled").notNull().default(true),
+});
+
+// ─── Content Filter Settings ───────────────────────────────────────────────────
+export const content_filter_settings = pgTable("content_filter_settings", {
+  id: serial("id").primaryKey(),
+  user_id: integer("user_id")
+    .notNull()
+    .references((): AnyPgColumn => users.id, { onDelete: "cascade" }),
+  block_secular: boolean("block_secular").notNull().default(false),
+  block_inappropriate: boolean("block_inappropriate").notNull().default(true),
+  updated_at: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 // ─── Infer Types ────────────────────────────────────────────────────────────────
 export type User = InferModel<typeof users>;
 export type NewUser = InferModel<typeof users, "insert">;
+
 export type Devotional = InferModel<typeof devotionals>;
 export type Lesson = InferModel<typeof lessons>;
 export type LessonProgress = InferModel<typeof lesson_progress>;
+
+export type ScreenTime = InferModel<typeof screen_time>;
 export type ActivityLog = InferModel<typeof child_activity_logs>;
 export type ContentAnalysis = InferModel<typeof content_analysis>;
 export type WeeklySummary = InferModel<typeof weekly_content_summaries>;
 export type LLMGenerated = InferModel<typeof llm_generated_content>;
 export type ContentMonitoring = InferModel<typeof content_monitoring>;
+
+export type BlockedApp = InferModel<typeof blocked_apps>;
+export type WebsiteHistory = InferModel<typeof website_history>;
+export type VideoHistory = InferModel<typeof video_history>;
+export type Game = InferModel<typeof games>;
+export type GameHistory = InferModel<typeof game_history>;
+export type Schedule = InferModel<typeof schedules>;
+export type ContentFilterSettings = InferModel<typeof content_filter_settings>;

@@ -1,33 +1,28 @@
 // drizzle.config.ts
-import dotenv from "dotenv";
+import type { Config } from "drizzle-kit";
+import * as dotenv from "dotenv";
 import { z } from "zod";
 
-// Load environment variables from the renamed and relocated .env.node_backend file
-dotenv.config({ path: "../.env.node_backend" });
+// If this file sits in node_backend/, point to that env file.
+// Change the path below if your env lives somewhere else.
+dotenv.config({ path: "./.env" });
+// If you truly keep it as ../.env.node_backend, use:
+// dotenv.config({ path: "../.env.node_backend" });
 
-// Validate database configuration
-const dbConfigSchema = z.object({
-  DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
-  NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
-});
+const env = z
+  .object({
+    DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
+    NODE_ENV: z.enum(["development", "production", "test"]).optional(),
+  })
+  .parse(process.env);
 
-try {
-  dbConfigSchema.parse(process.env);
-} catch (error) {
-  console.error("Database configuration validation failed:", error);
-  process.exit(1);
-}
-
-const config = {
+export default {
   schema: "./src/db/schema.ts",
-  out: "./migrations",
-  driver: "pg",
+  out: "./drizzle",          // migrations folder
+  dialect: "postgresql",     // replaces old `driver: "pg"`
   dbCredentials: {
-    connectionString: process.env.DATABASE_URL,
-    ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+    url: env.DATABASE_URL,   // Neon URL, include ?sslmode=require
   },
-  verbose: process.env.NODE_ENV === "development",
   strict: true,
-};
-
-export default config;
+  verbose: env.NODE_ENV !== "production",
+} satisfies Config;
