@@ -101,7 +101,7 @@ export const getChildren = async (req: AuthenticatedRequest, res: Response) => {
               ? {
                   allowedTimeMinutes: st.allowed_time_minutes ?? 120,
                   usedTimeMinutes: st.used_time_minutes ?? 0,
-                  updatedAt: (st as any).updated_at ?? null,
+                  updatedAt: st.updated_at ?? null,
                 }
               : null,
             totalLessons: progress.length,

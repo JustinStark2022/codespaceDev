@@ -1,68 +1,51 @@
 // src/middleware/auth.middleware.ts
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import { db } from "@/db/db";
-import { users } from "@/db/schema";
-import { eq } from "drizzle-orm";
-import logger from "@/utils/logger";
 
-interface AuthenticatedRequest extends Request {
-  user?: {
-    id: number;
-    role: string;
-    username: string;
-  };
+interface JwtPayload {
+  id: number;
+  role: string;
 }
 
-export const verifyToken = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+declare module "express-serve-static-core" {
+  interface Request {
+    user?: { id: number; role: string };
+  }
+}
+
+const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
+
+export function verifyToken(req: Request, res: Response, next: NextFunction) {
   try {
-    // Get token from cookie or Authorization header
-    let {token} = req.cookies;
-    
-    if (!token) {
-      const authHeader = req.headers.authorization;
-      if (authHeader && authHeader.startsWith("Bearer ")) {
-        token = authHeader.substring(7);
-      }
+    // 1) Bearer token in Authorization header
+    const auth = req.headers.authorization;
+    let token = auth?.startsWith("Bearer ") ? auth.slice(7) : undefined;
+
+    // 2) Or httpOnly cookie named "token"
+    if (!token && (req as any).cookies) {
+      token = (req as any).cookies.token;
     }
 
     if (!token) {
-      return res.status(401).json({ message: "No token provided" });
+      return res.status(401).json({ message: "Missing auth token" });
     }
 
-    // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
-
-    // Get fresh user data from database
-    const userResult = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, decoded.userId))
-      .limit(1);
-
-    if (userResult.length === 0) {
-      return res.status(401).json({ message: "User not found" });
-    }
-
-    const user = userResult[0];
-
-    // Attach user info to request
-    req.user = {
-      id: user.id,
-      role: user.role,
-      username: user.username
-    };
-
-    next();
-  } catch (err: any) {
-    if (err.name === "JsonWebTokenError") {
+    const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
+    if (!decoded?.id) {
       return res.status(401).json({ message: "Invalid token" });
     }
-    if (err.name === "TokenExpiredError") {
-      return res.status(401).json({ message: "Token expired" });
-    }
-    
-    logger.error(err, "Error in auth middleware");
-    return res.status(500).json({ message: "Internal server error" });
+
+    req.user = { id: decoded.id, role: decoded.role };
+    return next();
+  } catch {
+    return res.status(401).json({ message: "Unauthorized" });
   }
-};
+}
+export function requireRole(role: string) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user || req.user.role !== role) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    next();
+  };
+}

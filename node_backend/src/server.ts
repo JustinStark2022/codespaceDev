@@ -5,9 +5,8 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import morgan from "morgan";
 import path from "path";
-
+import userRoutes from "@/routes/user.routes";
 import authRoutes from "./routes/auth.routes";
-import userRoutes from "./routes/user.routes";
 import aiRoutes from "./routes/ai.routes";          // <-- make sure path & filename match
 import logger from "./utils/logger";
 
