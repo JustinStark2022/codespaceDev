@@ -1,5 +1,5 @@
 // src/services/LLMService.ts
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 import logger from "../utils/logger";
 
 interface LLMRequest {
@@ -15,11 +15,13 @@ interface LLMResponse {
 
 const requireEnv = (key: string) => {
   const v = process.env[key];
-  if (!v) {
-    throw new Error(`${key} is missing from environment variables`);
-  }
+  if (!v) throw new Error(`${key} is missing from environment variables`);
   return v;
 };
+
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
 
 class LLMService {
   private apiKey: string;
@@ -32,33 +34,56 @@ class LLMService {
     this.baseUrl = `https://api.runpod.ai/v2/${this.endpointId}`;
   }
 
-  /** Low-level call to Runpod endpoint */
-  private async post(input: any): Promise<string> {
-    const url = `${this.baseUrl}/runsync`; // synchronous call
-    try {
-      const { data } = await axios.post(
-        url,
-        { input },
-        {
-          headers: {
-            Authorization: `Bearer ${this.apiKey}`,
-            "Content-Type": "application/json",
-          },
-          timeout: 60_000,
+  /**
+   * Low-level call to the Runpod endpoint (synchronous run).
+   * Retries a couple times on transient network errors.
+   */
+  private async post(input: any, tries = 2): Promise<string> {
+    const url = `${this.baseUrl}/runsync`;
+    for (let attempt = 1; attempt <= tries; attempt++) {
+      try {
+        const { data } = await axios.post(
+          url,
+          { input },
+          {
+            headers: {
+              Authorization: `Bearer ${this.apiKey}`,
+              "Content-Type": "application/json",
+            },
+            timeout: 60_000,
+          }
+        );
+
+        // Normalize common response shapes
+        const text =
+          (typeof data?.output === "string" && data.output) ||
+          (data?.output?.text && data.output.text) ||
+          (typeof data === "string" ? data : "");
+
+        return String(text || "");
+      } catch (err: unknown) {
+        const axErr = err as AxiosError;
+        const msg =
+          axErr?.response?.data ??
+          axErr?.message ??
+          "Unknown RunPod error";
+        logger.error(`Runpod error (attempt ${attempt}/${tries}):`, msg);
+
+        // Retry only on network-ish issues/timeouts
+        if (
+          attempt < tries &&
+          (axErr.code === "ECONNRESET" ||
+            axErr.code === "ECONNABORTED" ||
+            axErr.message?.includes("timeout") ||
+            axErr.message?.includes("Network"))
+        ) {
+          await sleep(1000 * attempt);
+          continue;
         }
-      );
-
-      // Accept common response shapes
-      const text =
-        (typeof data?.output === "string" && data.output) ||
-        (data?.output?.text && data.output.text) ||
-        (typeof data === "string" ? data : "");
-
-      return String(text || "");
-    } catch (err: any) {
-      logger.error("Runpod error", err?.response?.data || err?.message);
-      throw new Error("LLM request failed");
+        throw new Error("LLM request failed");
+      }
     }
+    throw new Error("LLM request failed");
   }
 
   /** Generic prompt builder */
@@ -77,7 +102,7 @@ class LLMService {
     return { text: text || "No response generated." };
   }
 
-  /** Force strict JSON from the model */
+  /** Ask the model to return STRICT JSON only; safe fallback if it doesn't. */
   public async generateStrictJSON<T = any>(
     schemaHint: string,
     userPrompt: string,
@@ -93,12 +118,14 @@ class LLMService {
     try {
       return JSON.parse(text) as T;
     } catch {
-      logger.warn("LLM returned non-JSON; falling back", { text: text?.slice(0, 200) });
+      logger.warn("LLM returned non-JSON; falling back", {
+        preview: text?.slice(0, 200),
+      });
       return {} as T;
     }
   }
 
-  // ---------- Methods your app already calls ----------
+  // ------------- App-facing helpers -------------
 
   public async generateChatResponse(
     prompt: string,
@@ -177,8 +204,9 @@ Schema: { "title": string, "content": string, "prayer": string }`;
   }
 
   public async fetchChildContext(childId: number): Promise<string> {
-    // Placeholder: replace with actual context fetch if you store it
+    // Placeholder: replace when you store per-child context
     return `Child ID: ${childId}. Context includes preferences, age, and past activities.`;
+    // You can stitch DB data here later and pass into prompts.
   }
 
   public async generateLesson(

@@ -1,35 +1,88 @@
-
+// src/routes/ai.routes.ts
 import express, { Request, Response, NextFunction } from "express";
 import { llmService } from "../services/llm.service";
 import logger from "../utils/logger";
 import { verifyToken } from "../middleware/auth.middleware";
+import { db } from "../db/db";
 import {
+  users,
   child_activity_logs,
   content_analysis,
   weekly_content_summaries,
 } from "../db/schema";
-import { db } from "../db/db";
 import { eq, desc } from "drizzle-orm";
 
 const router = express.Router();
 
-/** Request augmented by auth middleware */
 interface AuthenticatedRequest extends Request {
   user?: { id: number; role: string };
 }
 
-/** Async wrapper */
 const asyncHandler =
-  <T extends Request, U extends Response>(
-    fn: (req: T, res: U, next: NextFunction) => Promise<any>
-  ) =>
+  <T extends Request, U extends Response>(fn: (req: T, res: U, next: NextFunction) => Promise<any>) =>
   (req: T, res: U, next: NextFunction) =>
     Promise.resolve(fn(req, res, next)).catch(next);
 
-/* =========================================================
-   POST /api/ai/content-scan
-   Analyze arbitrary content and persist a record (optional)
-   ========================================================= */
+/* -------------------- DASHBOARD AGGREGATE -------------------- */
+// GET /api/ai/dashboard
+router.get(
+  "/dashboard",
+  verifyToken,
+  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const userId = req.user?.id!;
+    // children
+    const kids = await db.select().from(users).where(eq(users.parent_id, userId));
+
+    // recent alerts (toy example from content_analysis)
+    const alerts = await db
+      .select()
+      .from(content_analysis)
+      .where(eq(content_analysis.child_id, kids[0]?.id ?? 0))
+      .orderBy(desc(content_analysis.created_at))
+      .limit(10);
+
+    // verse + summary (LLM) – both are resilient
+    let verseOfDay: any = null;
+    let familySummary: { bullets?: string[] } | null = null;
+
+    try {
+      verseOfDay = await llmService.generateVerseOfTheDay();
+    } catch (e) {
+      logger.warn("Verse generation failed; continuing:", e);
+    }
+
+    try {
+      // lightweight “summary”; replace with real prompt later if desired
+      familySummary = {
+        bullets: [
+          "Daily Bible Time: Encourage each child to read at least 10 minutes.",
+          "Family Devotions: Set aside a weekly discussion.",
+          "Serve Others: Find a simple way to help someone together.",
+        ],
+      };
+    } catch (e) {
+      familySummary = null;
+    }
+
+    return res.json({
+      verseOfDay,
+      familySummary,
+      children: kids.map((k) => ({
+        id: k.id,
+        name: k.display_name || k.username,
+        profilePicture: null,
+      })),
+      recentAlerts: alerts.map((a) => ({
+        id: a.id,
+        name: a.content_name,
+        flagReason: a.guidance_notes ?? "Reviewed",
+      })),
+      canGenerateWeeklyReport: false, // set logic when you’re ready
+    });
+  })
+);
+
+/* -------------------- CONTENT SCAN -------------------- */
 router.post(
   "/content-scan",
   verifyToken,
@@ -45,25 +98,16 @@ router.post(
     if (!content) return res.status(400).json({ error: "Content is required" });
 
     const systemPrompt =
-      "You are a Christian content safety analyzer. Reply with concise JSON. Keys: flagged (boolean), safetyScore (0-100), categories (string[]), reason (string), parentGuidanceNeeded (boolean), recommendedAge (string), guidanceNotes (string).";
+      "You are a Christian content safety analyzer. Reply JSON with keys: flagged (boolean), safetyScore (0-100), categories (string[]), reason (string), parentGuidanceNeeded (boolean), recommendedAge (string), guidanceNotes (string).";
 
-    const prompt = `Analyze this ${type || "content"} for safety and age-appropriateness.
-Content Name: ${contentName || "Unknown"}
+    const prompt = `Analyze this ${type || "content"}:
+Name: ${contentName || "Unknown"}
 Platform: ${platform || "Unknown"}
 Text:
-${content}
-`;
+${content}`;
 
-    // Call LLM
-    const raw = await llmService.generateContentScan(
-      prompt,
-      systemPrompt,
-      req.user?.id,
-      childId,
-      "content_scan"
-    );
+    const raw = await llmService.generateContentScan(prompt, systemPrompt, req.user?.id, childId, "content_scan");
 
-    // Try to parse JSON first; fallback to heuristic
     let analysis: {
       flagged: boolean;
       safetyScore: number;
@@ -84,13 +128,11 @@ ${content}
         reason: String(parsed.reason ?? "Analysis complete."),
         parentGuidanceNeeded: !!parsed.parentGuidanceNeeded,
         recommendedAge: String(parsed.recommendedAge ?? "All ages"),
-        guidanceNotes: String(parsed.guidanceNotes ?? "Review with your child."),
+        guidanceNotes: String(parsed.guidanceNotes ?? "Review together."),
         confidence: Number(parsed.confidence ?? 0.8),
       };
     } catch {
-      const flagged = /inappropriate|violence|adult|explicit|gambling|occult/i.test(
-        String(raw)
-      );
+      const flagged = /inappropriate|violence|adult|explicit|gambling|occult/i.test(String(raw));
       analysis = {
         flagged,
         safetyScore: flagged ? 35 : 85,
@@ -98,12 +140,11 @@ ${content}
         reason: typeof raw === "string" ? raw.slice(0, 500) : "LLM response",
         parentGuidanceNeeded: flagged,
         recommendedAge: "All ages",
-        guidanceNotes: "Review content with your child.",
+        guidanceNotes: "Review together.",
         confidence: 0.7,
       };
     }
 
-    // Persist content_analysis row if we have identifiers
     if (childId && contentName) {
       try {
         await db.insert(content_analysis).values({
@@ -124,88 +165,50 @@ ${content}
       }
     }
 
-    return res.json({
-      id: Date.now(),
-      ...analysis,
-      scanTime: new Date().toISOString(),
-    });
+    return res.json({ id: Date.now(), ...analysis, scanTime: new Date().toISOString() });
   })
 );
 
-/* ===========================================
-   POST /api/ai/chat
-   =========================================== */
+/* -------------------- CHAT -------------------- */
 router.post(
   "/chat",
   verifyToken,
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const { message, context } = req.body as {
-      message?: string;
-      context?: string;
-    };
+    const { message, context } = req.body as { message?: string; context?: string };
     if (!message) return res.status(400).json({ error: "Message is required" });
 
     try {
-      const responseText = await llmService.generateChatResponse(
-        message,
-        context,
-        req.user?.id
-      );
-      return res.json({
-        response: responseText,
-        timestamp: new Date().toISOString(),
-      });
+      const responseText = await llmService.generateChatResponse(message, context, req.user?.id);
+      return res.json({ response: responseText, timestamp: new Date().toISOString() });
     } catch (err) {
       logger.error("generateChat error:", err);
-      return res.status(500).json({
-        error: "AI error",
-        response:
-          "I'm having trouble connecting right now. Please try again later.",
+      return res.status(200).json({
+        response: "I'm having trouble connecting right now. Please try again later.",
       });
     }
   })
 );
 
-/* ===========================================
-   GET /api/ai/verse-of-the-day
-   =========================================== */
-interface VerseOfTheDayResponse {
-  verse: string;
-  reference: string;
-  translation?: string;
-  explanation?: string;
-  timestamp: string;
-}
-
+/* -------------------- VERSE OF THE DAY -------------------- */
 router.get(
   "/verse-of-the-day",
-  asyncHandler(
-    async (
-      _req: Request,
-      res: Response<VerseOfTheDayResponse | { error: string }>
-    ) => {
-      try {
-        const verse = await llmService.generateVerseOfTheDay();
-        return res.json({ ...verse, timestamp: new Date().toISOString() });
-      } catch (err) {
-        logger.error("generateVerse error:", err);
-        return res.status(500).json({ error: "Failed to generate verse" });
-      }
+  asyncHandler(async (_req: Request, res: Response) => {
+    try {
+      const verse = await llmService.generateVerseOfTheDay();
+      return res.json({ ...verse, timestamp: new Date().toISOString() });
+    } catch (err) {
+      logger.error("generateVerse error:", err);
+      return res.status(500).json({ error: "Failed to generate verse" });
     }
-  )
+  })
 );
 
-/* ===========================================
-   GET /api/ai/devotional
-   =========================================== */
+/* -------------------- DEVOTIONAL -------------------- */
 router.get(
   "/devotional",
   asyncHandler(async (req: Request, res: Response) => {
     try {
-      const topic =
-        typeof req.query.topic === "string"
-          ? (req.query.topic as string)
-          : undefined;
+      const topic = typeof req.query.topic === "string" ? req.query.topic : undefined;
       const devotional = await llmService.generateDevotional(topic);
       return res.json({ ...devotional, timestamp: new Date().toISOString() });
     } catch (err) {
@@ -215,9 +218,7 @@ router.get(
   })
 );
 
-/* ===========================================
-   POST /api/ai/generate-lesson
-   =========================================== */
+/* -------------------- GENERATE LESSON -------------------- */
 router.post(
   "/generate-lesson",
   verifyToken,
@@ -231,9 +232,7 @@ router.post(
     };
     if (!topic) return res.status(400).json({ error: "Topic is required" });
 
-    const childContext = childId
-      ? await llmService.fetchChildContext(childId)
-      : "";
+    const childContext = childId ? await llmService.fetchChildContext(childId) : "";
 
     try {
       const lesson = await llmService.generateLesson(
@@ -249,130 +248,6 @@ router.post(
     } catch (err) {
       logger.error("generateLesson error:", err);
       return res.status(500).json({ error: "Failed to generate lesson" });
-    }
-  })
-);
-
-/* ===========================================
-   GET /api/ai/weekly-summary/:familyId
-   =========================================== */
-router.get(
-  "/weekly-summary/:familyId",
-  verifyToken,
-  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const familyId = parseInt(req.params.familyId, 10);
-    const userId = req.user?.id;
-    if (!Number.isFinite(familyId)) {
-      return res.status(400).json({ error: "Invalid familyId" });
-    }
-    if (familyId !== userId && req.user?.role !== "admin") {
-      return res.status(403).json({ error: "Access denied" });
-    }
-    try {
-      const summary = await llmService.generateWeeklySummary({ familyId });
-      return res.json({
-        success: true,
-        summary,
-        timestamp: new Date().toISOString(),
-      });
-    } catch (err) {
-      logger.error("generateWeeklySummary error:", err);
-      return res
-        .status(500)
-        .json({ error: "Failed to generate weekly summary" });
-    }
-  })
-);
-
-/* ===========================================
-   GET /api/ai/weekly-summaries
-   =========================================== */
-router.get(
-  "/weekly-summaries",
-  verifyToken,
-  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const userId = req.user?.id;
-    if (!userId) return res.status(401).json({ error: "Unauthorized" });
-
-    try {
-      const summaries = await db
-        .select()
-        .from(weekly_content_summaries)
-        .where(eq(weekly_content_summaries.family_id, userId))
-        .orderBy(desc(weekly_content_summaries.generated_at))
-        .limit(10);
-
-      return res.json({ success: true, summaries });
-    } catch (err) {
-      logger.warn("fetch weekly summaries failed:", err);
-      return res.json({ success: true, summaries: [] });
-    }
-  })
-);
-
-/* ===========================================
-   POST /api/ai/log-activity
-   =========================================== */
-router.post(
-  "/log-activity",
-  verifyToken,
-  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const {
-      childId,
-      activityType,
-      activityName,
-      platform,
-      duration,
-      contentCategory,
-    } = req.body as {
-      childId?: number;
-      activityType?: string;
-      activityName?: string;
-      platform?: string;
-      duration?: number;
-      contentCategory?: string;
-    };
-
-    if (!childId || !activityType || !activityName) {
-      return res.status(400).json({ error: "Missing fields" });
-    }
-
-    try {
-      await db.insert(child_activity_logs).values({
-        child_id: childId,
-        activity_type: activityType,
-        activity_name: activityName,
-        platform: platform || null,
-        duration_minutes: duration ?? null,
-        content_category: contentCategory || null,
-      });
-      return res.json({ success: true });
-    } catch (err) {
-      logger.error("logActivity DB error:", err);
-      return res.status(500).json({ error: "Failed to log activity" });
-    }
-  })
-);
-
-/* ===========================================
-   POST /api/ai/generate
-   Simple freestyle generation
-   =========================================== */
-router.post(
-  "/generate",
-  verifyToken,
-  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const { prompt } = req.body as { prompt?: string };
-    if (!prompt) return res.status(400).json({ error: "Prompt is required" });
-
-    try {
-      const responseText = await llmService.generateChatResponse(prompt);
-      return res.json({ success: true, response: responseText });
-    } catch (err) {
-      logger.error("Error in /generate route:", err);
-      return res
-        .status(500)
-        .json({ success: false, message: "Internal Server Error" });
     }
   })
 );
