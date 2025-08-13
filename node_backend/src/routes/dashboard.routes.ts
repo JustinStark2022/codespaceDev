@@ -1,20 +1,15 @@
+// src/routes/dashboard.routes.ts
 import { Router } from "express";
 import * as Dashboard from "@/controllers/dashboard.controller";
+import * as AI from "@/controllers/ai.controller";
 import * as AuthMW from "@/middleware/auth.middleware";
+import { pickHandler } from "./_util";
 
 const router = Router();
+const requireAuth = pickHandler(AuthMW, ["requireAuth", "ensureAuth", "isAuthenticated", "authGuard", "default"], { kind: "middleware" });
 
-const requireAuth =
-  (AuthMW as any).requireAuth ||
-  (AuthMW as any).ensureAuth ||
-  (AuthMW as any).isAuthenticated ||
-  ((_req: any, _res: any, next: any) => next());
+const getDashboard = pickHandler({ ...Dashboard, ...AI }, ["getDashboard", "getAIDashboard"], { label: "dashboard.get" });
 
-const getDashboard =
-  (Dashboard as any).getDashboard ||
-  (Dashboard as any).dashboard ||
-  (Dashboard as any).index;
-
-router.get("/dashboard", requireAuth, getDashboard);
+router.get("/dashboard", requireAuth as any, getDashboard as any);
 
 export default router;

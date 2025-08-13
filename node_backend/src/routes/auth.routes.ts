@@ -1,25 +1,16 @@
+// src/routes/auth.routes.ts
 import { Router } from "express";
 import * as Auth from "@/controllers/auth.controller";
+import { pickHandler } from "./_util";
 
 const router = Router();
 
-// Allow for differing export names in the controller
-const login =
-  (Auth as any).login ||
-  (Auth as any).loginUser ||
-  (Auth as any).postLogin;
+const login = pickHandler(Auth, ["login", "loginUser", "handleLogin"], { label: "auth.login" });
+const logout = pickHandler(Auth, ["logout", "handleLogout"], { label: "auth.logout" });
+const register = pickHandler(Auth, ["register", "registerUser", "signup", "handleRegister"], { label: "auth.register" });
 
-const logout =
-  (Auth as any).logout ||
-  (Auth as any).postLogout;
-
-const register =
-  (Auth as any).register ||
-  (Auth as any).signup ||
-  (Auth as any).createAccount;
-
-router.post("/login", login);
-router.post("/logout", logout);
-router.post("/register", register);
+router.post("/login", login as any);
+router.post("/logout", logout as any);
+router.post("/register", register as any);
 
 export default router;

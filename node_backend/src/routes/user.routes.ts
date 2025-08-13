@@ -1,34 +1,22 @@
+// src/routes/user.routes.ts
 import { Router } from "express";
 import * as Users from "@/controllers/user.controller";
 import * as AuthMW from "@/middleware/auth.middleware";
+import { pickHandler } from "./_util";
 
 const router = Router();
+const requireAuth = pickHandler(AuthMW, ["requireAuth", "ensureAuth", "isAuthenticated", "authGuard", "default"], { kind: "middleware" });
 
-const requireAuth =
-  (AuthMW as any).requireAuth ||
-  (AuthMW as any).ensureAuth ||
-  (AuthMW as any).isAuthenticated ||
-  ((_req: any, _res: any, next: any) => next());
+const getUser = pickHandler(Users, ["getUser", "me", "getProfile"], { label: "user.get" });
+const getChildren = pickHandler(Users, ["getChildren", "listChildren"], { label: "user.children" });
+const createChild = pickHandler(Users, ["createChild", "addChild"], { label: "user.createChild" });
+const getChild = pickHandler(Users, ["getChildProfile", "getChild"], { label: "user.getChild" });
+const updateChild = pickHandler(Users, ["updateChildProfile", "updateChild"], { label: "user.updateChild" });
 
-const getUser =
-  (Users as any).getUser || (Users as any).profile || (Users as any).me;
-
-const getChildren =
-  (Users as any).getChildren || (Users as any).children;
-
-const createChild =
-  (Users as any).createChild || (Users as any).create;
-
-const getChildProfile =
-  (Users as any).getChildProfile || (Users as any).getChild;
-
-const updateChildProfile =
-  (Users as any).updateChildProfile || (Users as any).updateChild;
-
-router.get("/user", requireAuth, getUser);
-if (getChildren) router.get("/user/children", requireAuth, getChildren);
-if (createChild) router.post("/user/children", requireAuth, createChild);
-if (getChildProfile) router.get("/user/children/:id", requireAuth, getChildProfile);
-if (updateChildProfile) router.put("/user/children/:id", requireAuth, updateChildProfile);
+router.get("/user", requireAuth as any, getUser as any);
+router.get("/user/children", requireAuth as any, getChildren as any);
+router.post("/user/children", requireAuth as any, createChild as any);
+router.get("/user/children/:id", requireAuth as any, getChild as any);
+router.put("/user/children/:id", requireAuth as any, updateChild as any);
 
 export default router;

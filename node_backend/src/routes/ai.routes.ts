@@ -1,59 +1,37 @@
+// src/routes/ai.routes.ts
 import { Router } from "express";
-
-// Import controllers loosely (as any) to tolerate different export names
 import * as AI from "@/controllers/ai.controller";
 import * as Dashboard from "@/controllers/dashboard.controller";
 import * as Devotional from "@/controllers/devotional.controller";
 import * as Lessons from "@/controllers/lessons.controller";
-
-// Auth middleware (tolerate different export names)
 import * as AuthMW from "@/middleware/auth.middleware";
+import { pickHandler } from "./_util";
 
 const router = Router();
 
-// Resolve a guard even if the symbol is named differently in your file
-const requireAuth =
-  (AuthMW as any).requireAuth ||
-  (AuthMW as any).ensureAuth ||
-  (AuthMW as any).isAuthenticated ||
-  ((_req: any, _res: any, next: any) => next());
+const requireAuth = pickHandler(AuthMW, ["requireAuth", "ensureAuth", "isAuthenticated", "authGuard", "default"], { kind: "middleware", label: "auth.middleware" });
 
-// Handlers with graceful fallbacks to whatever exists
-const getAIDashboard =
-  (AI as any).getAIDashboard ||
-  (Dashboard as any).getDashboard;
+// Dashboard aggregate
+const getAIDashboard = pickHandler({ ...AI, ...Dashboard }, ["getAIDashboard", "getDashboard"], { label: "ai.getAIDashboard" });
+router.get("/ai/dashboard", requireAuth as any, getAIDashboard as any);
 
-const getDevotional =
-  (AI as any).getDevotional ||
-  (Devotional as any).generateDailyDevotional;
+// Devotional + Verse
+const getDevotional = pickHandler({ ...AI, ...Devotional }, ["getDevotional", "generateDailyDevotional"], { label: "ai.getDevotional" });
+router.get("/ai/devotional", requireAuth as any, getDevotional as any);
 
-const getVerseOfTheDay =
-  (AI as any).getVerseOfTheDay ||
-  (Devotional as any).getVerseOfTheDay ||
-  (Devotional as any).generateVerseOfTheDay;
+const getVerseOfTheDay = pickHandler({ ...AI, ...Devotional }, ["getVerseOfTheDay", "getVerse"], { label: "ai.getVerseOfTheDay" });
+router.get("/ai/verse-of-the-day", requireAuth as any, getVerseOfTheDay as any);
 
-const postChat =
-  (AI as any).postChat ||
-  (AI as any).chat ||
-  (AI as any).sendChat;
+// Chat
+const postChat = pickHandler(AI, ["postChat", "chat", "sendChat"], { label: "ai.postChat" });
+router.post("/ai/chat", requireAuth as any, postChat as any);
 
-const postContentScan =
-  (AI as any).postContentScan ||
-  (AI as any).analyzeContent ||
-  (AI as any).contentScan;
+// Content scan
+const postContentScan = pickHandler({ ...AI }, ["postContentScan", "scanContent", "analyzeContent"], { label: "ai.postContentScan" });
+router.post("/ai/content-scan", requireAuth as any, postContentScan as any);
 
-const postGenerateLesson =
-  (AI as any).postGenerateLesson ||
-  (Lessons as any).generateLesson ||
-  (Lessons as any).default; // some projects export default
-
-// ---- Routes ----
-router.get("/dashboard", requireAuth, getAIDashboard);
-router.get("/devotional", requireAuth, getDevotional);
-router.get("/verse-of-the-day", requireAuth, getVerseOfTheDay);
-
-router.post("/chat", requireAuth, postChat);
-router.post("/content-scan", requireAuth, postContentScan);
-router.post("/generate-lesson", requireAuth, postGenerateLesson);
+// Lesson
+const postGenerateLesson = pickHandler({ ...AI, ...Lessons }, ["postGenerateLesson", "generateLesson"], { label: "ai.postGenerateLesson" });
+router.post("/ai/generate-lesson", requireAuth as any, postGenerateLesson as any);
 
 export default router;
