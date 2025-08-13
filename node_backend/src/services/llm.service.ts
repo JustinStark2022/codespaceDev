@@ -23,6 +23,60 @@ function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+/** Remove code fences/backticks and leading/trailing junk. */
+function stripCodeFences(s: string): string {
+  if (!s) return s;
+  let t = s.trim();
+
+  // ```json ... ```
+  if (t.startsWith("```")) {
+    t = t.replace(/^```[a-zA-Z0-9]*\s*/g, "");
+    t = t.replace(/```$/g, "");
+  }
+
+  // Remove stray backticks
+  t = t.replace(/^`+/, "").replace(/`+$/, "");
+  return t.trim();
+}
+
+/** Try to extract the first JSON object in a string (if the model added chatter). */
+function extractFirstJsonObject(s: string): string | null {
+  if (!s) return null;
+
+  // Fast path: looks like JSON already
+  const trimmed = s.trim();
+  if (trimmed.startsWith("{") && trimmed.endsWith("}")) return trimmed;
+
+  // Fallback: greedy search for a {...} block
+  const match = /{[\s\S]*}/.exec(s);
+  return match ? match[0] : null;
+}
+
+/** Safe JSON.parse with fence stripping + extraction. */
+function safeJsonParse<T = any>(raw: string): T | null {
+  if (!raw) return null;
+  const stripped = stripCodeFences(raw);
+
+  // 1) direct parse
+  try {
+    return JSON.parse(stripped) as T;
+  } catch {
+    /* continue */
+  }
+
+  // 2) extract first {...} and parse
+  const block = extractFirstJsonObject(stripped);
+  if (block) {
+    try {
+      return JSON.parse(block) as T;
+    } catch {
+      /* continue */
+    }
+  }
+
+  return null;
+}
+
 class LLMService {
   private apiKey: string;
   private endpointId: string;
@@ -54,18 +108,24 @@ class LLMService {
           }
         );
 
-        // Normalize common response shapes
+        /**
+         * Normalize common response shapes:
+         * - data.output is a string
+         * - data.output.text is a string
+         * - or (rarely) data itself is a string
+         */
         const text =
           (typeof data?.output === "string" && data.output) ||
-          (data?.output?.text && data.output.text) ||
+          (typeof data?.output?.text === "string" && data.output.text) ||
           (typeof data === "string" ? data : "");
 
         return String(text || "");
       } catch (err: unknown) {
         const axErr = err as AxiosError;
         const msg =
-          axErr?.response?.data ??
-          axErr?.message ??
+          (axErr?.response?.data as any)?.error ||
+          axErr?.response?.data ||
+          axErr?.message ||
           "Unknown RunPod error";
         logger.error(`Runpod error (attempt ${attempt}/${tries}):`, msg);
 
@@ -74,8 +134,8 @@ class LLMService {
           attempt < tries &&
           (axErr.code === "ECONNRESET" ||
             axErr.code === "ECONNABORTED" ||
-            axErr.message?.includes("timeout") ||
-            axErr.message?.includes("Network"))
+            axErr.message?.toLowerCase().includes("timeout") ||
+            axErr.message?.toLowerCase().includes("network"))
         ) {
           await sleep(1000 * attempt);
           continue;
@@ -92,9 +152,12 @@ class LLMService {
       ? `${req.systemPrompt}\n\n---\n${req.prompt}`
       : req.prompt;
 
+    // Some Runpod models expect max_tokens instead of max_new_tokens.
+    // Send both; harmless if one is ignored.
     const text = await this.post({
       prompt,
       max_new_tokens: req.maxTokens ?? 600,
+      max_tokens: req.maxTokens ?? 600,
       temperature: req.temperature ?? 0.7,
       top_p: 0.9,
     });
@@ -115,14 +178,15 @@ class LLMService {
       maxTokens: opts?.maxTokens ?? 800,
       temperature: opts?.temperature ?? 0.7,
     });
-    try {
-      return JSON.parse(text) as T;
-    } catch {
-      logger.warn("LLM returned non-JSON; falling back", {
-        preview: text?.slice(0, 200),
-      });
-      return {} as T;
-    }
+
+    const parsed = safeJsonParse<T>(text);
+    if (parsed) return parsed;
+
+    logger.warn("LLM returned non-JSON; falling back", {
+      preview: (text || "").slice(0, 200),
+    });
+    // Return a typed empty object to avoid crashes upstream.
+    return {} as T;
   }
 
   // ------------- App-facing helpers -------------
@@ -206,7 +270,6 @@ Schema: { "title": string, "content": string, "prayer": string }`;
   public async fetchChildContext(childId: number): Promise<string> {
     // Placeholder: replace when you store per-child context
     return `Child ID: ${childId}. Context includes preferences, age, and past activities.`;
-    // You can stitch DB data here later and pass into prompts.
   }
 
   public async generateLesson(

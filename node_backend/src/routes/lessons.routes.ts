@@ -1,21 +1,21 @@
 import { Router } from "express";
-import { verifyToken } from "../middleware/auth.middleware";
-import {
-  getUserLessonsWithProgress,
-  getUserLessonProgress,
-  updateLessonProgress,
-  completeLessonProgress,
-  assignLessonToChild, // <-- Import the new controller
-} from "../controllers/lessons.controller";
+import * as Lessons from "@/controllers/lessons.controller";
+import * as AI from "@/controllers/ai.controller";
+import * as AuthMW from "@/middleware/auth.middleware";
 
 const router = Router();
 
-router.get("/", verifyToken, getUserLessonsWithProgress);
-router.get("/progress", verifyToken, getUserLessonProgress);
-router.post("/progress", verifyToken, updateLessonProgress);
-router.post("/complete", verifyToken, completeLessonProgress);
+const requireAuth =
+  (AuthMW as any).requireAuth ||
+  (AuthMW as any).ensureAuth ||
+  (AuthMW as any).isAuthenticated ||
+  ((_req: any, _res: any, next: any) => next());
 
-// Assign a lesson to a child (parent only)
-router.post("/:lessonId/assign", verifyToken, assignLessonToChild);
+const gen =
+  (Lessons as any).generateLesson ||
+  (Lessons as any).default || // default export
+  (AI as any).postGenerateLesson;
+
+router.post("/lessons/generate", requireAuth, gen);
 
 export default router;

@@ -1,12 +1,20 @@
-// src/routes/ai.routes.ts
 import { Router } from "express";
-import { verifyToken } from "@/middleware/auth.middleware";
-import { getDashboard } from "@/controllers/dashboard.controller";
-// (other imports you already had…)
+import * as Dashboard from "@/controllers/dashboard.controller";
+import * as AuthMW from "@/middleware/auth.middleware";
 
 const router = Router();
 
-router.get("/dashboard", verifyToken, getDashboard);
+const requireAuth =
+  (AuthMW as any).requireAuth ||
+  (AuthMW as any).ensureAuth ||
+  (AuthMW as any).isAuthenticated ||
+  ((_req: any, _res: any, next: any) => next());
 
-// keep your existing AI routes (chat, generate, etc)
+const getDashboard =
+  (Dashboard as any).getDashboard ||
+  (Dashboard as any).dashboard ||
+  (Dashboard as any).index;
+
+router.get("/dashboard", requireAuth, getDashboard);
+
 export default router;

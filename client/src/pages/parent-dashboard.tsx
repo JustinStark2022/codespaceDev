@@ -1,3 +1,4 @@
+// client/src/components/pages/parent-dashboard.tsx
 import React, { useEffect, useRef, useState } from "react";
 import ParentLayout from "@/components/layout/parent-layout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,11 +8,20 @@ import { Check, BookOpen } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import type { ChatMessage } from "@/types/chat";
 import { initialMessages } from "@/data/messages";
+import {
+  getAIDashboard,
+  sendChatMessage,
+  getVerseOfTheDay,
+  getDailyDevotional,
+} from "@/api/llm";
 
+// ---- Types ----
 type VerseOfDay = {
-  verse: string;
-  reference: string;
+  verse?: string;       // may come as "verse"
+  verseText?: string;   // or "verseText"
+  reference?: string;
   reflection?: string;
+  prayer?: string;
 };
 
 type Devotional = {
@@ -22,10 +32,11 @@ type Devotional = {
 
 type DashboardChild = {
   id: number;
-  displayName: string | null;
-  firstName: string | null;
-  lastName: string | null;
-  role: string;
+  displayName?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  name?: string | null;
+  role?: string | null;
 };
 
 type RecentAlert = {
@@ -35,28 +46,38 @@ type RecentAlert = {
   guidance_notes?: string | null;
   ai_analysis?: string | null;
   created_at?: string | null;
+  title?: string;
+  reason?: string;
 };
 
 type FamilySummary =
   | {
-      // from DB weekly_content_summaries
+      bullets?: string[];
+      message?: string;
       summary_content?: string;
       parental_advice?: string;
       discussion_topics?: string;
       spiritual_guidance?: string;
       generated_at?: string;
-      // optional helper shape the backend may return
-      bullets?: string[];
-      message?: string;
     }
   | null;
 
+type AIDashboardResponse = {
+  verseOfDay?: VerseOfDay | null;
+  devotional?: Devotional | null;
+  familySummary?: FamilySummary;
+  children?: DashboardChild[];
+  recentAlerts?: RecentAlert[];
+};
+
+// ---- Constants ----
 const fallbackChildImages = [
   "/images/profile-girl.png",
   "/images/profile-boy-2.png",
   "/images/profile-boy-1.png",
 ];
 
+// ---- Component ----
 export default function ParentDashboard() {
   const { user } = useAuth();
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -73,14 +94,13 @@ export default function ParentDashboard() {
   const [children, setChildren] = useState<DashboardChild[]>([]);
   const [recentAlerts, setRecentAlerts] = useState<RecentAlert[]>([]);
 
-  useEffect(() => {
-    async function fetchDashboard() {
-      try {
-        const r = await fetch("/api/ai/dashboard", { credentials: "include" });
-        if (!r.ok) throw new Error(`dashboard ${r.status}`);
-        const data = await r.json();
+  // normalize verse text key
+  const verseText = (v: VerseOfDay | null) => (v?.verse ?? v?.verseText ?? "");
 
-        // backend keys from /api/ai/dashboard
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = (await getAIDashboard()) as AIDashboardResponse;
         setVerseOfDay(data.verseOfDay ?? null);
         setDevotional(data.devotional ?? null);
         setFamilySummary(data.familySummary ?? null);
@@ -91,29 +111,21 @@ export default function ParentDashboard() {
       } finally {
         setLoadingDashboard(false);
       }
-    }
-    fetchDashboard();
+    })();
   }, []);
 
+  // ---- Actions ----
   const handleSend = async () => {
     if (!input.trim()) return;
 
-    const userMessage: ChatMessage = { sender: "user", text: input };
-    setMessages((msgs) => [...msgs, userMessage]);
-
-    const current = input;
+    const prompt = input;
+    setMessages((msgs) => [...msgs, { sender: "user", text: prompt }]);
     setInput("");
 
     try {
-      const res = await fetch("/api/ai/chat", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: current, context: "parent dashboard" }),
-      });
-      const data = await res.json();
-      const botMessage: ChatMessage = { sender: "bot", text: data.response ?? "…" };
-      setMessages((msgs) => [...msgs, botMessage]);
+      const r = await sendChatMessage(prompt, "parent dashboard");
+      const reply = typeof r?.response === "string" ? r.response : r;
+      setMessages((msgs) => [...msgs, { sender: "bot", text: String(reply ?? "…") }]);
     } catch {
       setMessages((msgs) => [
         ...msgs,
@@ -121,15 +133,34 @@ export default function ParentDashboard() {
       ]);
     }
 
-    // keep scrolled to bottom
     setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
   };
 
   const renderChildName = (c: DashboardChild) =>
     c.displayName ||
+    c.name ||
     [c.firstName, c.lastName].filter(Boolean).join(" ").trim() ||
     "Child";
 
+  const refreshVerse = async () => {
+    try {
+      const v = (await getVerseOfTheDay()) as VerseOfDay;
+      setVerseOfDay(v);
+    } catch (e) {
+      console.error("Failed to refresh verse", e);
+    }
+  };
+
+  const refreshDevotional = async () => {
+    try {
+      const d = (await getDailyDevotional()) as Devotional;
+      setDevotional(d);
+    } catch (e) {
+      console.error("Failed to refresh devotional", e);
+    }
+  };
+
+  // ---- UI ----
   return (
     <ParentLayout title="My Faith Fortress Parent Dashboard">
       {loadingDashboard ? (
@@ -153,9 +184,11 @@ export default function ParentDashboard() {
                           />
                           <div className="flex flex-col">
                             <span className="font-medium">{renderChildName(child)}</span>
-                            <span className="text-xs text-muted-foreground capitalize">
-                              {child.role}
-                            </span>
+                            {child.role ? (
+                              <span className="text-xs text-muted-foreground capitalize">
+                                {child.role}
+                              </span>
+                            ) : null}
                           </div>
                         </div>
                       ))}
@@ -180,7 +213,7 @@ export default function ParentDashboard() {
                     </ul>
                   ) : (
                     <p className="text-sm text-muted-foreground">
-                      {familySummary && "message" in familySummary && familySummary.message
+                      {familySummary && "message" in familySummary && familySummary?.message
                         ? familySummary.message
                         : "No summary available yet. Weekly reports appear after at least one week of family activity."}
                     </p>
@@ -196,9 +229,11 @@ export default function ParentDashboard() {
                     <div className="space-y-2 text-sm">
                       {recentAlerts.map((a, idx) => (
                         <div key={idx} className="border rounded p-2">
-                          <div className="font-medium">{a.content_name ?? "Content"}</div>
+                          <div className="font-medium">
+                            {a.content_name ?? a.title ?? "Content"}
+                          </div>
                           <div className="text-xs text-muted-foreground">
-                            {a.flag_reason || a.guidance_notes || "Needs review"}
+                            {a.flag_reason || a.guidance_notes || a.reason || "Needs review"}
                           </div>
                         </div>
                       ))}
@@ -218,16 +253,23 @@ export default function ParentDashboard() {
                 {/* Verse of the Day */}
                 <Card className="mb-4">
                   <CardContent className="p-4">
-                    <h2 className="text-lg font-bold">Verse of the Day</h2>
-                    {verseOfDay && (verseOfDay.verse || verseOfDay.reference) ? (
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-lg font-bold">Verse of the Day</h2>
+                      <Button variant="ghost" size="sm" onClick={refreshVerse}>
+                        Refresh
+                      </Button>
+                    </div>
+                    {verseText(verseOfDay) || verseOfDay?.reference ? (
                       <>
                         <div className="font-semibold text-blue-700 mt-1">
-                          {verseOfDay.verse}
+                          {verseText(verseOfDay)}
                         </div>
-                        <div className="text-sm text-blue-600 font-medium">
-                          — {verseOfDay.reference}
-                        </div>
-                        {!!verseOfDay.reflection && (
+                        {!!verseOfDay?.reference && (
+                          <div className="text-sm text-blue-600 font-medium">
+                            — {verseOfDay.reference}
+                          </div>
+                        )}
+                        {!!verseOfDay?.reflection && (
                           <div className="text-xs text-muted-foreground mt-2 italic">
                             {verseOfDay.reflection}
                           </div>
@@ -255,9 +297,7 @@ export default function ParentDashboard() {
                       <div className="text-sm text-foreground leading-relaxed line-clamp-6">
                         {devotional?.content ? (
                           <div
-                            dangerouslySetInnerHTML={{
-                              __html: devotional.content,
-                            }}
+                            dangerouslySetInnerHTML={{ __html: devotional.content }}
                           />
                         ) : (
                           "Click to generate today's family devotional…"
@@ -269,18 +309,7 @@ export default function ParentDashboard() {
                         variant="outline"
                         size="sm"
                         className="w-full"
-                        onClick={async () => {
-                          // you can open a modal in your app; for now just refresh devotional via the dashboard call
-                          try {
-                            const r = await fetch("/api/ai/devotional", {
-                              credentials: "include",
-                            });
-                            const d = await r.json();
-                            setDevotional(d);
-                          } catch {
-                            // no-op
-                          }
-                        }}
+                        onClick={refreshDevotional}
                       >
                         Read Full Devotional
                       </Button>
