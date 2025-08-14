@@ -7,7 +7,8 @@ import morgan from "morgan";
 import path from "path";
 import userRoutes from "@/routes/user.routes";
 import authRoutes from "./routes/auth.routes";
-import aiRoutes from "./routes/ai.routes";          // <-- make sure path & filename match
+import aiRoutes from "@/routes/ai.routes";
+import { env } from "@/utils/env-check";
 import logger from "./utils/logger";
 
 const app = express();
@@ -31,7 +32,7 @@ app.get("/api/health", (_req, res) => res.json({ ok: true }));
 // routes
 app.use("/api", authRoutes);
 app.use("/api", userRoutes);
-app.use("/api/ai", aiRoutes);                      // <-- this mounts /api/ai/dashboard etc.
+app.use(`${env.API_PREFIX}/ai`, aiRoutes);          // <-- this mounts /api/ai/dashboard etc.
 
 // serve nothing else in dev (vite serves your client)
 app.use((_req, res) => res.status(404).json({ message: "Not found" }));

@@ -41,7 +41,7 @@
     "@types/node": "^20.5.0",
     "@types/node-cron": "^3.0.8",
     "@types/pg": "^8.10.2",
-    "drizzle-kit": "^0.31.4",
+    "drizzle-kit": "^0.18.1",
     "ts-node": "^10.9.1",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.1.6"

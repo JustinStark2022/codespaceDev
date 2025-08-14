@@ -1,22 +1,33 @@
 // src/controllers/auth.controller.ts
-import { Request, Response } from "express";
+// src/controllers/auth.controller.ts
+import { Request, Response, type CookieOptions } from "express";
 import { db } from "@/db/db";
 import { users } from "@/db/schema";
 import { generateToken } from "@/utils/token";
 import logger from "@/utils/logger";
 
-import bcrypt from "bcryptjs"; // <- match your dependencies
+import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 
+/** ─────────────────────────────────────────────────────────
+ * Validation
+ * (coerce parent_id to number when provided as a string)
+ * ───────────────────────────────────────────────────────── */
 const newUserSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
   username: z.string().min(3),
   display_name: z.string().min(1),
   role: z.enum(["parent", "child"]),
-  parent_id: z.number().optional(),
+  parent_id: z
+    .union([z.number(), z.string()])
+    .optional()
+    .transform((v) => (v === undefined ? undefined : Number(v)))
+    .refine((v) => v === undefined || Number.isFinite(v), {
+      message: "parent_id must be a number",
+    }),
   first_name: z.string().min(1),
   last_name: z.string().min(1),
 });
@@ -26,26 +37,66 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
-const COOKIE_OPTS = {
+/** ─────────────────────────────────────────────────────────
+ * Cookie options
+ * Make sure this matches your client + environment.
+ * ───────────────────────────────────────────────────────── */
+const COOKIE_OPTS: CookieOptions = {
   httpOnly: true,
-  sameSite: "lax" as const,
-  secure: process.env.NODE_ENV === "production",
+  sameSite: "lax",
+  secure: process.env.NODE_ENV === "production", // false on localhost/http
   maxAge: 1000 * 60 * 60 * 24, // 24h
+  path: "/", // important so clearCookie matches
 };
 
+/** Helper to return a safe user payload */
+function safeUser(u: typeof users.$inferSelect) {
+  return {
+    id: u.id,
+    username: u.username,
+    email: u.email,
+    displayName: u.display_name,
+    role: u.role,
+    parentId: u.parent_id,
+    firstName: u.first_name,
+    lastName: u.last_name,
+    createdAt: u.created_at,
+    isParent: u.role === "parent",
+  };
+}
+
+/** ─────────────────────────────────────────────────────────
+ * POST /api/register
+ * ───────────────────────────────────────────────────────── */
 export const registerUser = async (req: Request, res: Response) => {
   try {
     const parsed = newUserSchema.parse(req.body);
-    const { username, password, email, display_name, role, parent_id, first_name, last_name } = parsed;
+    const {
+      username,
+      password,
+      email,
+      display_name,
+      role,
+      parent_id,
+      first_name,
+      last_name,
+    } = parsed;
 
-    const existingUser = await db.select().from(users).where(eq(users.username, username));
-    if (existingUser.length > 0) {
+    // Uniqueness checks
+    const [existingByUsername] = await db
+      .select()
+      .from(users)
+      .where(eq(users.username, username));
+    if (existingByUsername) {
       logger.warn("Username already taken during registration.", { username });
       return res.status(400).json({ message: "Username already taken." });
     }
 
-    const existingEmail = await db.select().from(users).where(eq(users.email, email));
-    if (existingEmail.length > 0) {
+    const [existingByEmail] = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, email));
+    if (existingByEmail) {
       logger.warn("Email already registered.", { email });
       return res.status(400).json({ message: "Email already registered." });
     }
@@ -67,14 +118,27 @@ export const registerUser = async (req: Request, res: Response) => {
       .returning()) as Array<typeof users.$inferSelect>;
 
     const createdUser = inserted[0];
+    if (!createdUser) {
+      logger.error("Failed to insert user during registration.");
+      return res.status(500).json({ message: "Internal server error" });
+    }
+
+    // Use your existing helper so token shape matches middleware
     const token = generateToken(createdUser.id, createdUser.role);
 
-    logger.info("User registered successfully.", { userId: createdUser.id, username: createdUser.username });
+    logger.info("User registered successfully.", {
+      userId: createdUser.id,
+      username: createdUser.username,
+    });
 
-    return res
-      .cookie("token", token, COOKIE_OPTS)
-      .status(201)
-      .json({ id: createdUser.id, role: createdUser.role, isParent: createdUser.role === "parent" });
+    res.cookie("token", token, COOKIE_OPTS);
+
+    // Return token as well so client can store in localStorage
+    return res.status(201).json({
+      message: "Registered",
+      token,
+      user: safeUser(createdUser),
+    });
   } catch (err: any) {
     if (err instanceof z.ZodError) {
       logger.warn("Validation error during registration.", { issues: err.errors });
@@ -85,11 +149,19 @@ export const registerUser = async (req: Request, res: Response) => {
   }
 };
 
+/** ─────────────────────────────────────────────────────────
+ * POST /api/login
+ * ───────────────────────────────────────────────────────── */
 export const loginUser = async (req: Request, res: Response) => {
   try {
     const { username, password } = loginSchema.parse(req.body);
 
-    const found = await db.select().from(users).where(eq(users.username, username)).limit(1);
+    const found = await db
+      .select()
+      .from(users)
+      .where(eq(users.username, username))
+      .limit(1);
+
     if (!found.length) {
       logger.warn("Login attempt with non-existent username.", { username });
       return res.status(401).json({ message: "Invalid credentials" });
@@ -103,24 +175,22 @@ export const loginUser = async (req: Request, res: Response) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // Keep your JWT shape consistent with your middleware
-    const token = jwt.sign(
-      { id: user.id, role: user.role, email: user.email, username: user.username },
-      process.env.JWT_SECRET as string,
-      { expiresIn: "24h" }
-    );
+    // Keep JWT shape consistent with middleware: at least { id, role }
+    // Use your helper for consistency with register.
+    const token = generateToken(user.id, user.role);
 
     res.cookie("token", token, COOKIE_OPTS);
 
-    const { password: _pw, ...safe } = user;
-    logger.info("User logged in successfully.", { userId: user.id, username, role: user.role });
+    logger.info("User logged in successfully.", {
+      userId: user.id,
+      username,
+      role: user.role,
+    });
 
     return res.json({
-      ...safe,
-      displayName: user.display_name,
-      parentId: user.parent_id,
-      isParent: user.role === "parent",
-      token,
+      message: "Logged in",
+      token, // client stores this in localStorage; queryClient also sends cookie
+      user: safeUser(user),
     });
   } catch (err: any) {
     if (err instanceof z.ZodError) {
@@ -132,15 +202,26 @@ export const loginUser = async (req: Request, res: Response) => {
   }
 };
 
+/** ─────────────────────────────────────────────────────────
+ * POST /api/logout
+ * ───────────────────────────────────────────────────────── */
 export const logoutUser = (_req: Request & { user?: { id: number } }, res: Response) => {
-  res.clearCookie("token").json({ message: "Logged out successfully." });
+  // Use same cookie attributes to clear properly
+  res.clearCookie("token", { ...COOKIE_OPTS });
+  return res.json({ message: "Logged out successfully." });
 };
 
+/** ─────────────────────────────────────────────────────────
+ * GET /api/user (aka getMe)
+ * Make sure this route is protected by requireAuth middleware.
+ * ───────────────────────────────────────────────────────── */
 export const getMe = async (req: Request & { user?: { id: number } }, res: Response) => {
   const userId = req.user?.id;
   if (!userId) {
     logger.warn("getMe called without authenticated user.");
     return res.status(401).json({ message: "Not authenticated." });
+    // If you ever want to support token in header during getMe without middleware,
+    // move verification logic here — but prefer keeping it in requireAuth.
   }
 
   try {
@@ -150,9 +231,8 @@ export const getMe = async (req: Request & { user?: { id: number } }, res: Respo
       return res.status(404).json({ message: "User not found." });
     }
 
-    const { password, ...safeUser } = found as typeof users.$inferSelect & { password?: string };
     logger.debug("Successfully fetched user details for getMe.", { userId });
-    return res.json(safeUser);
+    return res.json(safeUser(found));
   } catch (err: any) {
     logger.error(`Error in getMe: ${err.message}`, { userId, stack: err.stack });
     return res.status(500).json({ message: "Failed to fetch user details." });
