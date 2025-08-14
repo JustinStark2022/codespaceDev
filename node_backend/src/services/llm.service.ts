@@ -2,6 +2,7 @@
 import axios, { AxiosError } from "axios";
 import logger from "../utils/logger";
 
+/** ---------- Request/Response models your app uses ---------- */
 interface LLMRequest {
   prompt: string;
   maxTokens?: number;
@@ -13,6 +14,7 @@ interface LLMResponse {
   text: string;
 }
 
+/** ---------- Environment helpers ---------- */
 const requireEnv = (key: string) => {
   const v = process.env[key];
   if (!v) throw new Error(`${key} is missing from environment variables`);
@@ -23,60 +25,82 @@ function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-/** Remove code fences/backticks and leading/trailing junk. */
-function stripCodeFences(s: string): string {
-  if (!s) return s;
-  let t = s.trim();
+/** ---------- Runpod payload model (fixes TS 'prompt' access) ---------- */
+type RunpodPayload = {
+  prompt?: string;
+  inputs?: string;
+  instruction?: string;
+  text?: string;
 
-  // ```json ... ```
-  if (t.startsWith("```")) {
-    t = t.replace(/^```[a-zA-Z0-9]*\s*/g, "");
-    t = t.replace(/```$/g, "");
-  }
+  // vLLM-ish controls (some workers accept both max_tokens & max_new_tokens)
+  max_tokens?: number;
+  max_new_tokens?: number;
+  n?: number;
+  best_of?: number;
+  stream?: boolean;
+  stop?: string[];
+  use_beam_search?: boolean;
+  temperature?: number;
+  top_p?: number;
 
-  // Remove stray backticks
-  t = t.replace(/^`+/, "").replace(/`+$/, "");
-  return t.trim();
+  // Chat-style
+  messages?: Array<{ role: "system" | "user" | "assistant"; content: string }>;
+
+  // Allow extra worker-specific fields without compiler complaints
+  [key: string]: any;
+};
+
+/** ---------- Small utils ---------- */
+function isProbablyJSON(s: string) {
+  const t = s.trim();
+  return (t.startsWith("{") && t.endsWith("}")) || (t.startsWith("[") && t.endsWith("]"));
 }
 
-/** Try to extract the first JSON object in a string (if the model added chatter). */
-function extractFirstJsonObject(s: string): string | null {
-  if (!s) return null;
-
-  // Fast path: looks like JSON already
-  const trimmed = s.trim();
-  if (trimmed.startsWith("{") && trimmed.endsWith("}")) return trimmed;
-
-  // Fallback: greedy search for a {...} block
-  const match = /{[\s\S]*}/.exec(s);
-  return match ? match[0] : null;
-}
-
-/** Safe JSON.parse with fence stripping + extraction. */
-function safeJsonParse<T = any>(raw: string): T | null {
-  if (!raw) return null;
-  const stripped = stripCodeFences(raw);
-
-  // 1) direct parse
+function safeMinifyJSON(s: string) {
   try {
-    return JSON.parse(stripped) as T;
+    return JSON.stringify(JSON.parse(s));
   } catch {
-    /* continue */
+    return s;
   }
+}
 
-  // 2) extract first {...} and parse
-  const block = extractFirstJsonObject(stripped);
-  if (block) {
-    try {
-      return JSON.parse(block) as T;
-    } catch {
-      /* continue */
+/** Try to normalize the Runpod /runsync output into a single string. */
+function normalizeRunpodOutput(raw: any): string {
+  // popular shapes:
+  // { output: { text: ["..."] } }
+  // { output: { text: "..."} }
+  // { output: "..." }
+  // { text: "..."} (rare)
+  // or the whole thing is already a string
+
+  const output = raw?.output ?? raw;
+
+  let text: unknown =
+    Array.isArray(output?.text) ? output.text.join("\n") :
+    typeof output?.text === "string" ? output.text :
+    typeof output === "string" ? output :
+    typeof raw === "string" ? raw :
+    "";
+
+  // Coerce to string & strip null bytes / weird leading characters
+  let s = String(text ?? "");
+  s = s.replace(/\u0000/g, "").trim();
+
+  // Some workers prepend chatter; try to locate first JSON block if present
+  if (!isProbablyJSON(s)) {
+    const firstBrace = s.indexOf("{");
+    const firstBracket = s.indexOf("[");
+    const cutAt = [firstBrace, firstBracket].filter((n) => n >= 0).sort((a, b) => a - b)[0];
+    if (cutAt !== undefined) {
+      const candidate = s.slice(cutAt).trim();
+      if (isProbablyJSON(candidate)) s = candidate;
     }
   }
 
-  return null;
+  return s;
 }
 
+/** ---------- The Service ---------- */
 class LLMService {
   private apiKey: string;
   private endpointId: string;
@@ -91,14 +115,41 @@ class LLMService {
   /**
    * Low-level call to the Runpod endpoint (synchronous run).
    * Retries a couple times on transient network errors.
+   *
+   * NOTE: This accepts a rich RunpodPayload that includes an optional `prompt`.
+   * We mirror that prompt into `inputs` / `instruction` / `text` to satisfy
+   * different serverless handler expectations.
    */
-  private async post(input: any, tries = 2): Promise<string> {
+  private async post(input: RunpodPayload, tries = 2): Promise<string> {
     const url = `${this.baseUrl}/runsync`;
+
     for (let attempt = 1; attempt <= tries; attempt++) {
       try {
+        const max = input.max_tokens ?? input.max_new_tokens ?? 600;
+
+        // Mirror prompt into other fields the worker may look at
+        const payload: RunpodPayload = {
+          ...input,
+          max_tokens: max,
+          max_new_tokens: max,
+          inputs: input.inputs ?? input.prompt ?? "",
+          instruction: input.instruction ?? input.prompt ?? "",
+          text: input.text ?? input.prompt ?? "",
+        };
+
+        const safeLog = {
+          ...payload,
+          prompt: `[len=${(payload.prompt ?? "").length}]`,
+          inputs: `[len=${(payload.inputs ?? "").length}]`,
+          instruction: `[len=${(payload.instruction ?? "").length}]`,
+          text: `[len=${(payload.text ?? "").length}]`,
+          messages: payload.messages ? payload.messages.map(m => ({ ...m, content: `[len=${m.content.length}]` })) : undefined,
+        };
+        logger.debug("[LLM] POST /runsync payload (safe):", safeLog);
+
         const { data } = await axios.post(
           url,
-          { input },
+          { input: payload },
           {
             headers: {
               Authorization: `Bearer ${this.apiKey}`,
@@ -108,25 +159,32 @@ class LLMService {
           }
         );
 
-        /**
-         * Normalize common response shapes:
-         * - data.output is a string
-         * - data.output.text is a string
-         * - or (rarely) data itself is a string
-         */
-        const text =
-          (typeof data?.output === "string" && data.output) ||
-          (typeof data?.output?.text === "string" && data.output.text) ||
-          (typeof data === "string" ? data : "");
+        // Log basic shape to help diagnose handler differences
+        logger.debug("[LLM] /runsync response shape (top-level):", {
+          delayTime: typeof data?.delayTime,
+          executionTime: typeof data?.executionTime,
+          id: typeof data?.id,
+          output: typeof data?.output,
+          status: typeof data?.status,
+          workerId: typeof data?.workerId,
+        });
 
-        return String(text || "");
+        logger.debug("[LLM] /runsync output shape:", {
+          input_tokens: typeof data?.output?.input_tokens,
+          output_tokens: typeof data?.output?.output_tokens,
+          text: Array.isArray(data?.output?.text)
+            ? `array(len=${data.output.text.length})`
+            : typeof data?.output?.text,
+        });
+
+        const normalized = normalizeRunpodOutput(data);
+        logger.debug("[LLM] /runsync output.text[0] preview:", String(data?.output?.text?.[0] ?? "").slice(0, 60));
+        logger.debug("[LLM] /runsync normalized output preview:", normalized.slice(0, 60));
+
+        return normalized;
       } catch (err: unknown) {
         const axErr = err as AxiosError;
-        const msg =
-          (axErr?.response?.data as any)?.error ||
-          axErr?.response?.data ||
-          axErr?.message ||
-          "Unknown RunPod error";
+        const msg = (axErr?.response?.data as any)?.error ?? axErr?.message ?? "Unknown Runpod error";
         logger.error(`Runpod error (attempt ${attempt}/${tries}):`, msg);
 
         // Retry only on network-ish issues/timeouts
@@ -146,46 +204,113 @@ class LLMService {
     throw new Error("LLM request failed");
   }
 
+  /** Second-pass: ask the model to *reformat* messy text into strict JSON. */
+  private async reformatToStrictJSON(schemaHint: string, messy: string): Promise<string> {
+    const prompt = [
+      "You are a JSON reformatter. You take arbitrary text and output ONLY minified JSON matching the given schema.",
+      "",
+      "---",
+      "SCHEMA:",
+      schemaHint.trim(),
+      "",
+      "TASK:",
+      "Convert the following content to STRICT, MINIFIED JSON that matches the SCHEMA. Output JSON ONLY, no prose, no code fences. Content:",
+      messy,
+    ].join("\n");
+
+    const out = await this.post({
+      prompt,
+      temperature: 0,
+      top_p: 1,
+      max_tokens: 700,
+      n: 1,
+      best_of: 1,
+      stream: false,
+      stop: [],
+      use_beam_search: false,
+      messages: [
+        { role: "system", content: "You are a JSON reformatter. Output only strict, minified JSON." },
+        { role: "user", content: prompt },
+      ],
+    });
+
+    return out;
+  }
+
   /** Generic prompt builder */
   public async generateResponse(req: LLMRequest): Promise<LLMResponse> {
     const prompt = req.systemPrompt
       ? `${req.systemPrompt}\n\n---\n${req.prompt}`
       : req.prompt;
 
-    // Some Runpod models expect max_tokens instead of max_new_tokens.
-    // Send both; harmless if one is ignored.
     const text = await this.post({
       prompt,
-      max_new_tokens: req.maxTokens ?? 600,
       max_tokens: req.maxTokens ?? 600,
+      max_new_tokens: req.maxTokens ?? 600,
       temperature: req.temperature ?? 0.7,
       top_p: 0.9,
+      n: 1,
+      best_of: 1,
+      stream: false,
+      stop: [],
+      use_beam_search: false,
+      messages: req.systemPrompt
+        ? [
+            { role: "system", content: req.systemPrompt },
+            { role: "user", content: prompt },
+          ]
+        : [
+            { role: "user", content: prompt },
+          ],
     });
 
     return { text: text || "No response generated." };
   }
 
-  /** Ask the model to return STRICT JSON only; safe fallback if it doesn't. */
+  /**
+   * Ask the model to return STRICT JSON only; if it doesn’t, we try a
+   * second pass via the JSON reformatter and finally fall back to {}
+   */
   public async generateStrictJSON<T = any>(
     schemaHint: string,
     userPrompt: string,
     opts?: { maxTokens?: number; temperature?: number }
   ): Promise<T> {
-    const system = `You are a helpful assistant. ALWAYS reply with STRICT JSON only. No markdown, no code fences, no commentary. ${schemaHint}`;
-    const { text } = await this.generateResponse({
+    const system = `You are a helpful assistant. ALWAYS reply with STRICT JSON only. No markdown, no code fences, no commentary.\n${schemaHint}`;
+    const first = await this.generateResponse({
       prompt: userPrompt,
       systemPrompt: system,
       maxTokens: opts?.maxTokens ?? 800,
       temperature: opts?.temperature ?? 0.7,
     });
 
-    const parsed = safeJsonParse<T>(text);
-    if (parsed) return parsed;
+    // First attempt
+    let raw = first.text ?? "";
+    if (isProbablyJSON(raw)) {
+      try {
+        return JSON.parse(safeMinifyJSON(raw));
+      } catch {
+        // continue to second pass
+      }
+    }
 
-    logger.warn("LLM returned non-JSON; falling back", {
-      preview: (text || "").slice(0, 200),
+    logger.warn("[LLM] Returned non-JSON (first pass). Attempting JSON reformat…", {
+      preview: raw.slice(0, 60),
     });
-    // Return a typed empty object to avoid crashes upstream.
+
+    // Second pass
+    try {
+      const reformatted = await this.reformatToStrictJSON(schemaHint, raw);
+      if (isProbablyJSON(reformatted)) {
+        return JSON.parse(safeMinifyJSON(reformatted));
+      }
+      logger.warn("[LLM] Second pass still not JSON; using empty object fallback", {
+        preview: reformatted.slice(0, 60),
+      });
+    } catch (e) {
+      logger.warn("[LLM] JSON reformat failed; using empty object fallback", (e as Error)?.message);
+    }
+
     return {} as T;
   }
 
@@ -196,7 +321,7 @@ class LLMService {
     context?: string,
     _userId?: number
   ): Promise<string> {
-    const system = context || "You are a helpful Christian AI assistant.";
+    const system = context || "parent dashboard";
     try {
       const { text } = await this.generateResponse({
         prompt,
@@ -204,6 +329,22 @@ class LLMService {
         maxTokens: 400,
         temperature: 0.7,
       });
+
+      // Some handlers produce partial answers; if suspiciously short, ask for continuation once.
+      if (text && text.trim().split(/\s+/).length < 12) {
+        const cont = await this.post({
+          prompt: `${system}\n\n---\nContinue the previous answer. Do not repeat text. Keep the same style and finish the thought.`,
+          temperature: 0.6,
+          top_p: 0.95,
+          max_tokens: 512,
+          messages: [
+            { role: "system", content: system },
+            { role: "user", content: `${system}\n\n---\nContinue the previous answer. Do not repeat text. Keep the same style and finish the thought.` },
+          ],
+        });
+        return `${text}\n${cont}`.trim();
+      }
+
       return text;
     } catch (e: any) {
       logger.error("generateChatResponse error", e?.message || e);
@@ -215,17 +356,22 @@ class LLMService {
     verse: string;
     reference: string;
     reflection: string;
+    prayer: string;
   }> {
-    const schema = `Return JSON with keys: verse (string), reference (string), reflection (string).`;
+    const schema = `Return JSON with keys: verse (string), reference (string), reflection (string), prayer (string).`;
+
     const out = await this.generateStrictJSON<{
       verse?: string;
       reference?: string;
       reflection?: string;
+      prayer?: string;
     }>(
       schema,
-      `Provide a family-friendly Bible Verse of the Day (ESV or NIV), with a short reflection (2-3 sentences).`
+      `Provide a family-friendly Bible Verse of the Day (ESV or NIV) with a two-sentence reflection and a one-sentence prayer. Format as MINIFIED JSON.`,
+      { maxTokens: 900, temperature: 0.2 }
     );
 
+    // Safe defaults if the model misbehaves
     return {
       verse:
         out.verse ||
@@ -233,29 +379,27 @@ class LLMService {
       reference: out.reference || "Proverbs 3:5",
       reflection:
         out.reflection ||
-        "God's wisdom guides us even when the path isn't clear.",
+        "God's wisdom guides us even when the way forward seems unclear.",
+      prayer:
+        out.prayer ||
+        "Lord, help us trust You fully today. Amen.",
     };
   }
 
   public async generateDevotional(
     topic?: string
   ): Promise<{ title: string; content: string; prayer: string }> {
-    const system = `You are a Christian devotional writer creating daily devotionals for families with children.
-Respond ONLY with JSON.
-Schema: { "title": string, "content": string, "prayer": string }`;
+    const schema = `Return JSON with keys: title (string), content (string), prayer (string).`;
 
     const prompt = topic
-      ? `Create a family devotional about ${topic}.`
-      : `Create a daily devotional for a Christian family focusing on growing closer to Jesus.`;
+      ? `Create a short family devotional about "${topic}". Keep it warm, Scripture-centered, and practical. Return MINIFIED JSON only.`
+      : `Create a short family devotional focused on growing closer to Jesus. Keep it warm, Scripture-centered, and practical. Return MINIFIED JSON only.`;
 
     const out = await this.generateStrictJSON<{
       title?: string;
       content?: string;
       prayer?: string;
-    }>(`Return JSON with keys: title, content, prayer.`, prompt, {
-      maxTokens: 600,
-      temperature: 0.7,
-    });
+    }>(schema, prompt, { maxTokens: 900, temperature: 0.3 });
 
     return {
       title: out.title || "Walking in Faith",
@@ -281,20 +425,16 @@ Schema: { "title": string, "content": string, "prayer": string }`;
     _childId?: number,
     childContext?: string
   ): Promise<any> {
-    const system = `You are a Christian lesson planner creating engaging and age-appropriate Bible lessons.
-Respond ONLY with JSON. The lesson should include: title, objectives[], scripture[], activities[], discussion[], memoryVerse.`;
+    const schema = `Return JSON with keys: title (string), objectives (string[]), scripture (string[]), activities (string[]), discussion (string[]), memoryVerse (string).`;
 
-    const prompt = `Create a lesson on the topic "${topic}" for ${
-      ageGroup || "all ages"
-    } children.
+    const prompt = `Create a lesson on the topic "${topic}" for ${ageGroup || "all ages"} children.
 Duration: ${duration || 30} minutes. Difficulty: ${difficulty || "beginner"}.
 Context: ${childContext || "No additional context provided."}`;
 
-    return await this.generateStrictJSON<any>(
-      `Return JSON with keys: title (string), objectives (string[]), scripture (string[]), activities (string[]), discussion (string[]), memoryVerse (string).`,
-      prompt,
-      { maxTokens: 800, temperature: 0.7 }
-    );
+    return await this.generateStrictJSON<any>(schema, prompt, {
+      maxTokens: 800,
+      temperature: 0.7,
+    });
   }
 
   public async generateWeeklySummary({
@@ -302,15 +442,14 @@ Context: ${childContext || "No additional context provided."}`;
   }: {
     familyId: number;
   }): Promise<any> {
-    const system = `You are a Christian family counselor. Respond ONLY with JSON.`;
+    const schema = `Return JSON with keys: summary (string), parentalAdvice (string[]), spiritualGuidance (string), highlights (string[]).`;
     const prompt = `Generate a weekly family summary for family ID ${familyId}.
-Include JSON keys: summary (string), parentalAdvice (string[]), spiritualGuidance (string), highlights (string[]).`;
+Include JSON keys exactly as in the schema. Keep items concise.`;
 
-    return await this.generateStrictJSON<any>(
-      `Return JSON with keys: summary, parentalAdvice[], spiritualGuidance, highlights[].`,
-      prompt,
-      { maxTokens: 1200, temperature: 0.6 }
-    );
+    return await this.generateStrictJSON<any>(schema, prompt, {
+      maxTokens: 1200,
+      temperature: 0.6,
+    });
   }
 
   public async generateContentScan(
