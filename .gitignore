@@ -4,7 +4,7 @@
 .env.*.local
 .env.node_backend
 .env.client
-
+codespaceDev\.env.client
 # Dependencies
 node_modules/
 */node_modules/
