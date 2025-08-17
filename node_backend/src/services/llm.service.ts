@@ -1,8 +1,9 @@
 // src/services/LLMService.ts
 import axios, { AxiosError } from "axios";
-import logger from "../utils/logger";
+import logger from "@/utils/logger";
 import { db } from "@/db/db";
 import { sql } from "drizzle-orm";
+import { safeParseLLMJson, previewLLMText } from "@/utils/llmJson";
 
 /** ---------- Request/Response models your app uses ---------- */
 interface LLMRequest {
@@ -272,7 +273,7 @@ const PARENT_DASHBOARD_SYSTEM = [
 ].join(" ");
 
 /** ---------- The Service ---------- */
-class LLMService {
+export class LlmService {
   private apiKey: string;
   private endpointId: string;
   private baseUrl: string;
@@ -446,6 +447,63 @@ class LLMService {
     return out;
   }
 
+  /** Heuristic to decide if the model should continue generating more text */
+  private needsContinuation(
+    text: string,
+    opts?: { expectBullets?: boolean; minWords?: number }
+  ): boolean {
+    const s = String(text || "").trim();
+    if (!s) return true;
+
+    const words = s.split(/\s+/).filter(Boolean).length;
+    if (opts?.minWords && words < opts.minWords) return true;
+
+    if (opts?.expectBullets) {
+      const bulletRe = /^\s*(?:[-*•]|[0-9]+\.)\s+/;
+      const bullets = s.split(/\r?\n/).filter((l) => bulletRe.test(l)).length;
+      if (bullets < 3) return true;
+    }
+
+    // If it doesn't appear to end on a sentence boundary, likely needs a continuation
+    if (!/[.!?]"?\)?\s*$/.test(s)) return true;
+
+    return false;
+    }
+
+  /** Ask the model to continue the previous response without repeating content */
+  private async continueOnce(
+    system: string,
+    soFar: string,
+    instruction: string,
+    maxTokens = 400
+  ): Promise<string> {
+    const user = `Continue the previous response to finish it. ${instruction}. Do not repeat what was already written. Keep the same style and formatting.`;
+    const flat = `SYSTEM: ${system}\nASSISTANT_SO_FAR:\n${soFar}\nUSER: ${user}\nASSISTANT_CONTINUE:`;
+
+    const out = await this.post({
+      prompt: flat,
+      inputs: flat,
+      instruction: flat,
+      text: flat,
+      max_tokens: Math.max(200, maxTokens),
+      max_new_tokens: Math.max(200, maxTokens),
+      temperature: 0.5,
+      top_p: 0.9,
+      n: 1,
+      best_of: 1,
+      stream: false,
+      stop: [],
+      use_beam_search: false,
+      messages: [
+        { role: "system", content: system },
+        { role: "assistant", content: soFar },
+        { role: "user", content: user },
+      ],
+    });
+
+    return String(out || "").trim();
+  }
+
   /** Generic prompt builder that prefers chat messages over raw prompt */
   public async generateResponse(req: LLMRequest): Promise<LLMResponse> {
     const system = req.systemPrompt || PARENT_DASHBOARD_SYSTEM;
@@ -466,7 +524,18 @@ class LLMService {
         { role: "user", content: req.prompt },
       ],
     });
-    return { text: text || "No response generated." };
+    const first = text || "No response generated.";
+
+    // Auto-continue until complete
+    const expectBullets = /bullet/i.test(req.prompt) || /three/i.test(req.prompt);
+    let finalText = first.trim();
+    for (let i = 0; i < 8 && this.needsContinuation(finalText, { expectBullets, minWords: 40 }); i++) {
+      const more = (await this.continueOnce(system, finalText, "short, clear, practical", req.maxTokens ?? 400)).trim();
+      if (!more) break;
+      finalText = `${finalText}\n${more}`.trim();
+    }
+
+    return { text: finalText };
   }
 
   /**
@@ -566,88 +635,119 @@ class LLMService {
     return {} as T;
   }
 
-  public async generateVerseOfTheDay(): Promise<{
-    verse: string;
+  async generateVerseOfTheDay(): Promise<{
     reference: string;
+    verse: string;
     reflection: string;
-    prayer: string;
+    // optional fields can exist but callers don't require them
+    [k: string]: unknown;
   }> {
-    const schema = `Return JSON with keys: verse (string), reference (string), reflection (string), prayer (string).`;
-    const template = `{"verse":"","reference":"","reflection":"","prayer":""}`;
+    // 1) Try free-form labeled output (same generation style as summary/chat) with auto-continue.
+    const system = [
+      "You are a concise, warm Christian family assistant.",
+      "Output exactly these labeled sections in this order, no preface, no extra text, no markdown:",
+      "Reference: <Book Chapter:Verse(s)>",
+      'Verse: "<full verse text>"',
+      "Reflection: <2 short sentences, practical for families>",
+      "Prayer: <1 short sentence prayer>",
+      "Choose a widely used translation (ESV preferred, NIV acceptable). Do not ask any questions."
+    ].join(" ");
+    const user = "Provide today's Bible Verse of the Day for a Christian family.";
 
-    const out = await this.generateStrictJSON<{
-      verse?: string;
-      reference?: string;
-      reflection?: string;
-      prayer?: string;
-    }>(
-      schema,
-      `Provide a family-friendly Bible Verse of the Day (ESV or NIV) with a two-sentence reflection and a one-sentence prayer. Return MINIFIED JSON only.`,
-      { maxTokens: 900, temperature: 0 }, // deterministic
-      template
-    );
+    // Seed
+    const seed = await this.post({
+      prompt: `${system}\n\n${user}`,
+      inputs: `${system}\n\n${user}`,
+      instruction: `${system}\n\n${user}`,
+      text: `${system}\n\n${user}`,
+      max_tokens: 600,
+      max_new_tokens: 600,
+      temperature: 0.2,
+      top_p: 0.9,
+      n: 1,
+      best_of: 1,
+      stream: false,
+      stop: [],
+      use_beam_search: false,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user }
+      ],
+    });
 
-    const usedFallback = !out.verse || !out.reference || !out.reflection || !out.prayer;
-    // Persist what we got (JSON or fallback) so you can audit later
+    // Continue until all 4 labeled sections are present
+    let combined = (seed || "").trim();
+    const hasAll = () => {
+      const got = parseLabeledVOTD(combined);
+      return !!(got.reference && got.verse && got.reflection && got.prayer);
+    };
+
+    for (let i = 0; i < 8 && !hasAll(); i++) {
+      const more = (await this.continueOnce(system, combined, "keep the exact label format", 400)).trim();
+      if (!more) break;
+      combined = `${combined}\n${more}`.trim();
+    }
+
+    const parsed = parseLabeledVOTD(combined);
+
+    // If still incomplete, fall back to strict JSON path (existing tolerant pipeline)
+    if (!parsed.reference || !parsed.verse || !parsed.reflection || !parsed.prayer) {
+      const schema = `Return JSON with keys: verse (string), reference (string), reflection (string), prayer (string).`;
+      const template = `{"verse":"","reference":"","reflection":"","prayer":""}`;
+      const out = await this.generateStrictJSON<{
+        verse?: string; reference?: string; reflection?: string; prayer?: string;
+      }>(
+        schema,
+        `Provide a family-friendly Bible Verse of the Day (ESV or NIV) with a two-sentence reflection and a one-sentence prayer. Return MINIFIED JSON only.`,
+        { maxTokens: 900, temperature: 0 },
+        template
+      );
+
+      const usedFallback = !out.verse || !out.reference || !out.reflection || !out.prayer;
+      try {
+        await this.saveGenerated({
+          contentType: "verse_of_the_day",
+          prompt: "VOTD request (fallback JSON pipeline)",
+          systemPrompt: "Strict JSON schema: verse, reference, reflection, prayer",
+          generatedContent: JSON.stringify(out),
+          userId: null,
+          childId: null,
+          context: "votd",
+        });
+      } catch {}
+
+      if (usedFallback) {
+        logger.warn("[VOTD] Using fallback values because LLM JSON was invalid or incomplete.");
+      } else {
+        logger.debug("[VOTD] LLM JSON parsed successfully.", { reference: out.reference?.slice(0, 40) });
+      }
+
+      return {
+        verse: out.verse || "Trust in the Lord with all your heart and lean not on your own understanding.",
+        reference: out.reference || "Proverbs 3:5",
+        reflection: out.reflection || "God's wisdom guides us even when the way forward seems unclear.",
+        prayer: out.prayer || "Lord, help us trust You fully today. Amen.",
+      };
+    }
+
+    // Persist the parsed labeled result (primary path)
     try {
       await this.saveGenerated({
         contentType: "verse_of_the_day",
-        prompt: "VOTD request",
-        systemPrompt: "Strict JSON schema: verse, reference, reflection, prayer",
-        generatedContent: JSON.stringify(out),
+        prompt: "VOTD request (labeled free-form with auto-continue)",
+        systemPrompt: "Labels: Reference, Verse, Reflection, Prayer",
+        generatedContent: JSON.stringify(parsed),
         userId: null,
         childId: null,
         context: "votd",
       });
-    } catch { /* already handled in helper */ }
-
-    if (usedFallback) {
-      logger.warn("[VOTD] Using fallback values because LLM JSON was invalid or incomplete.");
-    } else {
-      logger.debug("[VOTD] LLM JSON parsed successfully.", { reference: out.reference?.slice(0, 40) });
-    }
-
-    return {
-      verse: out.verse || "Trust in the Lord with all your heart and lean not on your own understanding.",
-      reference: out.reference || "Proverbs 3:5",
-      reflection: out.reflection || "God's wisdom guides us even when the way forward seems unclear.",
-      prayer: out.prayer || "Lord, help us trust You fully today. Amen.",
-    };
-  }
-
-  public async generateDevotional(
-    topic?: string
-  ): Promise<{ title: string; content: string; prayer: string }> {
-    const schema = `Return JSON with keys: title (string), content (string), prayer (string).`;
-    const template = `{"title":"","content":"","prayer":""}`;
-
-    const prompt = topic
-      ? `Create a short family devotional about "${topic}". Keep it warm, Scripture-centered, and practical. Return MINIFIED JSON only.`
-      : `Create a short family devotional focused on growing closer to Jesus. Keep it warm, Scripture-centered, and practical. Return MINIFIED JSON only.`;
-
-    const out = await this.generateStrictJSON<{
-      title?: string;
-      content?: string;
-      prayer?: string;
-    }>(schema, prompt, { maxTokens: 900, temperature: 0.05 }, template);
-
-    // Persist response (even if fallback)
-    try {
-      await this.saveGenerated({
-        contentType: "devotional",
-        prompt,
-        systemPrompt: "Strict JSON schema: title, content, prayer",
-        generatedContent: JSON.stringify(out),
-        userId: null,
-        childId: null,
-        context: topic || "devotional",
-      });
     } catch {}
 
     return {
-      title: out.title || "Walking in Faith",
-      content: out.content || "Today, let's remember that God has a wonderful plan for our lives...",
-      prayer: out.prayer || "Dear Lord, thank you for your love and guidance. Amen.",
+      verse: parsed.verse!,
+      reference: parsed.reference!,
+      reflection: parsed.reflection!,
+      prayer: parsed.prayer!,
     };
   }
 
@@ -661,27 +761,21 @@ class LLMService {
     const system = context || "parent dashboard";
     try {
       const started = Date.now();
+      // First pass (uses auto-continue internally now)
       const { text } = await this.generateResponse({
         prompt,
         systemPrompt: system,
-        maxTokens: 400,
+        maxTokens: 600,
         temperature: 0.7,
       });
-      const first = text || "";
+      let finalText = text || "";
 
-      let finalText = first;
-      if (first && first.trim().split(/\s+/).length < 12) {
-        const cont = await this.post({
-          prompt: `${system}\n\n---\nContinue the previous answer. Do not repeat text. Keep the same style and finish the thought.`,
-          temperature: 0.6,
-          top_p: 0.95,
-          max_tokens: 512,
-          messages: [
-            { role: "system", content: system },
-            { role: "user", content: `${system}\n\n---\nContinue the previous answer. Do not repeat text. Keep the same style and finish the thought.` },
-          ],
-        });
-        finalText = `${first}\n${cont}`.trim();
+      // Ensure adequate content for bullet-style prompts specifically
+      const expectBullets = /bullet/i.test(prompt) || /three/i.test(prompt);
+      for (let i = 0; i < 6 && this.needsContinuation(finalText, { expectBullets, minWords: 40 }); i++) {
+        const more = (await this.continueOnce(system, finalText, "short, clear, practical", 400)).trim();
+        if (!more) break;
+        finalText = `${finalText}\n${more}`.trim();
       }
 
       // Persist chat exchange
@@ -803,4 +897,4 @@ Include JSON keys exactly as in the schema. Keep items concise.`;
   }
 }
 
-export const llmService = new LLMService();
+export const llmService = new LlmService();

@@ -83,8 +83,10 @@ router.get(
         reflection: v.reflection,
         prayer: "Lord, help us live this verse today. Amen.",
       };
-    } catch {
+    } catch (e) {
       logger.warn("Verse of the day failed; using fallback");
+      // Optionally log a short preview when upstream parsing fails
+      // logger.debug("VOTD parse error", e);
       verseOfDay = {
         reference: "Proverbs 3:5–6",
         verseText:
@@ -96,7 +98,24 @@ router.get(
 
     let devotional: { title: string; content: string; prayer: string } | null = null;
     try {
-      devotional = await llmService.generateDevotional();
+      {
+        const raw = await llmService.generateChatResponse(
+          "Write a short family devotional for today with a hopeful, Scripture-centered tone (120–180 words).",
+          "Return as plain text with sections labeled exactly:\nTitle:\nContent:\nPrayer:\nNo markdown, no bullets, no extra headers.",
+          req.user?.id
+        );
+
+        const title =
+          raw.match(/^\s*Title:\s*(.+)$/im)?.[1]?.trim() || "Walking in Faith";
+        const content =
+          raw.match(/^\s*Content:\s*([\s\S]*?)(?:\n\s*Prayer:|$)/im)?.[1]?.trim() ||
+          raw.trim();
+        const prayer =
+          raw.match(/^\s*Prayer:\s*([\s\S]+)$/im)?.[1]?.trim() ||
+          "Lord, lead our home in love and unity. Amen.";
+
+        devotional = { title, content, prayer };
+      }
     } catch {
       devotional = {
         title: "Walking in Faith",
@@ -195,8 +214,31 @@ router.get(
 router.get(
   "/devotional",
   asyncHandler(async (_req, res) => {
-    const d = await llmService.generateDevotional();
-    res.json({ ...d, timestamp: new Date().toISOString() });
+    try {
+      const raw = await llmService.generateChatResponse(
+        "Write a short family devotional for today with a hopeful, Scripture-centered tone (120–180 words).",
+        "Return as plain text with sections labeled exactly:\nTitle:\nContent:\nPrayer:\nNo markdown, no bullets, no extra headers."
+      );
+
+      const title =
+        raw.match(/^\s*Title:\s*(.+)$/im)?.[1]?.trim() || "Walking in Faith";
+      const content =
+        raw.match(/^\s*Content:\s*([\s\S]*?)(?:\n\s*Prayer:|$)/im)?.[1]?.trim() ||
+        raw.trim();
+      const prayer =
+        raw.match(/^\s*Prayer:\s*([\s\S]+)$/im)?.[1]?.trim() ||
+        "Lord, lead our home in love and unity. Amen.";
+
+      res.json({ title, content, prayer, timestamp: new Date().toISOString() });
+    } catch {
+      res.json({
+        title: "Walking in Faith",
+        content:
+          "God invites families to trust Him together. Read this aloud and discuss one way to show kindness today.",
+        prayer: "Lord, lead our home in love and unity. Amen.",
+        timestamp: new Date().toISOString(),
+      });
+    }
   })
 );
 
