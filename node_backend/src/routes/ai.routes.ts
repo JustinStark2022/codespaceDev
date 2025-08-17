@@ -76,12 +76,30 @@ router.get(
       | { reference: string; verseText: string; reflection: string; prayer?: string }
       | null = null;
     try {
-      const v = await llmService.generateVerseOfTheDay();
+      // Replace strict JSON service with free-form chat + labeled parsing (like Devotional)
+      const raw = await llmService.generateChatResponse(
+        "Provide today's Bible Verse of the Day for a Christian family.",
+        "Return as plain text with sections labeled exactly:\nReference:\nVerse:\nReflection:\nPrayer:\nNo markdown, no bullets, no extra headers.",
+        req.user?.id
+      );
+
+      const reference =
+        raw.match(/^\s*Reference:\s*(.+)$/im)?.[1]?.trim() || "Proverbs 3:5–6";
+      const verse =
+        raw.match(/^\s*Verse:\s*([\s\S]*?)(?:\n\s*Reflection:|$)/im)?.[1]?.trim() ||
+        "Trust in the Lord with all your heart and lean not on your own understanding.";
+      const reflection =
+        raw.match(/^\s*Reflection:\s*([\s\S]*?)(?:\n\s*Prayer:|$)/im)?.[1]?.trim() ||
+        "Invite God into your decisions today; His wisdom steadies your steps.";
+      const prayer =
+        raw.match(/^\s*Prayer:\s*([\s\S]+)$/im)?.[1]?.trim() ||
+        "Jesus, guide our family choices today. Amen.";
+
       verseOfDay = {
-        reference: v.reference,
-        verseText: v.verse,
-        reflection: v.reflection,
-        prayer: "Lord, help us live this verse today. Amen.",
+        reference,
+        verseText: verse,
+        reflection,
+        prayer,
       };
     } catch (e) {
       logger.warn("Verse of the day failed; using fallback");
@@ -205,8 +223,42 @@ router.post(
 router.get(
   "/verse-of-the-day",
   asyncHandler(async (_req, res) => {
-    const v = await llmService.generateVerseOfTheDay();
-    res.json({ ...v, timestamp: new Date().toISOString() });
+    try {
+      // Free-form chat + labeled parsing (same as dashboard)
+      const raw = await llmService.generateChatResponse(
+        "Provide today's Bible Verse of the Day for a Christian family.",
+        "Return as plain text with sections labeled exactly:\nReference:\nVerse:\nReflection:\nPrayer:\nNo markdown, no bullets, no extra headers."
+      );
+
+      const reference =
+        raw.match(/^\s*Reference:\s*(.+)$/im)?.[1]?.trim() || "Proverbs 3:5–6";
+      const verse =
+        raw.match(/^\s*Verse:\s*([\s\S]*?)(?:\n\s*Reflection:|$)/im)?.[1]?.trim() ||
+        "Trust in the Lord with all your heart and lean not on your own understanding.";
+      const reflection =
+        raw.match(/^\s*Reflection:\s*([\s\S]*?)(?:\n\s*Prayer:|$)/im)?.[1]?.trim() ||
+        "Invite God into your decisions today; His wisdom steadies your steps.";
+      const prayer =
+        raw.match(/^\s*Prayer:\s*([\s\S]+)$/im)?.[1]?.trim() ||
+        "Jesus, guide our family choices today. Amen.";
+
+      res.json({
+        reference,
+        verse,
+        reflection,
+        prayer,
+        timestamp: new Date().toISOString(),
+      });
+    } catch {
+      res.json({
+        reference: "Proverbs 3:5–6",
+        verse:
+          "Trust in the Lord with all your heart and lean not on your own understanding.",
+        reflection: "Invite God into your decisions today; His wisdom steadies your steps.",
+        prayer: "Jesus, guide our family choices today. Amen.",
+        timestamp: new Date().toISOString(),
+      });
+    }
   })
 );
 
