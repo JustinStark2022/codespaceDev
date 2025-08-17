@@ -1,7 +1,6 @@
+// src/services/llm.service.ts
 import axios, { AxiosError } from "axios";
-import logger from "@/utils/logger";
-import { db } from "@/db/db";
-import { sql } from "drizzle-orm";
+import logger from "../utils/logger";
 
 /** ---------- Request/Response models your app uses ---------- */
 interface LLMRequest {
@@ -22,14 +21,20 @@ const requireEnv = (key: string) => {
   return v;
 };
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
 
 /** ---------- Runpod payload model (fixes TS 'prompt' access) ---------- */
+type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
+
 type RunpodPayload = {
   prompt?: string;
   inputs?: string;
   instruction?: string;
   text?: string;
+
+  // vLLM-ish controls (some workers accept both max_tokens & max_new_tokens)
   max_tokens?: number;
   max_new_tokens?: number;
   n?: number;
@@ -39,103 +44,77 @@ type RunpodPayload = {
   use_beam_search?: boolean;
   temperature?: number;
   top_p?: number;
-  messages?: Array<{ role: "system" | "user" | "assistant"; content: string }>;
+
+  // Chat-style
+  messages?: Array<ChatMessage>;
+
+  // Allow extra worker-specific fields without compiler complaints
   [key: string]: any;
 };
 
-/** ---------- Small utils (kept minimal & reusable) ---------- */
-const isProbablyJSON = (s: string) => {
-  const t = s.trim();
+/** ---------- Small utils ---------- */
+function isProbablyJSON(s: string) {
+  const t = (s || "").trim();
   return (t.startsWith("{") && t.endsWith("}")) || (t.startsWith("[") && t.endsWith("]"));
-};
+}
 
-const minifyJson = (s: string) => {
+function safeMinifyJSON(s: string) {
   try {
     return JSON.stringify(JSON.parse(s));
   } catch {
     return s;
   }
-};
-
-/** Extract the first balanced JSON object/array substring from free-form text. */
-function extractFirstJSON(input: string): string | undefined {
-  const s = String(input ?? "");
-  const len = s.length;
-  let inString = false;
-  let escape = false;
-  let start = -1;
-  const stack: string[] = [];
-
-  for (let i = 0; i < len; i++) {
-    const ch = s[i];
-
-    if (inString) {
-      if (escape) {
-        escape = false;
-      } else if (ch === "\\") {
-        escape = true;
-      } else if (ch === '"') {
-        inString = false;
-      }
-      continue;
-    }
-
-    if (ch === '"') {
-      inString = true;
-      continue;
-    }
-
-    if (ch === "{" || ch === "[") {
-      if (start === -1) start = i;
-      stack.push(ch);
-      continue;
-    }
-
-    if (ch === "}" || ch === "]") {
-      if (!stack.length) {
-        start = -1;
-        continue;
-      }
-      const open = stack.pop()!;
-      if ((open === "{" && ch !== "}") || (open === "[" && ch !== "]")) {
-        start = -1;
-        stack.length = 0;
-        continue;
-      }
-      if (!stack.length && start !== -1) {
-        const candidate = s.slice(start, i + 1).trim();
-        if (isProbablyJSON(candidate)) return candidate;
-        start = -1;
-      }
-    }
-  }
-  return undefined;
 }
 
 /** Try to normalize the Runpod /runsync output into a single string. */
 function normalizeRunpodOutput(raw: any): string {
+  // popular shapes:
+  // { output: { text: ["..."] } }
+  // { output: { text: "..."} }
+  // { output: "..." }
+  // { text: "..."} (rare)
+  // or the whole thing is already a string
+
   const output = raw?.output ?? raw;
 
+  // OpenAI-like
+  const choiceMsg =
+    output?.choices?.[0]?.message?.content ??
+    raw?.choices?.[0]?.message?.content ??
+    output?.choices?.[0]?.delta?.content ??
+    output?.choices?.[0]?.text ??
+    raw?.choices?.[0]?.text;
+
+  // Common fields seen across workers
+  const generatedText =
+    output?.generated_text ??
+    output?.generatedText ??
+    output?.result ??
+    output?.output ??
+    output?.output_text ??
+    output?.response ??
+    output?.answer ??
+    output?.data?.[0]?.text ??
+    output?.data?.text ??
+    output?.data?.output ??
+    (Array.isArray(output) && (output[0]?.generated_text || output[0]?.text || output[0]?.result));
+
   let text: unknown =
-    Array.isArray(output?.text) ? output.text.join("\n") :
-    typeof output?.text === "string" ? output.text :
-    typeof output === "string" ? output :
-    typeof raw === "string" ? raw :
-    "";
+    choiceMsg ??
+    generatedText ??
+    (Array.isArray(output?.text)
+      ? output.text.join("\n")
+      : typeof output?.text === "string"
+      ? output.text
+      : typeof output === "string"
+      ? output
+      : typeof raw === "string"
+      ? raw
+      : "");
 
-  let s = String(text ?? "")
-    .replace(/\u0000/g, "")
-    .replace(/\uFFFD/g, "")
-    .trim();
+  let s = String(text ?? "").replace(/\u0000/g, "").trim();
 
-  // Remove code-fence wrappers if present
-  if (s.startsWith("```")) {
-    const first = s.indexOf("\n");
-    const lastFence = s.lastIndexOf("```");
-    if (first >= 0 && lastFence > first) s = s.slice(first + 1, lastFence).trim();
-  }
-
-  // If non-JSON with chatter, try from first brace/bracket
+  // Extract first JSON block if present in blob output
   if (!isProbablyJSON(s)) {
     const firstBrace = s.indexOf("{");
     const firstBracket = s.indexOf("[");
@@ -148,422 +127,496 @@ function normalizeRunpodOutput(raw: any): string {
   return s;
 }
 
-/** Markers to force the model to wrap JSON so we can extract it reliably */
-const JSON_START = "<JSON>";
-const JSON_END = "</JSON>";
+/** Extract the first balanced JSON object/array from a string, if present */
+function extractFirstJSON(s: string): string | null {
+  const text = s || "";
+  const openers = ["{", "["] as const;
+  const closers: Record<string, string> = { "{": "}", "[": "]" };
+  const startIdx = [...text].findIndex((ch) => (openers as readonly string[]).includes(ch as any));
+  if (startIdx < 0) return null;
 
-const extractBetweenMarkers = (s: string, start: string, end: string) => {
-  if (!s) return undefined;
-  const i = s.indexOf(start);
-  if (i === -1) return undefined;
-  const j = s.indexOf(end, i + start.length);
-  if (j === -1) return undefined;
-  return s.slice(i + start.length, j).trim();
-};
+  const startChar = text[startIdx] as "{" | "[";
+  const endChar = closers[startChar];
+  let depth = 0;
+  let inStr = false;
+  let esc = false;
 
-function normalizeJsonish(str: string): string {
-  let s = String(str ?? "");
-  s = s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");
-  s = s.replace(/,(\s*[}\]])/g, "$1");
-  if (s.startsWith("```")) {
-    const first = s.indexOf("\n");
-    const last = s.lastIndexOf("```");
-    if (first >= 0 && last > first) s = s.slice(first + 1, last).trim();
+  for (let i = startIdx; i < text.length; i++) {
+    const ch = text[i];
+
+    if (inStr) {
+      if (esc) {
+        esc = false;
+      } else if (ch === "\\") {
+        esc = true;
+      } else if (ch === '"') {
+        inStr = false;
+      }
+      continue;
+    } else {
+      if (ch === '"') {
+        inStr = true;
+        continue;
+      }
+      if (ch === startChar) depth++;
+      if (ch === endChar) {
+        depth--;
+        if (depth === 0) {
+          const candidate = text.slice(startIdx, i + 1);
+          return candidate;
+        }
+      }
+    }
   }
-  return s.trim();
+  return null;
 }
 
-/** Loose extraction when only a start marker exists and the end is missing */
-function extractLooseJSONFromMarkers(raw: string): string | undefined {
-  const s = String(raw ?? "");
-  const startIdx = s.indexOf("<JSON");
-  if (startIdx === -1) return undefined;
-  const firstBrace = s.indexOf("{", startIdx);
-  const lastBrace = s.lastIndexOf("}");
-  if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) return undefined;
-  return s.slice(firstBrace, lastBrace + 1).trim();
+/** Simple cleanup to reduce duplicated/rambling outputs */
+function sanitizeText(out: string): string {
+  if (!out) return out;
+  let s = out.replace(/\u0000/g, "").trim();
+
+  // Remove repeated consecutive sentences
+  const sentences = s.split(/(?<=[.!?])\s+/);
+  const dedup: string[] = [];
+  const seen = new Set<string>();
+  for (const sent of sentences) {
+    const key = sent.toLowerCase().trim();
+    if (!seen.has(key)) {
+      dedup.push(sent);
+      seen.add(key);
+    }
+  }
+  s = dedup.join(" ");
+
+  // Fix unmatched trailing quotes/backticks
+  s = s.replace(/^[`'"]+|[`'"]+$/g, "");
+
+  // Trim generic filler
+  s = s.replace(/\b(sure thing|as an ai|if you're looking|i can help you)\b.*$/i, "").trim();
+
+  return s;
 }
 
-/** Parse labeled output for VOTD (defensive) */
-function parseLabeledVOTD(text: string): Partial<{ verse: string; reference: string; reflection: string; prayer: string }> {
-  const s = (text || "").replace(/\u0000/g, "").replace(/\uFFFD/g, "");
-  const take = (label: string) => {
-    const m = new RegExp(`${label}\\s*[:\\-]\\s*([\\s\\S]*?)(?:\\n\\s*\\w+\\s*[:\\-]|$)`, "i").exec(s);
-    return m && m[1] ? m[1].trim().replace(/^["'`]+|["'`]+$/g, "") : undefined;
-  };
-  return {
-    verse: take("verse"),
-    reference: take("reference"),
-    reflection: take("reflection"),
-    prayer: take("prayer"),
-  };
+/** Estimate a safe token budget for the reply based on prompt size, bounded for safety */
+function tokenBudgetFromPrompt(prompt: string, fallback: number = 512): number {
+  const s = (prompt || "").trim();
+  if (!s) return fallback;
+  const approxTokens = Math.ceil(s.length / 4); // rough char->token heuristic
+  const budget = Math.max(fallback, Math.min(1200, approxTokens * 2));
+  return budget;
 }
 
-/** Parse labeled output for Devotional (defensive) */
-function parseLabeledDevotional(text: string): Partial<{ title: string; content: string; prayer: string }> {
-  const s = (text || "").replace(/\u0000/g, "").replace(/\uFFFD/g, "");
-  const esc = (v: string) => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const take = (labels: string[]) => {
-    const alt = labels.map(esc).join("|");
-    const m = new RegExp(`(?:${alt})\\s*[:\\-]\\s*([\\s\\S]*?)(?:\\n\\s*(?:TITLE|CONTENT|PRAYER)\\s*[:\\-]|$)`, "i").exec(s);
-    const v = m && m[1] ? m[1].trim().replace(/^["'`]+|["'`]+$/g, "") : undefined;
-    return v;
-  };
-  return {
-    title: take(["title"]),
-    content: take(["content", "devotional", "message", "body", "text"]),
-    prayer: take(["prayer"]),
-  };
-}
-
-/** Build a single-string prompt that embeds the schema + explicit JSON template */
-function buildStrictJSONPrompt(schemaHint: string, userPrompt: string, template?: string): string {
-  const schemaLine = `Schema: ${schemaHint.trim()}`;
-  const templateLine = template ? `Use EXACTLY this minified shape: ${template.trim()}` : "";
-  const wrapLine = `Wrap the JSON ONLY between ${JSON_START} and ${JSON_END}. Do not add any other text.`;
-  const sys = `You output ONLY strict, MINIFIED JSON. No markdown, no prose, no code fences. ${schemaLine} ${templateLine} ${wrapLine}`.trim();
-  return `SYSTEM: ${sys}\nUSER: ${userPrompt.trim()}\nASSISTANT:`;
+/** Heuristic to detect if a prompt likely needs a more in-depth response */
+function isComplexQuestion(s: string): boolean {
+  const t = (s || "").toLowerCase();
+  const long = t.length > 220 || t.split(/\s+/).length > 40;
+  const qmarks = (t.match(/\?/g) || []).length >= 1;
+  const keywords = /\b(how|why|steps|plan|strategy|guide|explain|compare|pros|cons|outline|implement|best practices|examples?)\b/;
+  const listSignals = /(\n-|\n\d+\.|•)/;
+  return long || (qmarks && t.length > 120) || keywords.test(t) || listSignals.test(s);
 }
 
 /** Guidance the chat model follows on the Parent Dashboard */
 const PARENT_DASHBOARD_SYSTEM = [
   "You are a concise, warm Christian family assistant for parents.",
-  "Style: short, clear, practical. Avoid fluff and generic disclaimers.",
-  "Ground answers in Scripture when relevant, with short references (e.g., Proverbs 3:5).",
-  "Do not repeat the user's question; answer directly. Use bullets for lists."
+  "Style: short, clear, practical. Default to concise answers, but when a question requires depth, provide a complete, well-structured response.",
+  "Ground your answers in biblical principles. Cite Scripture (e.g., John 3:16) when relevant.",
+  "Avoid fluff, repetition, or generic disclaimers. Do not mention being an AI.",
+  "Never repeat the user's prompt. Answer directly. No links unless requested.",
+  "If a verse is asked about, summarize its meaning and offer a practical family application.",
 ].join(" ");
 
-export class LlmService {
-  private readonly apiKey = requireEnv("RUNPOD_API_KEY");
-  private readonly endpointId = requireEnv("RUNPOD_ENDPOINT_ID");
-  private readonly baseUrl = `https://api.runpod.ai/v2/${this.endpointId}`;
+/** Few-shot example shape (optional) */
+interface PromptExample {
+  user: string;
+  assistant: string;
+}
 
-  /** Persist a generated content row; errors are logged but do not throw */
-  private async saveGenerated(params: {
-    contentType: string;
-    prompt: string;
-    systemPrompt?: string | null;
-    generatedContent: string;
-    userId?: number | null;
-    childId?: number | null;
-    context?: string | null;
-    tokensUsed?: number | null;
-    generationTimeMs?: number | null;
-  }) {
-    const {
-      contentType,
-      prompt,
-      systemPrompt,
-      generatedContent,
-      userId,
-      childId,
-      context,
-      tokensUsed,
-      generationTimeMs,
-    } = params;
+/** Compose a plain prompt string for generic vLLM workers */
+function buildPromptFromMessages(msgs?: Array<ChatMessage>): string {
+  if (!Array.isArray(msgs) || msgs.length === 0) return "";
+  const sys = msgs.find((m) => m.role === "system")?.content?.trim();
+  const lastUser = [...msgs].reverse().find((m) => m.role === "user")?.content?.trim() || "";
+  const sysLine = sys ? `SYSTEM: ${sys}\n` : "";
+  return `${sysLine}USER: ${lastUser}\nASSISTANT:`;
+}
 
-    const ct = String(contentType || "unknown").slice(0, 50);
-    const ctx = context == null ? null : String(context).slice(0, 100);
-    const tok = Number.isFinite(tokensUsed as any) ? Number(tokensUsed) : null;
-    const genMs = Number.isFinite(generationTimeMs as any) ? Number(generationTimeMs) : null;
+/** LLaMA-2 style prompt builder with optional few-shot examples */
+function buildLlamaPrompt(system: string | undefined, user: string, examples?: PromptExample[]): string {
+  // LLaMA-2 chat pattern:
+  // <s>[INST] <<SYS>>
+  // ...system...
+  // <</SYS>>
+  // user content [/INST]
+  const sysBlock = system ? `<<SYS>>\n${system}\n<</SYS>>\n\n` : "";
 
-    try {
-      await db.execute(sql`
-        INSERT INTO llm_generated_content
-          (content_type, prompt, system_prompt, generated_content, user_id, child_id, context, tokens_used, generation_time_ms)
-        VALUES
-          (${ct}, ${String(prompt ?? "")}, ${systemPrompt ?? null}, ${String(generatedContent ?? "")},
-           ${userId ?? null}, ${childId ?? null}, ${ctx}, ${tok}, ${genMs})
-      `);
-      logger.debug("[LLM] Persisted llm_generated_content", { contentType: ct });
-    } catch (e) {
-      logger.warn("[LLM] Failed to persist llm_generated_content", (e as Error)?.message);
+  let prompt = `<s>[INST] ${sysBlock}${user} [/INST]`;
+
+  if (examples && examples.length) {
+    // Put examples BEFORE the target, as demonstrated dialogue pairs
+    // We rebuild with examples then finish with the actual user turn
+    const blocks: string[] = [];
+    blocks.push(`<s>[INST] ${sysBlock}${examples[0].user} [/INST] ${examples[0].assistant} </s>`);
+    for (let i = 1; i < examples.length; i++) {
+      const ex = examples[i];
+      blocks.push(`<s>[INST] ${ex.user} [/INST] ${ex.assistant} </s>`);
     }
+    // Final actual query as last INST block
+    blocks.push(`<s>[INST] ${sysBlock}${user} [/INST]`);
+    prompt = blocks.join("\n");
+  }
+
+  return prompt;
+}
+
+class LlmService {
+  private apiKey: string;
+  private endpointId: string;
+  private baseUrl: string;
+
+  constructor() {
+    this.apiKey = requireEnv("RUNPOD_API_KEY");
+    this.endpointId = requireEnv("RUNPOD_ENDPOINT_ID");
+    this.baseUrl = `https://api.runpod.ai/v2/${this.endpointId}`;
   }
 
   /**
-   * Low-level call to the Runpod endpoint (synchronous run).
-   * Retries a couple times on transient network errors.
+   * Low-level call to RunPod with robust fallback
    */
   private async post(input: RunpodPayload, tries = 2): Promise<string> {
-    const url = `${this.baseUrl}/runsync`;
+    const urlSync = `${this.baseUrl}/runsync`;
+    const urlRun = `${this.baseUrl}/run`;
+
+    // Prefer LLaMA-style composition if messages exist; otherwise generic
+    const lastUserMsg =
+      Array.isArray(input.messages) && input.messages.length
+        ? [...input.messages].reverse().find((m) => m.role === "user")?.content?.trim() ?? ""
+        : "";
+
+    const systemMsg =
+      Array.isArray(input.messages) && input.messages.length
+        ? input.messages.find((m) => m.role === "system")?.content?.trim()
+        : undefined;
+
+    const llamaComposed =
+      lastUserMsg
+        ? buildLlamaPrompt(systemMsg, lastUserMsg)
+        : undefined;
+
+    // Always include a plain prompt mirror for max compatibility (vLLM-friendly)
+    const composedPrompt =
+      input.prompt ??
+      input.text ??
+      input.inputs ??
+      llamaComposed ??
+      buildPromptFromMessages(input.messages);
+
+    // Build sampling params object expected by some vLLM workers
+    const sampling_params = {
+      n: input.n ?? 1,
+      best_of: input.best_of ?? 1,
+      temperature: input.temperature ?? 0.35,
+      top_p: input.top_p ?? 0.9,
+      use_beam_search: input.use_beam_search ?? false,
+      stop: input.stop ?? [],
+      ignore_eos: false,
+      max_tokens: (input.max_new_tokens ?? input.max_tokens ?? 600) as number,
+      presence_penalty: 0.0,
+      frequency_penalty: 0.0,
+    };
+
+    // Mirror only prompt/inputs to avoid bloated echoes; attach stop tokens
+    const payload: RunpodPayload = {
+      ...input,
+      prompt: input.prompt ?? composedPrompt ?? "",
+      inputs: input.inputs ?? input.prompt ?? composedPrompt ?? "",
+      // drop extra mirrors that cause echo-chatter:
+      // instruction, text, input, input_text, query, question
+      max_tokens: input.max_tokens ?? input.max_new_tokens ?? 400,
+      max_new_tokens: input.max_new_tokens ?? input.max_tokens ?? 400,
+      sampling_params,
+      stop: input.stop ?? ["</s>", "[/INST]"],
+    };
 
     for (let attempt = 1; attempt <= tries; attempt++) {
       try {
-        const max = input.max_tokens ?? input.max_new_tokens ?? 600;
-        const payload: RunpodPayload = {
-          ...input,
-          max_tokens: max,
-          max_new_tokens: max,
-          inputs: input.inputs ?? input.prompt ?? "",
-          instruction: input.instruction ?? input.prompt ?? "",
-          text: input.text ?? input.prompt ?? "",
+        const safeLog = {
+          ...payload,
+          prompt: `[len=${(payload.prompt ?? "").length}]`,
+          inputs: `[len=${(payload.inputs ?? "").length}]`,
+          instruction: `[len=${(payload.instruction ?? "").length}]`,
+          text: `[len=${(payload.text ?? "").length}]`,
+          input: `[len=${String((payload as any).input ?? "").length}]`,
+          input_text: `[len=${String((payload as any).input_text ?? "").length}]`,
+          query: `[len=${String((payload as any).query ?? "").length}]`,
+          question: `[len=${String((payload as any).question ?? "").length}]`,
+          messages: payload.messages
+            ? payload.messages.map((m) => ({ ...m, content: `[len=${m.content.length}]` }))
+            : undefined,
         };
-
-        logger.debug("[LLM] POST /runsync payload (sizes only)", {
-          prompt: String(payload.prompt ?? "").length,
-          inputs: String(payload.inputs ?? "").length,
-          instruction: String(payload.instruction ?? "").length,
-          text: String(payload.text ?? "").length,
-          hasMessages: Array.isArray(payload.messages),
-        });
+        logger.debug("[LLM] POST /runsync payload (safe):", safeLog);
 
         const { data } = await axios.post(
-          url,
+          urlSync,
           { input: payload },
           {
             headers: {
               Authorization: `Bearer ${this.apiKey}`,
               "Content-Type": "application/json",
+              Accept: "application/json",
             },
-            timeout: 60_000,
+            timeout: 120_000, // was 60_000
           }
         );
 
-        logger.debug("[LLM] /runsync response shape", {
+        logger.debug("[LLM] /runsync response shape (top-level):", {
+          delayTime: typeof data?.delayTime,
+          executionTime: typeof data?.executionTime,
+          id: typeof data?.id,
+          output: typeof data?.output,
           status: typeof data?.status,
-          outputType: typeof data?.output,
-          textType: typeof data?.output?.text,
+          workerId: typeof data?.workerId,
+        });
+        logger.debug("[LLM] /runsync output shape:", {
+          input_tokens: typeof data?.output?.input_tokens,
+          output_tokens: typeof data?.output?.output_tokens,
+          text: Array.isArray(data?.output?.text)
+            ? `array(len=${data.output.text.length})`
+            : typeof data?.output?.text,
+          result: typeof data?.output?.result,
+          generated_text: typeof data?.output?.generated_text,
         });
 
+        // Prefer worker-provided text array if present/non-empty
+        const arr = data?.output?.text;
+        if (Array.isArray(arr) && arr.length && typeof arr[0] === "string" && arr[0].trim() !== "") {
+          return arr.join("\n");
+        }
+
         const normalized = normalizeRunpodOutput(data);
+        logger.debug("[LLM] /runsync normalized output preview:", String(normalized).slice(0, 60));
+
+        const isEmpty =
+          normalized === "" ||
+          normalized === "false" ||
+          normalized === "null" ||
+          typeof data?.output === "undefined" ||
+          data?.output === false;
+
+        if (isEmpty) {
+          logger.warn("[LLM] /runsync empty-ish output; falling back to /run + /status polling");
+          const polled = await this.runAndPoll(urlRun, payload);
+          return polled;
+        }
+
         return normalized;
       } catch (err: unknown) {
         const axErr = err as AxiosError;
         const msg = (axErr?.response?.data as any)?.error ?? axErr?.message ?? "Unknown Runpod error";
-        logger.error(`Runpod error (attempt ${attempt}/${tries}):`, msg);
+        logger.error(`Runpod /runsync error (attempt ${attempt}/${tries}):`, msg);
 
-        const retryable =
-          axErr.code === "ECONNRESET" ||
-          axErr.code === "ECONNABORTED" ||
-          axErr.message?.toLowerCase().includes("timeout") ||
-          axErr.message?.toLowerCase().includes("network");
-
-        if (attempt < tries && retryable) {
+        if (
+          attempt < tries &&
+          (axErr.code === "ECONNRESET" ||
+            axErr.code === "ECONNABORTED" ||
+            axErr.message?.toLowerCase().includes("timeout") ||
+            axErr.message?.toLowerCase().includes("network"))
+        ) {
           await sleep(1000 * attempt);
           continue;
         }
-        throw new Error("LLM request failed");
+        logger.warn("[LLM] Falling back to /run + /status after /runsync error");
+        return await this.runAndPoll(urlRun, payload);
       }
     }
     throw new Error("LLM request failed");
   }
 
-  /** Ask the model to reformat messy text into strict JSON. */
-  private async reformatToStrictJSON(schemaHint: string, messy: string, template?: string): Promise<string> {
-    const strictPrompt = buildStrictJSONPrompt(
-      schemaHint,
-      `Convert the following content to strict, MINIFIED JSON that matches the SCHEMA. Output JSON ONLY.\nContent:\n${messy}`,
-      template
+  /** Submit /run job and poll /status/{id} until completed or timeout, normalize output */
+  private async runAndPoll(urlRun: string, payload: RunpodPayload): Promise<string> {
+    const { data: runData } = await axios.post(
+      urlRun,
+      { input: payload },
+      {
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        timeout: 60_000, // was 30_000
+      }
     );
-    return this.post({
-      prompt: strictPrompt,
-      inputs: strictPrompt,
-      instruction: strictPrompt,
-      text: strictPrompt,
-      max_tokens: 700,
-      max_new_tokens: 700,
-      temperature: 0,
-      top_p: 1,
-      n: 1,
-      best_of: 1,
-      stream: false,
-      stop: [],
-      use_beam_search: false,
-      messages: undefined,
-    });
-  }
 
-  /** Heuristic to decide if the model should continue generating more text */
-  private needsContinuation(text: string, opts?: { expectBullets?: boolean; minWords?: number }): boolean {
-    const s = String(text || "").trim();
-    if (!s) return true;
-
-    const words = s.split(/\s+/).filter(Boolean).length;
-    if (opts?.minWords && words < opts.minWords) return true;
-
-    if (opts?.expectBullets) {
-      const bulletRe = /^\s*(?:[-*•]|[0-9]+\.)\s+/;
-      const bullets = s.split(/\r?\n/).filter((l) => bulletRe.test(l)).length;
-      if (bullets < 3) return true;
+    const jobId: string | undefined = runData?.id;
+    if (!jobId) {
+      logger.error("[LLM] /run did not return a job id.");
+      throw new Error("Runpod /run failed to return job id");
     }
 
-    // End on sentence-like boundary
-    return !/[.!?]"?\)?\s*$/.test(s);
+    const statusUrl = `${this.baseUrl}/status/${jobId}`;
+    logger.debug("[LLM] Polling status:", { jobId });
+
+    const started = Date.now();
+    const timeoutMs = 180_000; // was 60_000
+    while (Date.now() - started < timeoutMs) {
+      const { data: st } = await axios.get(statusUrl, {
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          Accept: "application/json",
+        },
+        timeout: 40_000, // was 20_000
+      });
+
+      const status = String(st?.status || "").toUpperCase();
+      if (status === "COMPLETED") {
+        const out = st?.output ?? {};
+
+        // Prefer explicit text array if present
+        if (Array.isArray(out?.text) && out.text.length) {
+          const joined = out.text.filter((t: any) => typeof t === "string").join("\n").trim();
+          if (joined) return joined;
+        }
+
+        // ...existing direct extraction...
+        const direct =
+          out?.result ??
+          out?.generated_text ??
+          out?.output_text ??
+          out?.response ??
+          out?.answer ??
+          (Array.isArray(out?.text) ? out.text.join("\n") : out?.text);
+        const directStr = typeof direct === "string" ? direct : "";
+        const normalized = normalizeRunpodOutput(directStr || st);
+        logger.debug("[LLM] /status normalized output preview:", String(normalized).slice(0, 60));
+
+        if (!normalized || normalized === "false" || normalized === "null") {
+          logger.warn("[LLM] /status returned falsy output despite COMPLETED");
+        }
+        return normalized;
+      }
+      if (status === "FAILED" || status === "CANCELED") {
+        logger.error("[LLM] Job failed/canceled", { status, jobId });
+        throw new Error(`Runpod job ${status.toLowerCase()}`);
+      }
+
+      await sleep(1200);
+    }
+
+    logger.error("[LLM] /status polling timed out");
+    throw new Error("Runpod polling timeout");
   }
 
-  /** Strip filler, UI chatter, and accidental role echoes from model text */
-  private cleanLLMText(raw: string): string {
-    return String(raw || "")
-      .replace(/^\s*(SYSTEM|USER|ASSISTANT|ASSISTANT_SO_FAR|ASSISTANT_CONTINUE)\s*:.*$/gim, "")
-      .replace(/^(Sure( thing)?|Certainly|Of course|Great|Hey there|Hello|Hi)[!,.]?\s*/gim, "")
-      .split(/\r?\n/)
-      .filter((ln) => !/(parent\s+dashboard|main\s+menu|click\s+on\s+the\s+"?Parent|access\s+the\s+parent\s+dashboard|navigation|menu\s+under)/i.test(ln))
-      .join("\n")
-      .replace(/\n{3,}/g, "\n\n")
-      .replace(/\u0000|\uFFFD/g, "")
-      .trim();
-  }
-
-  /** Ask the model to continue the previous response without repeating content */
-  private async continueOnce(system: string, soFar: string, instruction: string, maxTokens = 400): Promise<string> {
-    const user =
-      `Continue only with new content to complete the response. ${instruction}.` +
-      ` Do not repeat earlier text. No greetings, no apologies, no prefaces.` +
-      ` Do not mention dashboards, menus, navigation, UI, login, or settings.`;
-    const flat = `SYSTEM: ${system}\nASSISTANT_SO_FAR:\n${soFar}\nUSER: ${user}\nASSISTANT_CONTINUE:`;
+  /** Second-pass: ask the model to *reformat* messy text into strict JSON. */
+  private async reformatToStrictJSON(schemaHint: string, messy: string): Promise<string> {
+    const prompt = [
+      "You are a JSON reformatter. You take arbitrary text and output ONLY minified JSON matching the given schema.",
+      "",
+      "---",
+      "SCHEMA:",
+      schemaHint.trim(),
+      "",
+      "TASK:",
+      "Convert the following content to STRICT, MINIFIED JSON that matches the SCHEMA. Output JSON ONLY, no prose, no code fences. Content:",
+      messy,
+    ].join("\n");
 
     const out = await this.post({
-      prompt: flat,
-      inputs: flat,
-      instruction: flat,
-      text: flat,
-      max_tokens: Math.max(200, maxTokens),
-      max_new_tokens: Math.max(200, maxTokens),
-      temperature: 0.5,
-      top_p: 0.9,
+      prompt,
+      temperature: 0,
+      top_p: 1,
+      max_tokens: 700,
       n: 1,
       best_of: 1,
       stream: false,
       stop: [],
       use_beam_search: false,
       messages: [
-        { role: "system", content: system },
-        { role: "assistant", content: soFar },
-        { role: "user", content: user },
+        { role: "system", content: "You are a JSON reformatter. Output only strict, minified JSON." },
+        { role: "user", content: prompt },
       ],
     });
 
-    return this.cleanLLMText(String(out || "").trim());
+    return out;
   }
 
   /** Generic prompt builder that prefers chat messages over raw prompt */
   public async generateResponse(req: LLMRequest): Promise<LLMResponse> {
-    const system = PARENT_DASHBOARD_SYSTEM;
+    const systemContent = req.systemPrompt ? req.systemPrompt : undefined;
 
-    const constraints = req.systemPrompt
-      ? `\n\nConstraints:\n${req.systemPrompt}\nDo not mention dashboards, menus, navigation, UI, login, or settings. No greetings or apologies.`
-      : "";
+    // Adaptive token budget unless caller specified one
+    const budget = req.maxTokens ?? tokenBudgetFromPrompt(req.prompt, 480);
 
-    const userPrompt = `${req.prompt}${constraints}`.trim();
-    const flat = `${system}\n\n---\n${userPrompt}`;
-
-    const firstRaw = await this.post({
-      prompt: flat,
-      max_tokens: req.maxTokens ?? 600,
-      max_new_tokens: req.maxTokens ?? 600,
-      temperature: req.temperature ?? 0.5,
+    const text = await this.post({
+      messages: [
+        ...(systemContent ? [{ role: "system" as const, content: systemContent }] : []),
+        { role: "user", content: req.prompt },
+      ],
+      max_tokens: budget,
+      max_new_tokens: budget,
+      temperature: req.temperature ?? 0.35,
       top_p: 0.9,
       n: 1,
       best_of: 1,
       stream: false,
       stop: [],
       use_beam_search: false,
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: userPrompt },
-      ],
     });
 
-    let finalText = this.cleanLLMText(firstRaw || "No response generated.");
-
-    // Auto-continue until complete
-    const seen = new Set<string>();
-    const expectBullets = /bullet|bullets|list/i.test(userPrompt) || /three/i.test(userPrompt);
-
-    for (let i = 0; i < 8 && this.needsContinuation(finalText, { expectBullets, minWords: 60 }); i++) {
-      const more = await this.continueOnce(system, finalText, "Keep format; add only missing content", req.maxTokens ?? 400);
-      if (!more) break;
-
-      const key = more.slice(0, 140);
-      if (seen.has(key) || more.length < 20) break;
-      seen.add(key);
-
-      finalText = `${finalText}\n${more}`.trim();
-    }
-
-    finalText = this.cleanLLMText(finalText);
-    return { text: finalText };
+    return { text: text || "No response generated." };
   }
 
   /**
-   * Strict JSON generation path with optional explicit JSON template.
+   * Ask the model to return STRICT JSON only; if it doesn’t, we try a
+   * second pass via the JSON reformatter and finally fall back to {}
    */
   public async generateStrictJSON<T = any>(
     schemaHint: string,
     userPrompt: string,
-    opts?: { maxTokens?: number; temperature?: number },
-    template?: string
+    opts?: { maxTokens?: number; temperature?: number }
   ): Promise<T> {
-    const strictPrompt = buildStrictJSONPrompt(schemaHint, userPrompt, template);
-
-    const firstRaw = await this.post({
-      prompt: strictPrompt,
-      inputs: strictPrompt,
-      instruction: strictPrompt,
-      text: strictPrompt,
-      max_tokens: opts?.maxTokens ?? 900,
-      max_new_tokens: opts?.maxTokens ?? 900,
-      temperature: opts?.temperature ?? 0,
-      top_p: 0.9,
-      n: 1,
-      best_of: 1,
-      stream: false,
-      stop: [],
-      use_beam_search: false,
-      messages: undefined,
+    const system = `You are a helpful assistant. ALWAYS reply with STRICT JSON only. No markdown, no code fences, no commentary.\n${schemaHint}`;
+    const first = await this.generateResponse({
+      prompt: userPrompt,
+      systemPrompt: system,
+      maxTokens: opts?.maxTokens ?? 800,
+      temperature: opts?.temperature ?? 0.7,
     });
 
-    // Loose extraction first (handles missing </JSON>)
-    const loose = extractLooseJSONFromMarkers(firstRaw);
-    if (loose) {
-      const cand = normalizeJsonish(loose);
-      if (isProbablyJSON(cand)) {
-        try { return JSON.parse(minifyJson(cand)); } catch {}
+    let raw = first.text ?? "";
+
+    // 1) Direct parse if already JSON (with minify)
+    if (isProbablyJSON(raw)) {
+      try {
+        return JSON.parse(safeMinifyJSON(raw));
+      } catch {
+        // continue
       }
     }
 
-    // Then strict markers
-    const marked = extractBetweenMarkers(firstRaw, JSON_START, JSON_END);
-    if (marked) {
-      const cand = normalizeJsonish(marked);
-      if (isProbablyJSON(cand)) {
-        try { return JSON.parse(minifyJson(cand)); } catch {}
+    // 2) Try to extract JSON substring from messy output before a second LLM call
+    const extracted = extractFirstJSON(raw);
+    if (extracted && isProbablyJSON(extracted)) {
+      try {
+        return JSON.parse(safeMinifyJSON(extracted));
+      } catch {
+        // continue
       }
     }
 
-    // Direct parse
-    if (isProbablyJSON(firstRaw)) {
-      try { return JSON.parse(minifyJson(firstRaw)); } catch {}
-    }
+    logger.warn("[LLM] Returned non-JSON (first pass). Attempting JSON reformat…", {
+      preview: raw.slice(0, 120),
+    });
 
-    // Extract substring
-    const extracted = extractFirstJSON(firstRaw);
-    if (extracted) {
-      const cand = normalizeJsonish(extracted);
-      if (isProbablyJSON(cand)) {
-        try { return JSON.parse(minifyJson(cand)); } catch {}
-      }
-    }
-
-    // Labeled fallbacks
-    const votd = parseLabeledVOTD(firstRaw);
-    if (votd.verse || votd.reference || votd.reflection || votd.prayer) return votd as T;
-
-    const devo = parseLabeledDevotional(firstRaw);
-    if (devo.title || devo.content || devo.prayer) return devo as T;
-
-    // Second-pass reformatter
+    // 3) Second pass: reformat to strict JSON
     try {
-      const reformatted = await this.reformatToStrictJSON(schemaHint, firstRaw, template);
-      const marked2 = extractBetweenMarkers(reformatted, JSON_START, JSON_END);
-      if (marked2 && isProbablyJSON(marked2)) {
-        try { return JSON.parse(minifyJson(marked2)); } catch {}
-      }
+      const reformatted = await this.reformatToStrictJSON(schemaHint, raw);
       const extracted2 = extractFirstJSON(reformatted) || reformatted;
-      if (isProbablyJSON(extracted2)) return JSON.parse(minifyJson(extracted2));
+      if (isProbablyJSON(extracted2)) {
+        return JSON.parse(safeMinifyJSON(extracted2));
+      }
       logger.warn("[LLM] Second pass still not JSON; using empty object fallback", {
-        preview: String(reformatted).slice(0, 120),
+        preview: reformatted.slice(0, 120),
       });
     } catch (e) {
       logger.warn("[LLM] JSON reformat failed; using empty object fallback", (e as Error)?.message);
@@ -572,145 +625,124 @@ export class LlmService {
     return {} as T;
   }
 
-  async generateVerseOfTheDay(): Promise<{
-    reference: string;
-    verse: string;
-    reflection: string;
-    [k: string]: unknown;
-  }> {
-    const system = [
-      "You are a concise, warm Christian family assistant.",
-      "Output exactly these labeled sections in this order, no preface, no extra text, no markdown:",
-      "Reference: <Book Chapter:Verse(s)>",
-      'Verse: "<full verse text>"',
-      "Reflection: <2 short sentences, practical for families>",
-      "Prayer: <1 short sentence prayer>",
-      "Choose a widely used translation (ESV preferred, NIV acceptable). Do not ask any questions."
-    ].join(" ");
-    const user = "Provide today's Bible Verse of the Day for a Christian family.";
-
-    const seed = await this.post({
-      prompt: `${system}\n\n${user}`,
-      inputs: `${system}\n\n${user}`,
-      instruction: `${system}\n\n${user}`,
-      text: `${system}\n\n${user}`,
-      max_tokens: 600,
-      max_new_tokens: 600,
-      temperature: 0.2,
-      top_p: 0.9,
-      n: 1,
-      best_of: 1,
-      stream: false,
-      stop: [],
-      use_beam_search: false,
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user }
-      ],
-    });
-
-    let combined = (seed || "").trim();
-    const hasAll = () => {
-      const got = parseLabeledVOTD(combined);
-      return !!(got.reference && got.verse && got.reflection && got.prayer);
-    };
-
-    for (let i = 0; i < 8 && !hasAll(); i++) {
-      const more = (await this.continueOnce(system, combined, "keep the exact label format", 400)).trim();
-      if (!more) break;
-      combined = `${combined}\n${more}`.trim();
-    }
-
-    const parsed = parseLabeledVOTD(combined);
-
-    if (!parsed.reference || !parsed.verse || !parsed.reflection || !parsed.prayer) {
-      const schema = `Return JSON with keys: verse (string), reference (string), reflection (string), prayer (string).`;
-      const template = `{"verse":"","reference":"","reflection":"","prayer":""}`;
-      const out = await this.generateStrictJSON<{
-        verse?: string; reference?: string; reflection?: string; prayer?: string;
-      }>(
-        schema,
-        `Provide a family-friendly Bible Verse of the Day (ESV or NIV) with a two-sentence reflection and a one-sentence prayer. Return MINIFIED JSON only.`,
-        { maxTokens: 900, temperature: 0 },
-        template
-      );
-
-      try {
-        await this.saveGenerated({
-          contentType: "verse_of_the_day",
-          prompt: "VOTD request (fallback JSON pipeline)",
-          systemPrompt: "Strict JSON schema: verse, reference, reflection, prayer",
-          generatedContent: JSON.stringify(out),
-          userId: null,
-          childId: null,
-          context: "votd",
-        });
-      } catch {}
-
-      return {
-        verse: out.verse || "Trust in the Lord with all your heart and lean not on your own understanding.",
-        reference: out.reference || "Proverbs 3:5",
-        reflection: out.reflection || "God's wisdom guides us even when the way forward seems unclear.",
-        prayer: out.prayer || "Lord, help us trust You fully today. Amen.",
-      };
-    }
-
-    try {
-      await this.saveGenerated({
-        contentType: "verse_of_the_day",
-        prompt: "VOTD request (labeled free-form with auto-continue)",
-        systemPrompt: "Labels: Reference, Verse, Reflection, Prayer",
-        generatedContent: JSON.stringify(parsed),
-        userId: null,
-        childId: null,
-        context: "votd",
-      });
-    } catch {}
-
-    return {
-      verse: parsed.verse!,
-      reference: parsed.reference!,
-      reflection: parsed.reflection!,
-      prayer: parsed.prayer!,
-    };
-  }
-
-  // ------------- App-facing helpers -------------
-
   public async generateChatResponse(
     prompt: string,
     context?: string,
     _userId?: number
   ): Promise<string> {
-    const systemConstraints = context || "";
+    const system = [PARENT_DASHBOARD_SYSTEM, context].filter(Boolean).join(" ");
+
     try {
-      const started = Date.now();
+      // Adaptive budget for first reply
+      const firstBudget = tokenBudgetFromPrompt(prompt, 512);
       const { text } = await this.generateResponse({
         prompt,
-        systemPrompt: systemConstraints,
-        maxTokens: 600,
-        temperature: 0.7,
+        systemPrompt: system,
+        maxTokens: firstBudget,
+        temperature: 0.33,
       });
-      const finalText = this.cleanLLMText(text || "");
 
-      try {
-        await this.saveGenerated({
-          contentType: "chat",
-          prompt,
-          systemPrompt: systemConstraints || PARENT_DASHBOARD_SYSTEM,
-          generatedContent: finalText,
-          userId: _userId ?? null,
-          childId: null,
-          context: systemConstraints || "parent dashboard",
-          tokensUsed: null,
-          generationTimeMs: Date.now() - started,
+      const cleaned = sanitizeText(text);
+
+      // If the first reply is very short relative to prompt complexity, request a fuller expansion
+      const words = (cleaned || "").trim().split(/\s+/).length;
+      const promptComplex = isComplexQuestion(prompt);
+
+      if ((words < 60 && promptComplex) || words < 25) {
+        const contBudget = Math.max(600, Math.floor(firstBudget * 0.75)); // allow multi-paragraph
+        const cont = await this.post({
+          messages: [
+            { role: "system", content: system },
+            {
+              role: "user",
+              content:
+                "Expand the previous answer into a complete, well-structured response. " +
+                "Use short paragraphs and bullet points where helpful. Do not repeat prior sentences; continue and enrich.",
+            },
+          ],
+          temperature: 0.33,
+          top_p: 0.9,
+          max_tokens: contBudget,
         });
-      } catch {}
-      return finalText;
+        return sanitizeText(`${cleaned}\n\n${cont}`.trim());
+      }
+
+      return cleaned;
     } catch (e: any) {
       logger.error("generateChatResponse error", e?.message || e);
       return "I'm having trouble connecting right now. Please try again later.";
     }
+  }
+
+  public async generateVerseOfTheDay(): Promise<{
+    verse: string;
+    reference: string;
+    reflection: string;
+    prayer: string;
+  }> {
+    const schema = `Return JSON with keys: verse (string), reference (string), reflection (string), prayer (string).`;
+
+    const out = await this.generateStrictJSON<{
+      verse?: string;
+      reference?: string;
+      reflection?: string;
+      prayer?: string;
+    }>(
+      schema,
+      `Provide a family-friendly Bible Verse of the Day (ESV or NIV) with a two-sentence reflection and a one-sentence prayer. Return MINIFIED JSON only.`,
+      { maxTokens: 900, temperature: 0.15 }
+    );
+
+    const usedFallback = !out.verse || !out.reference || !out.reflection || !out.prayer;
+
+    if (usedFallback) {
+      logger.warn("[VOTD] Using fallback values because LLM JSON was invalid or incomplete.");
+    } else {
+      logger.debug("[VOTD] LLM JSON parsed successfully.", {
+        reference: out.reference?.slice(0, 40),
+      });
+    }
+
+    // Safe defaults if the model misbehaves
+    return {
+      verse:
+        out.verse ||
+        "Trust in the Lord with all your heart and lean not on your own understanding.",
+      reference: out.reference || "Proverbs 3:5",
+      reflection:
+        out.reflection ||
+        "God's wisdom guides us even when the way forward seems unclear.",
+      prayer: out.prayer || "Lord, help us trust You fully today. Amen.",
+    };
+  }
+
+  public async generateDevotional(
+    topic?: string
+  ): Promise<{ title: string; content: string; prayer: string }> {
+    const schema = `Return JSON with keys: title (string), content (string), prayer (string).`;
+
+    const prompt = topic
+      ? `Create a short family devotional about "${topic}". Keep it warm, Scripture-centered, and practical. Return MINIFIED JSON only.`
+      : `Create a short family devotional focused on growing closer to Jesus. Keep it warm, Scripture-centered, and practical. Return MINIFIED JSON only.`;
+
+    const out = await this.generateStrictJSON<{
+      title?: string;
+      content?: string;
+      prayer?: string;
+    }>(schema, prompt, { maxTokens: 900, temperature: 0.3 });
+
+    return {
+      title: out.title || "Walking in Faith",
+      content:
+        out.content ||
+        "Today, let's remember that God has a wonderful plan for our lives...",
+      prayer: out.prayer || "Dear Lord, thank you for your love and guidance. Amen.",
+    };
+  }
+
+  public async fetchChildContext(childId: number): Promise<string> {
+    // Placeholder: replace when you store per-child context
+    return `Child ID: ${childId}. Context includes preferences, age, and past activities.`;
   }
 
   public async generateLesson(
@@ -724,53 +756,31 @@ export class LlmService {
   ): Promise<any> {
     const schema = `Return JSON with keys: title (string), objectives (string[]), scripture (string[]), activities (string[]), discussion (string[]), memoryVerse (string).`;
 
-    const prompt = `Create a lesson on the topic "${topic}" for ${ageGroup || "all ages"} children.
+    const prompt = `Create a lesson on the topic "${topic}" for ${
+      ageGroup || "all ages"
+    } children.
 Duration: ${duration || 30} minutes. Difficulty: ${difficulty || "beginner"}.
 Context: ${childContext || "No additional context provided."}`;
 
-    const result = await this.generateStrictJSON<any>(schema, prompt, {
+    return await this.generateStrictJSON<any>(schema, prompt, {
       maxTokens: 800,
       temperature: 0.7,
     });
-
-    try {
-      await this.saveGenerated({
-        contentType: "lesson",
-        prompt,
-        systemPrompt: "Strict JSON schema: title, objectives[], scripture[], activities[], discussion[], memoryVerse",
-        generatedContent: JSON.stringify(result),
-        userId: _userId ?? null,
-        childId: _childId ?? null,
-        context: childContext || null,
-      });
-    } catch {}
-
-    return result;
   }
 
-  public async generateWeeklySummary({ familyId }: { familyId: number }): Promise<any> {
+  public async generateWeeklySummary({
+    familyId,
+  }: {
+    familyId: number;
+  }): Promise<any> {
     const schema = `Return JSON with keys: summary (string), parentalAdvice (string[]), spiritualGuidance (string), highlights (string[]).`;
     const prompt = `Generate a weekly family summary for family ID ${familyId}.
 Include JSON keys exactly as in the schema. Keep items concise.`;
 
-    const result = await this.generateStrictJSON<any>(schema, prompt, {
+    return await this.generateStrictJSON<any>(schema, prompt, {
       maxTokens: 1200,
       temperature: 0.6,
     });
-
-    try {
-      await this.saveGenerated({
-        contentType: "weekly_summary",
-        prompt,
-        systemPrompt: "Strict JSON schema: summary, parentalAdvice[], spiritualGuidance, highlights[]",
-        generatedContent: JSON.stringify(result),
-        userId: null,
-        childId: null,
-        context: `family:${familyId}`,
-      });
-    } catch {}
-
-    return result;
   }
 
   public async generateContentScan(
@@ -786,19 +796,6 @@ Include JSON keys exactly as in the schema. Keep items concise.`;
       maxTokens: 500,
       temperature: 0.7,
     });
-
-    try {
-      await this.saveGenerated({
-        contentType: "content_scan",
-        prompt,
-        systemPrompt,
-        generatedContent: text,
-        userId: _userId ?? null,
-        childId: _childId ?? null,
-        context: _context ?? null,
-      });
-    } catch {}
-
     return text;
   }
 }
