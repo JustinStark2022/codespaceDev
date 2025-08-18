@@ -4,7 +4,7 @@ import ParentLayout from "@/components/layout/parent-layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, BookOpen } from "lucide-react";
+import { Check, BookOpen, RefreshCcw } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import type { ChatMessage } from "@/types/chat";
 import { initialMessages } from "@/data/messages";
@@ -17,8 +17,8 @@ import {
 
 // ---- Types ----
 type VerseOfDay = {
-  verse?: string;       // may come as "verse"
-  verseText?: string;   // or "verseText"
+  verse?: string;
+  verseText?: string;
   reference?: string;
   reflection?: string;
   prayer?: string;
@@ -37,6 +37,7 @@ type DashboardChild = {
   lastName?: string | null;
   name?: string | null;
   role?: string | null;
+  createdAt?: string | null; // allow display if present
 };
 
 type RecentAlert = {
@@ -77,6 +78,23 @@ const fallbackChildImages = [
   "/images/profile-boy-1.png",
 ];
 
+// ---- Helpers (safe formatting for plaintext -> HTML) ----
+const escapeHtml = (s: string) =>
+  s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+
+const toSafeHtml = (s: string) => {
+  const text = (s || "").trim();
+  if (!text) return "";
+  // Normalize newlines into paragraphs, preserve single newlines as <br/>
+  const blocks = text
+    .split(/\n{2,}/)
+    .map((p) => `<p>${escapeHtml(p).replace(/\n/g, "<br/>")}</p>`);
+  return blocks.join("");
+};
+
 // ---- Component ----
 export default function ParentDashboard() {
   const { user } = useAuth();
@@ -85,11 +103,14 @@ export default function ParentDashboard() {
   // chat state
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
 
   // dashboard state
   const [loadingDashboard, setLoadingDashboard] = useState(true);
   const [verseOfDay, setVerseOfDay] = useState<VerseOfDay | null>(null);
   const [devotional, setDevotional] = useState<Devotional | null>(null);
+  const [devoExpanded, setDevoExpanded] = useState(false);
+  const [refreshingDevo, setRefreshingDevo] = useState(false);
   const [familySummary, setFamilySummary] = useState<FamilySummary>(null);
   const [children, setChildren] = useState<DashboardChild[]>([]);
   const [recentAlerts, setRecentAlerts] = useState<RecentAlert[]>([]);
@@ -116,14 +137,13 @@ export default function ParentDashboard() {
 
   // ---- Actions ----
   const handleSend = async () => {
-    if (!input.trim()) return;
-
+    if (!input.trim() || sending) return;
     const prompt = input;
     setMessages((msgs) => [...msgs, { sender: "user", text: prompt }]);
     setInput("");
-
+    setSending(true);
     try {
-      const r = await sendChatMessage(prompt, "parent dashboard");
+      const r = await sendChatMessage(prompt, "Provide short, clear, practical answers for parents. No UI instructions.");
       const reply = typeof r?.response === "string" ? r.response : r;
       setMessages((msgs) => [...msgs, { sender: "bot", text: String(reply ?? "…") }]);
     } catch {
@@ -131,9 +151,10 @@ export default function ParentDashboard() {
         ...msgs,
         { sender: "bot", text: "I'm having trouble connecting… please try again." },
       ]);
+    } finally {
+      setSending(false);
+      setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
     }
-
-    setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
   };
 
   const renderChildName = (c: DashboardChild) =>
@@ -153,10 +174,14 @@ export default function ParentDashboard() {
 
   const refreshDevotional = async () => {
     try {
+      setRefreshingDevo(true);
       const d = (await getDailyDevotional()) as Devotional;
       setDevotional(d);
+      setDevoExpanded(true); // show the full new devotional after refresh
     } catch (e) {
       console.error("Failed to refresh devotional", e);
+    } finally {
+      setRefreshingDevo(false);
     }
   };
 
@@ -166,191 +191,265 @@ export default function ParentDashboard() {
       {loadingDashboard ? (
         <div className="p-6 text-sm text-muted-foreground">Loading dashboard…</div>
       ) : (
-        <div className="grid grid-cols-2 lg:grid-cols-8 gap-4">
-          <div className="xl:col-span-10 flex flex-col gap-2">
-            <div className="w-full max-h-[325px] xl:col-span-4 flex flex-row gap-4">
-              {/* Children Overview */}
-              <Card className="flex-1 min-w-0">
-                <CardContent className="p-4">
-                  <h2 className="font-bold mb-3">Children</h2>
-                  {children.length > 0 ? (
-                    <div className="space-y-3">
-                      {children.map((child, i) => (
-                        <div key={child.id} className="flex items-center gap-3">
-                          <img
-                            src={fallbackChildImages[i % fallbackChildImages.length]}
-                            className="w-10 h-10 rounded-full"
-                            alt="child avatar"
-                          />
-                          <div className="flex flex-col">
-                            <span className="font-medium">{renderChildName(child)}</span>
-                            {child.role ? (
-                              <span className="text-xs text-muted-foreground capitalize">
-                                {child.role}
-                              </span>
-                            ) : null}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">No children linked.</p>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Family Summary */}
-              <Card className="max-h-[325px] w-[380px] flex-shrink-0">
-                <CardContent className="p-4">
-                  <h2 className="font-bold mb-3">
-                    Family Content Summary &amp; Recommendation
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+          {/* Left column: Verse + Devotional */}
+          <div className="xl:col-span-7 flex flex-col gap-4">
+            {/* Verse of the Day */}
+            <Card aria-labelledby="votd-heading">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <h2 id="votd-heading" className="text-lg font-bold">
+                    Verse of the Day
                   </h2>
-                  {familySummary?.bullets?.length ? (
-                    <ul className="list-disc pl-5 space-y-2 text-sm">
-                      {familySummary.bullets.map((b, idx) => (
-                        <li key={idx} dangerouslySetInnerHTML={{ __html: b }} />
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      {familySummary && "message" in familySummary && familySummary?.message
-                        ? familySummary.message
-                        : "No summary available yet. Weekly reports appear after at least one week of family activity."}
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Recent Alerts */}
-              <Card className="max-h-[325px] w-[300px] flex-shrink-0">
-                <CardContent className="p-4">
-                  <h2 className="font-bold mb-3">Recent Alerts</h2>
-                  {recentAlerts.length > 0 ? (
-                    <div className="space-y-2 text-sm">
-                      {recentAlerts.map((a, idx) => (
-                        <div key={idx} className="border rounded p-2">
-                          <div className="font-medium">
-                            {a.content_name ?? a.title ?? "Content"}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {a.flag_reason || a.guidance_notes || a.reason || "Needs review"}
-                          </div>
-                        </div>
-                      ))}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={refreshVerse}
+                    aria-label="Refresh verse of the day"
+                  >
+                    <RefreshCcw className="h-4 w-4 mr-1" /> Refresh
+                  </Button>
+                </div>
+                {verseText(verseOfDay) || verseOfDay?.reference ? (
+                  <>
+                    <div className="font-semibold text-blue-700 mt-1 leading-relaxed">
+                      {verseText(verseOfDay)}
                     </div>
-                  ) : (
-                    <div className="text-center py-6">
-                      <Check className="mx-auto h-8 w-8 text-green-500 mb-2" />
-                      <p className="text-sm text-muted-foreground">No flagged content.</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="w-full flex flex-row gap-4 h-full mt-2">
-              <div className="flex-1 flex-col gap-2 h-full" style={{ width: 545 }}>
-                {/* Verse of the Day */}
-                <Card className="mb-4">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <h2 className="text-lg font-bold">Verse of the Day</h2>
-                      <Button variant="ghost" size="sm" onClick={refreshVerse}>
-                        Refresh
-                      </Button>
-                    </div>
-                    {verseText(verseOfDay) || verseOfDay?.reference ? (
-                      <>
-                        <div className="font-semibold text-blue-700 mt-1">
-                          {verseText(verseOfDay)}
-                        </div>
-                        {!!verseOfDay?.reference && (
-                          <div className="text-sm text-blue-600 font-medium">
-                            — {verseOfDay.reference}
-                          </div>
-                        )}
-                        {!!verseOfDay?.reflection && (
-                          <div className="text-xs text-muted-foreground mt-2 italic">
-                            {verseOfDay.reflection}
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">No verse available.</p>
+                    {!!verseOfDay?.reference && (
+                      <div className="text-sm text-blue-600 font-medium mt-1">
+                        — {verseOfDay.reference}
+                      </div>
                     )}
-                  </CardContent>
-                </Card>
-
-                {/* Devotional */}
-                <Card className="h-[220px]">
-                  <CardContent className="p-4 h-full flex flex-col">
-                    <div className="flex justify-between items-center mb-2">
-                      <h2 className="text-lg font-bold flex items-center">
-                        <BookOpen className="h-5 w-5 mr-2 text-purple-600" />
-                        Today&apos;s Devotional
-                      </h2>
-                      <Badge variant="secondary" className="text-xs">
-                        AI Generated
-                      </Badge>
-                    </div>
-                    <div className="flex-1 overflow-hidden">
-                      <div className="text-sm text-foreground leading-relaxed line-clamp-6">
-                        {devotional?.content ? (
-                          <div
-                            dangerouslySetInnerHTML={{ __html: devotional.content }}
-                          />
-                        ) : (
-                          "Click to generate today's family devotional…"
-                        )}
+                    {!!verseOfDay?.reflection && (
+                      <div className="text-sm text-muted-foreground mt-3 italic">
+                        {verseOfDay.reflection}
                       </div>
-                    </div>
-                    <div className="mt-3">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full"
-                        onClick={refreshDevotional}
-                      >
-                        Read Full Devotional
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Chat Assistant */}
-              <Card className="h-[280px] flex-1">
-                <CardContent className="p-4 h-full flex flex-col">
-                  <div className="flex-1 overflow-y-auto pr-1">
-                    {messages.map((m, i) => (
-                      <div
-                        key={i}
-                        className={`mb-2 text-sm ${
-                          m.sender === "bot" ? "text-blue-700" : "text-foreground"
-                        }`}
-                      >
-                        {m.text}
+                    )}
+                    {!!verseOfDay?.prayer && (
+                      <div className="text-sm mt-3">
+                        <span className="font-medium">Prayer:</span>{" "}
+                        <span className="text-muted-foreground">{verseOfDay.prayer}</span>
                       </div>
-                    ))}
-                    <div ref={chatEndRef} />
-                  </div>
-                  <div className="mt-2 flex">
-                    <input
-                      className="flex-1 border rounded px-2 py-1 text-sm"
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      placeholder="Type your message…"
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") handleSend();
-                      }}
-                    />
-                    <Button size="sm" onClick={handleSend} className="ml-2">
-                      Send
+                    )}
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No verse available.</p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Devotional */}
+            <Card aria-labelledby="devo-heading">
+              <CardContent className="p-4 h-full flex flex-col">
+                <div className="flex justify-between items-center mb-1">
+                  <h2 id="devo-heading" className="text-lg font-bold flex items-center">
+                    <BookOpen className="h-5 w-5 mr-2 text-purple-600" />
+                    Today&apos;s Devotional
+                  </h2>
+                  <div className="flex items-center gap-2">
+                    <Badge aria-label="AI generated content" variant="secondary" className="text-xs">
+                      AI Generated
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={refreshDevotional}
+                      disabled={refreshingDevo}
+                      aria-label="Generate a new devotional"
+                    >
+                      <RefreshCcw className="h-4 w-4 mr-1" />
+                      {refreshingDevo ? "Refreshing…" : "Refresh"}
                     </Button>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
+                </div>
+
+                <div className={`flex-1 overflow-y-auto ${devoExpanded ? "" : "max-h-[140px]"} pr-1`}>
+                  {devotional ? (
+                    <>
+                      {!!devotional.title && (
+                        <div className="font-semibold mb-2">{devotional.title}</div>
+                      )}
+                      <div
+                        className="text-sm leading-relaxed text-foreground"
+                        // Prefer provided HTML, otherwise convert plaintext to paragraphs
+                        dangerouslySetInnerHTML={{
+                          __html:
+                            /<\/?[a-z][\s\S]*>/i.test(devotional.content)
+                              ? devotional.content
+                              : toSafeHtml(devotional.content),
+                        }}
+                      />
+                      {!!devotional.prayer && (
+                        <div className="text-sm mt-3">
+                          <span className="font-medium">Prayer:</span>{" "}
+                          <span className="text-muted-foreground">{devotional.prayer}</span>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="text-sm text-muted-foreground">
+                      Click Refresh to generate today&apos;s family devotional…
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => setDevoExpanded((v) => !v)}
+                    aria-expanded={devoExpanded}
+                    aria-controls="devo-content"
+                  >
+                    {devoExpanded ? "Collapse Devotional" : "Read Full Devotional"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Right column: Chat Assistant */}
+          <div className="xl:col-span-5">
+            <Card className="h-[420px]" aria-labelledby="chat-heading">
+              <CardContent className="p-4 h-full flex flex-col">
+                <h2 id="chat-heading" className="text-lg font-bold mb-2">
+                  Assistant
+                </h2>
+                <div
+                  className="flex-1 overflow-y-auto pr-1 border rounded-sm p-2 bg-white"
+                  role="log"
+                  aria-live="polite"
+                >
+                  {messages.map((m, i) => (
+                    <div
+                      key={i}
+                      className={`mb-2 text-sm ${
+                        m.sender === "bot" ? "text-blue-700" : "text-foreground"
+                      }`}
+                    >
+                      {m.text}
+                    </div>
+                  ))}
+                  <div ref={chatEndRef} />
+                </div>
+                <div className="mt-2 flex">
+                  <input
+                    className="flex-1 border rounded px-2 py-1 text-sm"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder="Type your message…"
+                    aria-label="Type your message"
+                    disabled={sending}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleSend();
+                    }}
+                  />
+                  <Button size="sm" onClick={handleSend} className="ml-2" disabled={sending}>
+                    {sending ? "Sending…" : "Send"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Bottom row: Children, Summary, Alerts */}
+          <div className="xl:col-span-12 grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* Children Overview (table layout) */}
+            <Card aria-labelledby="children-heading">
+              <CardContent className="p-4">
+                <h2 id="children-heading" className="font-bold mb-3">
+                  Children
+                </h2>
+                {children.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm" role="table" aria-label="Children overview">
+                      <thead className="text-muted-foreground">
+                        <tr>
+                          <th className="text-left py-2 pr-2">Child</th>
+                          <th className="text-left py-2 pr-2">Role</th>
+                          <th className="text-left py-2">Joined</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {children.map((child, i) => (
+                          <tr key={child.id} className="align-top border-t">
+                            <td className="py-2 pr-2">
+                              <div className="flex items-center gap-3">
+                                <img
+                                  src={fallbackChildImages[i % fallbackChildImages.length]}
+                                  className="w-8 h-8 rounded-full"
+                                  alt={`${renderChildName(child)} avatar`}
+                                />
+                                <div className="font-medium">{renderChildName(child)}</div>
+                              </div>
+                            </td>
+                            <td className="py-2 pr-2 capitalize">
+                              {child.role || <span className="text-muted-foreground">—</span>}
+                            </td>
+                            <td className="py-2 text-muted-foreground">
+                              {child.createdAt
+                                ? new Date(child.createdAt).toLocaleDateString()
+                                : "—"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No children linked.</p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Family Summary */}
+            <Card aria-labelledby="summary-heading">
+              <CardContent className="p-4">
+                <h2 id="summary-heading" className="font-bold mb-3">
+                  Family Content Summary &amp; Recommendations
+                </h2>
+                {familySummary?.bullets?.length ? (
+                  <ul className="list-disc pl-5 space-y-2 text-sm">
+                    {familySummary.bullets.map((b, idx) => (
+                      <li key={idx} dangerouslySetInnerHTML={{ __html: b }} />
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    {familySummary && "message" in familySummary && familySummary?.message
+                      ? familySummary.message
+                      : "No summary available yet. Weekly reports appear after at least one week of family activity."}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Recent Alerts */}
+            <Card aria-labelledby="alerts-heading">
+              <CardContent className="p-4">
+                <h2 id="alerts-heading" className="font-bold mb-3">Recent Alerts</h2>
+                {recentAlerts.length > 0 ? (
+                  <div className="space-y-2 text-sm">
+                    {recentAlerts.map((a, idx) => (
+                      <div key={idx} className="border rounded p-2">
+                        <div className="font-medium">
+                          {a.content_name ?? a.title ?? "Content"}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {a.flag_reason || a.guidance_notes || a.reason || "Needs review"}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6">
+                    <Check className="mx-auto h-8 w-8 text-green-500 mb-2" aria-hidden="true" />
+                    <p className="text-sm text-muted-foreground">No flagged content.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         </div>
       )}
