@@ -1,6 +1,9 @@
 // src/services/llm.service.ts
 import axios, { AxiosError } from "axios";
 import logger from "../utils/logger";
+// Add DB + drizzle tag
+import { db } from "@/db/db";
+import { sql as dsql } from "drizzle-orm";
 
 /** ---------- Request/Response models your app uses ---------- */
 interface LLMRequest {
@@ -279,6 +282,54 @@ class LlmService {
     this.apiKey = requireEnv("RUNPOD_API_KEY");
     this.endpointId = requireEnv("RUNPOD_ENDPOINT_ID");
     this.baseUrl = `https://api.runpod.ai/v2/${this.endpointId}`;
+  }
+
+  // Add: safe persistence helper (never throws; trims to column sizes)
+  private async saveGenerated(params: {
+    contentType: string;
+    prompt: string;
+    systemPrompt?: string | null;
+    generatedContent: string;
+    userId?: number | null;
+    childId?: number | null;
+    context?: string | null;
+    tokensUsed?: number | null;
+    generationTimeMs?: number | null;
+  }) {
+    const {
+      contentType,
+      prompt,
+      systemPrompt,
+      generatedContent,
+      userId,
+      childId,
+      context,
+      tokensUsed,
+      generationTimeMs,
+    } = params;
+
+    const ct = String(contentType || "unknown").slice(0, 50);
+    const prmpt = String(prompt ?? "");
+    const sys = systemPrompt == null ? null : String(systemPrompt);
+    const gen = String(generatedContent ?? "");
+    const uid = userId ?? null;
+    const cid = childId ?? null;
+    const ctx = context == null ? null : String(context).slice(0, 100);
+    const tok = Number.isFinite(tokensUsed as any) ? Number(tokensUsed) : null;
+    const genMs = Number.isFinite(generationTimeMs as any) ? Number(generationTimeMs) : null;
+
+    try {
+      await db.execute(dsql`
+        INSERT INTO llm_generated_content
+          (content_type, prompt, system_prompt, generated_content, user_id, child_id, context, tokens_used, generation_time_ms)
+        VALUES
+          (${ct}, ${prmpt}, ${sys}, ${gen}, ${uid}, ${cid}, ${ctx}, ${tok}, ${genMs})
+      `);
+      logger.debug("[LLM] Persisted llm_generated_content", { contentType: ct });
+    } catch (e) {
+      // Never throw; just log
+      logger.warn("[LLM] Failed to persist llm_generated_content", (e as Error)?.message);
+    }
   }
 
   /**
@@ -631,7 +682,7 @@ class LlmService {
     _userId?: number
   ): Promise<string> {
     const system = [PARENT_DASHBOARD_SYSTEM, context].filter(Boolean).join(" ");
-
+    const started = Date.now(); // measure for persistence
     try {
       // Adaptive budget for first reply
       const firstBudget = tokenBudgetFromPrompt(prompt, 512);
@@ -648,8 +699,9 @@ class LlmService {
       const words = (cleaned || "").trim().split(/\s+/).length;
       const promptComplex = isComplexQuestion(prompt);
 
+      let finalOut = cleaned;
       if ((words < 60 && promptComplex) || words < 25) {
-        const contBudget = Math.max(600, Math.floor(firstBudget * 0.75)); // allow multi-paragraph
+        const contBudget = Math.max(600, Math.floor(firstBudget * 0.75));
         const cont = await this.post({
           messages: [
             { role: "system", content: system },
@@ -664,10 +716,23 @@ class LlmService {
           top_p: 0.9,
           max_tokens: contBudget,
         });
-        return sanitizeText(`${cleaned}\n\n${cont}`.trim());
+        finalOut = sanitizeText(`${cleaned}\n\n${cont}`.trim());
       }
 
-      return cleaned;
+      // Persist
+      await this.saveGenerated({
+        contentType: "chat",
+        prompt,
+        systemPrompt: system,
+        generatedContent: finalOut,
+        userId: _userId ?? null,
+        childId: null,
+        context: context || "parent dashboard",
+        tokensUsed: null,
+        generationTimeMs: Date.now() - started,
+      });
+
+      return finalOut;
     } catch (e: any) {
       logger.error("generateChatResponse error", e?.message || e);
       return "I'm having trouble connecting right now. Please try again later.";
@@ -693,18 +758,7 @@ class LlmService {
       { maxTokens: 900, temperature: 0.15 }
     );
 
-    const usedFallback = !out.verse || !out.reference || !out.reflection || !out.prayer;
-
-    if (usedFallback) {
-      logger.warn("[VOTD] Using fallback values because LLM JSON was invalid or incomplete.");
-    } else {
-      logger.debug("[VOTD] LLM JSON parsed successfully.", {
-        reference: out.reference?.slice(0, 40),
-      });
-    }
-
-    // Safe defaults if the model misbehaves
-    return {
+    const result = {
       verse:
         out.verse ||
         "Trust in the Lord with all your heart and lean not on your own understanding.",
@@ -714,6 +768,19 @@ class LlmService {
         "God's wisdom guides us even when the way forward seems unclear.",
       prayer: out.prayer || "Lord, help us trust You fully today. Amen.",
     };
+
+    // Persist
+    await this.saveGenerated({
+      contentType: "verse_of_the_day",
+      prompt: "VOTD request",
+      systemPrompt: "Strict JSON schema: verse, reference, reflection, prayer",
+      generatedContent: JSON.stringify(result),
+      userId: null,
+      childId: null,
+      context: "votd",
+    });
+
+    return result;
   }
 
   public async generateDevotional(
@@ -731,18 +798,24 @@ class LlmService {
       prayer?: string;
     }>(schema, prompt, { maxTokens: 900, temperature: 0.3 });
 
-    return {
+    const result = {
       title: out.title || "Walking in Faith",
-      content:
-        out.content ||
-        "Today, let's remember that God has a wonderful plan for our lives...",
+      content: out.content || "Today, let's remember that God has a wonderful plan for our lives...",
       prayer: out.prayer || "Dear Lord, thank you for your love and guidance. Amen.",
     };
-  }
 
-  public async fetchChildContext(childId: number): Promise<string> {
-    // Placeholder: replace when you store per-child context
-    return `Child ID: ${childId}. Context includes preferences, age, and past activities.`;
+    // Persist
+    await this.saveGenerated({
+      contentType: "devotional",
+      prompt,
+      systemPrompt: "Strict JSON schema: title, content, prayer",
+      generatedContent: JSON.stringify(result),
+      userId: null,
+      childId: null,
+      context: topic || "devotional",
+    });
+
+    return result;
   }
 
   public async generateLesson(
@@ -756,16 +829,28 @@ class LlmService {
   ): Promise<any> {
     const schema = `Return JSON with keys: title (string), objectives (string[]), scripture (string[]), activities (string[]), discussion (string[]), memoryVerse (string).`;
 
-    const prompt = `Create a lesson on the topic "${topic}" for ${
-      ageGroup || "all ages"
-    } children.
+    const prompt = `Create a lesson on the topic "${topic}" for ${ageGroup || "all ages"} children.
 Duration: ${duration || 30} minutes. Difficulty: ${difficulty || "beginner"}.
 Context: ${childContext || "No additional context provided."}`;
 
-    return await this.generateStrictJSON<any>(schema, prompt, {
+    const result = await this.generateStrictJSON<any>(schema, prompt, {
       maxTokens: 800,
       temperature: 0.7,
     });
+
+    // Persist
+    await this.saveGenerated({
+      contentType: "lesson",
+      prompt,
+      systemPrompt:
+        "Strict JSON schema: title, objectives[], scripture[], activities[], discussion[], memoryVerse",
+      generatedContent: JSON.stringify(result),
+      userId: _userId ?? null,
+      childId: _childId ?? null,
+      context: childContext || null,
+    });
+
+    return result;
   }
 
   public async generateWeeklySummary({
@@ -777,10 +862,24 @@ Context: ${childContext || "No additional context provided."}`;
     const prompt = `Generate a weekly family summary for family ID ${familyId}.
 Include JSON keys exactly as in the schema. Keep items concise.`;
 
-    return await this.generateStrictJSON<any>(schema, prompt, {
+    const result = await this.generateStrictJSON<any>(schema, prompt, {
       maxTokens: 1200,
       temperature: 0.6,
     });
+
+    // Persist
+    await this.saveGenerated({
+      contentType: "weekly_summary",
+      prompt,
+      systemPrompt:
+        "Strict JSON schema: summary, parentalAdvice[], spiritualGuidance, highlights[]",
+      generatedContent: JSON.stringify(result),
+      userId: null,
+      childId: null,
+      context: `family:${familyId}`,
+    });
+
+    return result;
   }
 
   public async generateContentScan(
@@ -796,6 +895,18 @@ Include JSON keys exactly as in the schema. Keep items concise.`;
       maxTokens: 500,
       temperature: 0.7,
     });
+
+    // Persist
+    await this.saveGenerated({
+      contentType: "content_scan",
+      prompt,
+      systemPrompt,
+      generatedContent: text,
+      userId: _userId ?? null,
+      childId: _childId ?? null,
+      context: _context ?? null,
+    });
+
     return text;
   }
 }

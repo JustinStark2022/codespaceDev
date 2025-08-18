@@ -100,6 +100,30 @@ const toSafeHtml = (s: string) => {
   return blocks.join("");
 };
 
+// New: pick the scripture inside quotes if the LLM added extra narration
+const extractQuotedVerse = (s: string) => {
+  const t = (s || "").trim();
+  if (!t) return "";
+  // Prefer the longest quoted segment
+  const quotes = Array.from(t.matchAll(/"([^"]{10,})"/g)).map((m) => m[1].trim());
+  if (quotes.length) {
+    // pick the longest quoted block to avoid partials
+    return quotes.sort((a, b) => b.length - a.length)[0];
+  }
+  // Remove leading narrations like “Today’s Bible Verse … is …, which states,”
+  return t.replace(/^\s*Today'?s\s+Bible\s+Verse.*?(?:states,?\s*)?/i, "").trim();
+};
+
+// New: build the single-line/top headline to display when collapsed
+const buildVotdHeadline = (v?: { verse?: string; verseText?: string; reference?: string }) => {
+  if (!v) return "";
+  const verseRaw = v.verse ?? v.verseText ?? "";
+  const verseOnly = extractQuotedVerse(verseRaw) || verseRaw;
+  // If we have both, prefer “Reference: Verse”
+  if (v.reference && verseOnly) return `${v.reference}: ${verseOnly}`;
+  return verseOnly || v.reference || "";
+};
+
 // New: format minutes as "1h 20m"
 const fmtMinutes = (m?: number | null): string => {
   if (m == null || isNaN(m)) return "—";
@@ -293,7 +317,7 @@ export default function ParentDashboard() {
               </CardContent>
             </Card>
 
-            {/* Verse of the Day (with collapsible details) */}
+            {/* Verse of the Day (headline only until expanded) */}
             <Card aria-labelledby="votd-heading">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
@@ -319,39 +343,32 @@ export default function ParentDashboard() {
                     </Button>
                   </div>
                 </div>
-                {verseText(verseOfDay) || verseOfDay?.reference ? (
+
+                {/* Headline: the ONLY visible content when collapsed */}
+                <div className="font-semibold text-blue-700 mt-1 leading-relaxed">
+                  {buildVotdHeadline(verseOfDay ?? undefined) || "No verse available."}
+                </div>
+
+                {/* Details shown only when expanded */}
+                {votdExpanded && (
                   <>
-                    <div className="font-semibold text-blue-700 mt-1 leading-relaxed">
-                      {verseText(verseOfDay)}
-                    </div>
-                    {!!verseOfDay?.reference && (
-                      <div className="text-sm text-blue-600 font-medium mt-1">
-                        — {verseOfDay.reference}
+                    {!!verseOfDay?.reflection && (
+                      <div className="text-sm text-muted-foreground mt-3 italic">
+                        {verseOfDay.reflection}
                       </div>
                     )}
-                    {votdExpanded && (
-                      <>
-                        {!!verseOfDay?.reflection && (
-                          <div className="text-sm text-muted-foreground mt-3 italic">
-                            {verseOfDay.reflection}
-                          </div>
-                        )}
-                        {!!verseOfDay?.prayer && (
-                          <div className="text-sm mt-3">
-                            <span className="font-medium">Prayer:</span>{" "}
-                            <span className="text-muted-foreground">{verseOfDay.prayer}</span>
-                          </div>
-                        )}
-                      </>
+                    {!!verseOfDay?.prayer && (
+                      <div className="text-sm mt-3">
+                        <span className="font-medium">Prayer:</span>{" "}
+                        <span className="text-muted-foreground">{verseOfDay.prayer}</span>
+                      </div>
                     )}
                   </>
-                ) : (
-                  <p className="text-sm text-muted-foreground">No verse available.</p>
                 )}
               </CardContent>
             </Card>
 
-            {/* Devotional (unchanged expand/collapse) */}
+            {/* Devotional */}
             <Card aria-labelledby="devo-heading">
               <CardContent className="p-4 h-full flex flex-col">
                 <div className="flex justify-between items-center mb-1">

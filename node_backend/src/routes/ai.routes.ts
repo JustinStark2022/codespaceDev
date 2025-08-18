@@ -29,7 +29,7 @@ router.get(
     if (!req.user?.id) return res.status(401).json({ error: "Unauthorized" });
     const parentId = req.user.id;
 
-    const children = await db
+    const childrenBase = await db
       .select({
         id: users.id,
         username: users.username,
@@ -42,6 +42,118 @@ router.get(
       })
       .from(users)
       .where(and(eq(users.parent_id, parentId), eq(users.role, "child")));
+
+    // Enrich children with screen time, lessons count, and presence.
+    const enrichedChildren = [];
+    for (const c of childrenBase) {
+      let totalScreenTimeUsedMinutes: number | null = null;
+      let screenTimeLimitMinutes: number | null = null;
+      let lessonsAssignedCount: number | null = null;
+      let online: boolean | null = null;
+
+      try {
+        // Latest screen_time row for child
+        const screenRes: any = await db.execute(
+          // @ts-ignore raw SQL for portability
+          (await import("drizzle-orm")).sql`
+            SELECT used_time_minutes, allowed_time_minutes
+            FROM screen_time
+            WHERE user_id = ${c.id}
+            ORDER BY updated_at DESC
+            LIMIT 1
+          `
+        );
+        const sr = screenRes?.rows?.[0];
+        if (sr) {
+          totalScreenTimeUsedMinutes =
+            typeof sr.used_time_minutes === "number"
+              ? sr.used_time_minutes
+              : sr.used_time_minutes != null
+              ? Number(sr.used_time_minutes)
+              : null;
+          screenTimeLimitMinutes =
+            typeof sr.allowed_time_minutes === "number"
+              ? sr.allowed_time_minutes
+              : sr.allowed_time_minutes != null
+              ? Number(sr.allowed_time_minutes)
+              : null;
+        }
+      } catch (e) {
+        logger.debug("screen_time lookup failed (non-fatal)", { childId: c.id });
+      }
+
+      try {
+        // Count active lessons via lesson_progress where not completed
+        const lpRes: any = await db.execute(
+          (await import("drizzle-orm")).sql`
+            SELECT COUNT(*)::int AS cnt
+            FROM lesson_progress
+            WHERE user_id = ${c.id} AND (completed_at IS NULL)
+          `
+        );
+        lessonsAssignedCount = lpRes?.rows?.[0]?.cnt ?? 0;
+      } catch {
+        try {
+          // Fallback: count lessons attached to user (schema may vary)
+          const lRes: any = await db.execute(
+            (await import("drizzle-orm")).sql`
+              SELECT COUNT(*)::int AS cnt
+              FROM lessons
+              WHERE user_id = ${c.id}
+            `
+          );
+          lessonsAssignedCount = lRes?.rows?.[0]?.cnt ?? 0;
+        } catch (e) {
+          logger.debug("lessons lookup failed (non-fatal)", { childId: c.id });
+        }
+      }
+
+      try {
+        // Presence: last activity within 5 minutes => online
+        const actRes: any = await db.execute(
+          (await import("drizzle-orm")).sql`
+            SELECT MAX(timestamp) AS last_ts
+            FROM child_activity_logs
+            WHERE child_id = ${c.id}
+          `
+        );
+        const lastTs = actRes?.rows?.[0]?.last_ts
+          ? new Date(actRes.rows[0].last_ts)
+          : null;
+        if (lastTs) {
+          const fiveMinAgo = Date.now() - 5 * 60 * 1000;
+          online = lastTs.getTime() >= fiveMinAgo;
+        } else {
+          online = false;
+        }
+      } catch (e) {
+        // If schema uses user_id instead of child_id, try that as a fallback
+        try {
+          const actRes2: any = await db.execute(
+            (await import("drizzle-orm")).sql`
+              SELECT MAX(timestamp) AS last_ts
+              FROM child_activity_logs
+              WHERE user_id = ${c.id}
+            `
+          );
+          const lastTs2 = actRes2?.rows?.[0]?.last_ts
+            ? new Date(actRes2.rows[0].last_ts)
+            : null;
+          online = lastTs2 ? lastTs2.getTime() >= Date.now() - 5 * 60 * 1000 : false;
+        } catch {
+          online = null;
+        }
+      }
+
+      enrichedChildren.push({
+        ...c,
+        // frontend optional fields
+        totalScreenTimeUsedMinutes,
+        screenTimeLimitMinutes,
+        lessonsAssignedCount,
+        online,
+      });
+    }
 
     const recentAnalysis = await db
       .select()
@@ -188,7 +300,7 @@ router.get(
       devotional,
       familySummary,
       weeklySummary,
-      children,
+      children: enrichedChildren,
       recentAlerts,
       timestamp: new Date().toISOString(),
     });
@@ -275,10 +387,10 @@ router.get(
       const title =
         raw.match(/^\s*Title:\s*(.+)$/im)?.[1]?.trim() || "Walking in Faith";
       const content =
-        raw.match(/^\s*Content:\s*([\s\S]*?)(?:\n\s*Prayer:|$)/im)?.[1]?.trim() ||
+        raw.match(/^\s*Content:\s*([\sS]*?)(?:\n\s*Prayer:|$)/im)?.[1]?.trim() ||
         raw.trim();
       const prayer =
-        raw.match(/^\s*Prayer:\s*([\s\S]+)$/im)?.[1]?.trim() ||
+        raw.match(/^\s*Prayer:\s*([\sS]+)$/im)?.[1]?.trim() ||
         "Lord, lead our home in love and unity. Amen.";
 
       res.json({ title, content, prayer, timestamp: new Date().toISOString() });
