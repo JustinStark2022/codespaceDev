@@ -37,7 +37,12 @@ type DashboardChild = {
   lastName?: string | null;
   name?: string | null;
   role?: string | null;
-  createdAt?: string | null; // allow display if present
+  createdAt?: string | null;
+  // New optional fields (rendered if backend provides them)
+  totalScreenTimeUsedMinutes?: number | null;   // minutes used today
+  screenTimeLimitMinutes?: number | null;       // minutes allowed today
+  lessonsAssignedCount?: number | null;         // number of active lessons
+  online?: boolean | null;                      // presence
 };
 
 type RecentAlert = {
@@ -95,6 +100,16 @@ const toSafeHtml = (s: string) => {
   return blocks.join("");
 };
 
+// New: format minutes as "1h 20m"
+const fmtMinutes = (m?: number | null): string => {
+  if (m == null || isNaN(m)) return "—";
+  const h = Math.floor(m / 60);
+  const mm = m % 60;
+  if (h && mm) return `${h}h ${mm}m`;
+  if (h) return `${h}h`;
+  return `${mm}m`;
+};
+
 // ---- Component ----
 export default function ParentDashboard() {
   const { user } = useAuth();
@@ -110,6 +125,7 @@ export default function ParentDashboard() {
   const [verseOfDay, setVerseOfDay] = useState<VerseOfDay | null>(null);
   const [devotional, setDevotional] = useState<Devotional | null>(null);
   const [devoExpanded, setDevoExpanded] = useState(false);
+  const [votdExpanded, setVotdExpanded] = useState(false); // NEW: collapse Verse details
   const [refreshingDevo, setRefreshingDevo] = useState(false);
   const [familySummary, setFamilySummary] = useState<FamilySummary>(null);
   const [children, setChildren] = useState<DashboardChild[]>([]);
@@ -143,7 +159,11 @@ export default function ParentDashboard() {
     setInput("");
     setSending(true);
     try {
-      const r = await sendChatMessage(prompt, "Provide short, clear, practical answers for parents. No UI instructions.");
+      const r = await sendChatMessage(
+        prompt,
+        // Stronger parent-focused guidance; keeps adult-facing tone while avoiding UI chatter
+        "Parent dashboard: provide adult, parenting-focused guidance with Scripture-based, practical steps. No UI instructions, no greetings."
+      );
       const reply = typeof r?.response === "string" ? r.response : r;
       setMessages((msgs) => [...msgs, { sender: "bot", text: String(reply ?? "…") }]);
     } catch {
@@ -191,24 +211,113 @@ export default function ParentDashboard() {
       {loadingDashboard ? (
         <div className="p-6 text-sm text-muted-foreground">Loading dashboard…</div>
       ) : (
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
-          {/* Left column: Verse + Devotional */}
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-stretch">
+          {/* Left column (spans 7): Children (top), Verse, Devotional */}
           <div className="xl:col-span-7 flex flex-col gap-4">
-            {/* Verse of the Day */}
+            {/* Children Overview (top-left) */}
+            <Card aria-labelledby="children-heading">
+              <CardContent className="p-4">
+                <h2 id="children-heading" className="font-bold mb-3">
+                  Children
+                </h2>
+                {children.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm" role="table" aria-label="Children overview">
+                      <thead className="text-muted-foreground">
+                        <tr>
+                          <th className="text-left py-2 pr-2">Child</th>
+                          <th className="text-left py-2 pr-2">Screen Time</th>
+                          <th className="text-left py-2 pr-2">Lessons</th>
+                          <th className="text-left py-2">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {children.map((child, i) => {
+                          const used = fmtMinutes(child.totalScreenTimeUsedMinutes);
+                          const limit = fmtMinutes(child.screenTimeLimitMinutes);
+                          const lessons =
+                            child.lessonsAssignedCount == null
+                              ? "—"
+                              : String(child.lessonsAssignedCount);
+                          const isOnline = !!child.online;
+                          return (
+                            <tr key={child.id} className="align-top border-t">
+                              <td className="py-2 pr-2">
+                                <div className="flex items-center gap-3">
+                                  <img
+                                    src={fallbackChildImages[i % fallbackChildImages.length]}
+                                    className="w-8 h-8 rounded-full"
+                                    alt={`${renderChildName(child)} avatar`}
+                                  />
+                                  <div className="flex flex-col">
+                                    <div className="font-medium">{renderChildName(child)}</div>
+                                    {child.role ? (
+                                      <span className="text-xs text-muted-foreground capitalize">
+                                        {child.role}
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="py-2 pr-2">
+                                <span className="whitespace-nowrap">{used}</span>
+                                <span className="text-muted-foreground"> / {limit}</span>
+                              </td>
+                              <td className="py-2 pr-2">{lessons}</td>
+                              <td className="py-2">
+                                <span
+                                  className={`inline-flex items-center gap-2 px-2 py-0.5 rounded-full text-xs ${
+                                    isOnline
+                                      ? "bg-green-100 text-green-700"
+                                      : "bg-gray-100 text-gray-600"
+                                  }`}
+                                  aria-label={isOnline ? "Online" : "Offline"}
+                                >
+                                  <span
+                                    className={`inline-block w-2 h-2 rounded-full ${
+                                      isOnline ? "bg-green-500" : "bg-gray-400"
+                                    }`}
+                                  />
+                                  {isOnline ? "Online" : "Offline"}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No children linked.</p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Verse of the Day (with collapsible details) */}
             <Card aria-labelledby="votd-heading">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <h2 id="votd-heading" className="text-lg font-bold">
                     Verse of the Day
                   </h2>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={refreshVerse}
-                    aria-label="Refresh verse of the day"
-                  >
-                    <RefreshCcw className="h-4 w-4 mr-1" /> Refresh
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setVotdExpanded((v) => !v)}
+                      aria-expanded={votdExpanded}
+                    >
+                      {votdExpanded ? "Hide Details" : "Read More"}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={refreshVerse}
+                      aria-label="Refresh verse of the day"
+                    >
+                      <RefreshCcw className="h-4 w-4 mr-1" /> Refresh
+                    </Button>
+                  </div>
                 </div>
                 {verseText(verseOfDay) || verseOfDay?.reference ? (
                   <>
@@ -220,16 +329,20 @@ export default function ParentDashboard() {
                         — {verseOfDay.reference}
                       </div>
                     )}
-                    {!!verseOfDay?.reflection && (
-                      <div className="text-sm text-muted-foreground mt-3 italic">
-                        {verseOfDay.reflection}
-                      </div>
-                    )}
-                    {!!verseOfDay?.prayer && (
-                      <div className="text-sm mt-3">
-                        <span className="font-medium">Prayer:</span>{" "}
-                        <span className="text-muted-foreground">{verseOfDay.prayer}</span>
-                      </div>
+                    {votdExpanded && (
+                      <>
+                        {!!verseOfDay?.reflection && (
+                          <div className="text-sm text-muted-foreground mt-3 italic">
+                            {verseOfDay.reflection}
+                          </div>
+                        )}
+                        {!!verseOfDay?.prayer && (
+                          <div className="text-sm mt-3">
+                            <span className="font-medium">Prayer:</span>{" "}
+                            <span className="text-muted-foreground">{verseOfDay.prayer}</span>
+                          </div>
+                        )}
+                      </>
                     )}
                   </>
                 ) : (
@@ -238,7 +351,7 @@ export default function ParentDashboard() {
               </CardContent>
             </Card>
 
-            {/* Devotional */}
+            {/* Devotional (unchanged expand/collapse) */}
             <Card aria-labelledby="devo-heading">
               <CardContent className="p-4 h-full flex flex-col">
                 <div className="flex justify-between items-center mb-1">
@@ -309,9 +422,9 @@ export default function ParentDashboard() {
             </Card>
           </div>
 
-          {/* Right column: Chat Assistant */}
-          <div className="xl:col-span-5">
-            <Card className="h-[420px]" aria-labelledby="chat-heading">
+          {/* Right column: Chat Assistant spans two rows to fill space */}
+          <div className="xl:col-span-5 xl:row-span-2">
+            <Card aria-labelledby="chat-heading" className="h-full">
               <CardContent className="p-4 h-full flex flex-col">
                 <h2 id="chat-heading" className="text-lg font-bold mb-2">
                   Assistant
@@ -353,56 +466,8 @@ export default function ParentDashboard() {
             </Card>
           </div>
 
-          {/* Bottom row: Children, Summary, Alerts */}
-          <div className="xl:col-span-12 grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {/* Children Overview (table layout) */}
-            <Card aria-labelledby="children-heading">
-              <CardContent className="p-4">
-                <h2 id="children-heading" className="font-bold mb-3">
-                  Children
-                </h2>
-                {children.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm" role="table" aria-label="Children overview">
-                      <thead className="text-muted-foreground">
-                        <tr>
-                          <th className="text-left py-2 pr-2">Child</th>
-                          <th className="text-left py-2 pr-2">Role</th>
-                          <th className="text-left py-2">Joined</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {children.map((child, i) => (
-                          <tr key={child.id} className="align-top border-t">
-                            <td className="py-2 pr-2">
-                              <div className="flex items-center gap-3">
-                                <img
-                                  src={fallbackChildImages[i % fallbackChildImages.length]}
-                                  className="w-8 h-8 rounded-full"
-                                  alt={`${renderChildName(child)} avatar`}
-                                />
-                                <div className="font-medium">{renderChildName(child)}</div>
-                              </div>
-                            </td>
-                            <td className="py-2 pr-2 capitalize">
-                              {child.role || <span className="text-muted-foreground">—</span>}
-                            </td>
-                            <td className="py-2 text-muted-foreground">
-                              {child.createdAt
-                                ? new Date(child.createdAt).toLocaleDateString()
-                                : "—"}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">No children linked.</p>
-                )}
-              </CardContent>
-            </Card>
-
+          {/* Bottom row: Summary and Alerts sit under left column only (avoid blank under chat) */}
+          <div className="xl:col-span-7 grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Family Summary */}
             <Card aria-labelledby="summary-heading">
               <CardContent className="p-4">
