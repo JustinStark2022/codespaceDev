@@ -83,6 +83,35 @@ const fallbackChildImages = [
   "/images/profile-boy-1.png",
 ];
 
+// Daily cache helpers for LLM content (per user per day)
+const todayStr = () => new Date().toISOString().slice(0, 10);
+const llmCacheKey = (userId?: string | number) => `aiDailyLLM:${userId ?? "anon"}:${todayStr()}`;
+type LlmDailyCache = {
+  verseOfDay?: VerseOfDay | null;
+  devotional?: Devotional | null;
+  familySummary?: FamilySummary | null;
+  savedAt: string;
+};
+const loadLlmDaily = (userId?: string | number): LlmDailyCache | null => {
+  try {
+    const raw = localStorage.getItem(llmCacheKey(userId));
+    return raw ? (JSON.parse(raw) as LlmDailyCache) : null;
+  } catch {
+    return null;
+  }
+};
+const saveLlmDaily = (
+  userId: string | number | undefined,
+  patch: Partial<Omit<LlmDailyCache, "savedAt">>
+) => {
+  const key = llmCacheKey(userId);
+  const curr = loadLlmDaily(userId) ?? { savedAt: new Date().toISOString() };
+  const next: LlmDailyCache = { ...curr, ...patch, savedAt: curr.savedAt || new Date().toISOString() };
+  try {
+    localStorage.setItem(key, JSON.stringify(next));
+  } catch {}
+};
+
 // ---- Helpers (safe formatting for plaintext -> HTML) ----
 const escapeHtml = (s: string) =>
   s
@@ -148,7 +177,6 @@ export default function ParentDashboard() {
   const [loadingDashboard, setLoadingDashboard] = useState(true);
   const [verseOfDay, setVerseOfDay] = useState<VerseOfDay | null>(null);
   const [devotional, setDevotional] = useState<Devotional | null>(null);
-  const [devoExpanded, setDevoExpanded] = useState(false);
   const [votdExpanded, setVotdExpanded] = useState(false); // NEW: collapse Verse details
   const [refreshingDevo, setRefreshingDevo] = useState(false);
   const [familySummary, setFamilySummary] = useState<FamilySummary>(null);
@@ -158,25 +186,54 @@ export default function ParentDashboard() {
   // normalize verse text key
   const verseText = (v: VerseOfDay | null) => (v?.verse ?? v?.verseText ?? "");
 
+  // StrictMode fetch gate and "already have LLM cache" flag
+  const effectRanRef = useRef(false);
+  const hadLlmCacheRef = useRef(false);
+
   useEffect(() => {
+    if (effectRanRef.current) return; // avoid duplicate runs in React 18 StrictMode (dev)
+    effectRanRef.current = true;
+
+    const uid = (user as any)?.id;
+    // 1) Load today's LLM cache immediately (freeze LLM parts)
+    const cached = loadLlmDaily(uid);
+    if (cached) {
+      hadLlmCacheRef.current = true;
+      setVerseOfDay(cached.verseOfDay ?? null);
+      setDevotional(cached.devotional ?? null);
+      setFamilySummary(cached.familySummary ?? null);
+    }
+
+    // 2) Fetch dashboard once to populate live, non-LLM parts (children, alerts).
+    //    If no LLM cache exists yet today, also set LLM state and persist it.
     (async () => {
       try {
         const data = (await getAIDashboard()) as AIDashboardResponse;
-        setVerseOfDay(data.verseOfDay ?? null);
-        setDevotional(data.devotional ?? null);
-        setFamilySummary(data.familySummary ?? null);
+        // Always update live parts
         setChildren(Array.isArray(data.children) ? data.children : []);
         setRecentAlerts(Array.isArray(data.recentAlerts) ? data.recentAlerts : []);
+
+        // Only set LLM fields if we did NOT have a cache for today
+        if (!hadLlmCacheRef.current) {
+          const v = data.verseOfDay ?? null;
+          const d = data.devotional ?? null;
+          const f = data.familySummary ?? null;
+          setVerseOfDay(v);
+          setDevotional(d);
+          setFamilySummary(f);
+          saveLlmDaily(uid, { verseOfDay: v, devotional: d, familySummary: f });
+          hadLlmCacheRef.current = true;
+        }
       } catch (err) {
         console.error("Failed to load dashboard:", err);
       } finally {
         setLoadingDashboard(false);
       }
     })();
-  }, []);
+  }, [user]); // user dependency for per-user cache
 
   // Limit items so the dashboard fits the viewport without page scroll
-  const childrenVisible = children.slice(0, 4);
+  const childrenVisible = children; // show all children (no slicing)
   const alertsVisible = recentAlerts.slice(0, 4);
   const summaryBulletsVisible = Array.isArray(familySummary?.bullets)
     ? familySummary!.bullets!.slice(0, 3)
@@ -219,6 +276,9 @@ export default function ParentDashboard() {
     try {
       const v = (await getVerseOfTheDay()) as VerseOfDay;
       setVerseOfDay(v);
+      // Persist new verse for today so it stays fixed the rest of the day
+      const uid = (user as any)?.id;
+      saveLlmDaily(uid, { verseOfDay: v });
     } catch (e) {
       console.error("Failed to refresh verse", e);
     }
@@ -229,7 +289,9 @@ export default function ParentDashboard() {
       setRefreshingDevo(true);
       const d = (await getDailyDevotional()) as Devotional;
       setDevotional(d);
-      setDevoExpanded(true); // show the full new devotional after refresh
+      // setDevoExpanded(true); // removed: no expand/collapse, card is scrollable
+      const uid = (user as any)?.id;
+      saveLlmDaily(uid, { devotional: d });
     } catch (e) {
       console.error("Failed to refresh devotional", e);
     } finally {
@@ -243,270 +305,252 @@ export default function ParentDashboard() {
       {loadingDashboard ? (
         <div className="p-6 text-sm text-muted-foreground">Loading dashboard…</div>
       ) : (
-        // Equal-height 2x3 grid on xl; container height locked to viewport minus header/footer padding.
-        // Adjust the 140px offset if your header/footer height differs.
-        <div className="grid grid-cols-1 xl:grid-cols-2 xl:grid-rows-3 gap-4 items-stretch xl:h-[calc(100vh-140px)]">
-          {/* Row 1, Col 1: Children */}
-          <Card aria-labelledby="children-heading" className="h-full xl:col-start-1 xl:row-start-1 overflow-hidden">
-            <CardContent className="p-4 h-full flex flex-col">
-              <h2 id="children-heading" className="font-bold mb-3">Children</h2>
-              {childrenVisible.length > 0 ? (
-                <div className="overflow-hidden">
-                  <table className="w-full text-sm" role="table" aria-label="Children overview">
-                    <thead className="text-muted-foreground">
-                      <tr>
-                        <th className="text-left py-2 pr-2">Child</th>
-                        <th className="text-left py-2 pr-2">Screen Time</th>
-                        <th className="text-left py-2 pr-2">Lessons</th>
-                        <th className="text-left py-2">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {childrenVisible.map((child, i) => {
-                        const used = fmtMinutes(child.totalScreenTimeUsedMinutes);
-                        const limit = fmtMinutes(child.screenTimeLimitMinutes);
-                        const lessons =
-                          child.lessonsAssignedCount == null
-                            ? "—"
-                            : String(child.lessonsAssignedCount);
-                        const isOnline = !!child.online;
-                        return (
-                          <tr key={child.id} className="align-top border-t">
-                            {/* Child avatar/name/role */}
-                            <td className="py-2 pr-2">
-                              <div className="flex items-center gap-3">
-                                <img
-                                  src={fallbackChildImages[i % fallbackChildImages.length]}
-                                  className="w-8 h-8 rounded-full"
-                                  alt={`${renderChildName(child)} avatar`}
-                                />
-                                <div className="flex flex-col">
-                                  <div className="font-medium">{renderChildName(child)}</div>
-                                  {child.role ? (
-                                    <span className="text-xs text-muted-foreground capitalize">{child.role}</span>
-                                  ) : null}
+        // Two columns that fill the viewport height; each column manages its own vertical layout.
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 xl:h-[calc(100vh-30px)]">
+          {/* LEFT COLUMN */}
+          <div className="flex flex-col gap-4 h-full min-h-0">
+            {/* Children card: taller and no internal scroll */}
+            <Card aria-labelledby="children-heading" className="flex-[2] overflow-hidden">
+              <CardContent className="p-4 h-full flex flex-col min-h-0">
+                <h2 id="children-heading" className="font-bold mb-3">Children</h2>
+                {childrenVisible.length > 0 ? (
+                  <div className="flex-1 overflow-visible">
+                    <table className="w-full text-sm" role="table" aria-label="Children overview">
+                      <thead className="text-muted-foreground">
+                        <tr>
+                          <th className="text-left py-2 pr-2">Child</th>
+                          <th className="text-left py-2 pr-2">Screen Time</th>
+                          <th className="text-left py-2 pr-2">Lessons</th>
+                          <th className="text-left py-2">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {childrenVisible.map((child, i) => {
+                          const used = fmtMinutes(child.totalScreenTimeUsedMinutes);
+                          const limit = fmtMinutes(child.screenTimeLimitMinutes);
+                          const lessons =
+                            child.lessonsAssignedCount == null
+                              ? "—"
+                              : String(child.lessonsAssignedCount);
+                          const isOnline = !!child.online;
+                          return (
+                            <tr key={child.id} className="align-top border-t">
+                              {/* Child avatar/name/role */}
+                              <td className="py-2 pr-2">
+                                <div className="flex items-center gap-3">
+                                  <img
+                                    src={fallbackChildImages[i % fallbackChildImages.length]}
+                                    className="w-8 h-8 rounded-full"
+                                    alt={`${renderChildName(child)} avatar`}
+                                  />
+                                  <div className="flex flex-col">
+                                    <div className="font-medium">{renderChildName(child)}</div>
+                                    {child.role ? (
+                                      <span className="text-xs text-muted-foreground capitalize">{child.role}</span>
+                                    ) : null}
+                                  </div>
                                 </div>
-                              </div>
-                            </td>
-                            {/* Screen time */}
-                            <td className="py-2 pr-2">
-                              <span className="whitespace-nowrap">{fmtMinutes(child.totalScreenTimeUsedMinutes)}</span>
-                              <span className="text-muted-foreground"> / {fmtMinutes(child.screenTimeLimitMinutes)}</span>
-                            </td>
-                            {/* Lessons */}
-                            <td className="py-2 pr-2">
-                              {child.lessonsAssignedCount == null ? "—" : String(child.lessonsAssignedCount)}
-                            </td>
-                            {/* Status */}
-                            <td className="py-2">
-                              <span
-                                className={`inline-flex items-center gap-2 px-2 py-0.5 rounded-full text-xs ${
-                                  isOnline
-                                    ? "bg-green-100 text-green-700"
-                                    : "bg-gray-100 text-gray-600"
-                                }`}
-                                aria-label={isOnline ? "Online" : "Offline"}
-                              >
+                              </td>
+                              {/* Screen time */}
+                              <td className="py-2 pr-2">
+                                <span className="whitespace-nowrap">{fmtMinutes(child.totalScreenTimeUsedMinutes)}</span>
+                                <span className="text-muted-foreground"> / {fmtMinutes(child.screenTimeLimitMinutes)}</span>
+                              </td>
+                              {/* Lessons */}
+                              <td className="py-2 pr-2">
+                                {child.lessonsAssignedCount == null ? "—" : String(child.lessonsAssignedCount)}
+                              </td>
+                              {/* Status */}
+                              <td className="py-2">
                                 <span
-                                  className={`inline-block w-2 h-2 rounded-full ${
-                                    isOnline ? "bg-green-500" : "bg-gray-400"
+                                  className={`inline-flex items-center gap-2 px-2 py-0.5 rounded-full text-xs ${
+                                    isOnline
+                                      ? "bg-green-100 text-green-700"
+                                      : "bg-gray-100 text-gray-600"
                                   }`}
-                                />
-                                {isOnline ? "Online" : "Offline"}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">No children linked.</p>
-              )}
-            </CardContent>
-          </Card>
+                                  aria-label={isOnline ? "Online" : "Offline"}
+                                >
+                                  <span
+                                    className={`inline-block w-2 h-2 rounded-full ${
+                                      isOnline ? "bg-green-500" : "bg-gray-400"
+                                    }`}
+                                  />
+                                  {isOnline ? "Online" : "Offline"}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No children linked.</p>
+                )}
+              </CardContent>
+            </Card>
 
-          {/* Row 1, Col 2: Recent Alerts */}
-          <Card aria-labelledby="alerts-heading" className="h-full xl:col-start-2 xl:row-start-1 overflow-hidden">
-            <CardContent className="p-4 h-full flex flex-col">
-              <h2 id="alerts-heading" className="font-bold mb-3">Recent Alerts</h2>
-              {alertsVisible.length > 0 ? (
-                <div className="space-y-2 text-sm">
-                  {alertsVisible.map((a, idx) => (
-                    <div key={idx} className="border rounded p-2">
-                      <div className="font-medium">{a.content_name ?? a.title ?? "Content"}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {a.flag_reason || a.guidance_notes || a.reason || "Needs review"}
-                      </div>
-                    </div>
-                  ))}
+            {/* Verse of the Day */}
+            <Card aria-labelledby="votd-heading" className="flex-[1.2] overflow-hidden">
+              <CardContent className="p-4 h-full flex flex-col">
+                <div className="flex items-center justify-between">
+                  <h2 id="votd-heading" className="text-lg font-bold">Verse of the Day</h2>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setVotdExpanded((v) => !v)} aria-expanded={votdExpanded}>
+                      {votdExpanded ? "Hide Details" : "Read More"}
+                    </Button>
+                    
+                  </div>
                 </div>
-              ) : (
-                <div className="text-center py-6">
-                  <Check className="mx-auto h-8 w-8 text-green-500 mb-2" aria-hidden="true" />
-                  <p className="text-sm text-muted-foreground">No flagged content.</p>
+                <div className="font-semibold text-blue-700 mt-1 leading-relaxed">
+                  {buildVotdHeadline(verseOfDay ?? undefined) || "No verse available."}
                 </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Row 2, Col 1: Verse of the Day */}
-          <Card aria-labelledby="votd-heading" className="h-full xl:col-start-1 xl:row-start-2 overflow-hidden">
-            <CardContent className="p-4 h-full flex flex-col">
-              <div className="flex items-center justify-between">
-                <h2 id="votd-heading" className="text-lg font-bold">Verse of the Day</h2>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setVotdExpanded((v) => !v)} aria-expanded={votdExpanded}>
-                    {votdExpanded ? "Hide Details" : "Read More"}
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={refreshVerse} aria-label="Refresh verse of the day">
-                    <RefreshCcw className="h-4 w-4 mr-1" /> Refresh
-                  </Button>
-                </div>
-              </div>
-              <div className="font-semibold text-blue-700 mt-1 leading-relaxed">
-                {buildVotdHeadline(verseOfDay ?? undefined) || "No verse available."}
-              </div>
-              {votdExpanded && (
-                <>
-                  {!!verseOfDay?.reflection && (
-                    <div className="text-sm text-muted-foreground mt-3 italic line-clamp-3">
-                      {verseOfDay.reflection}
-                    </div>
-                  )}
-                  {!!verseOfDay?.prayer && (
-                    <div className="text-sm mt-3">
-                      <span className="font-medium">Prayer:</span>{" "}
-                      <span className="text-muted-foreground">{verseOfDay.prayer}</span>
-                    </div>
-                  )}
-                </>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Row 2, Col 2: Family Summary */}
-          <Card aria-labelledby="summary-heading" className="h-full xl:col-start-2 xl:row-start-2 overflow-hidden">
-            <CardContent className="p-4 h-full flex flex-col">
-              <h2 id="summary-heading" className="font-bold mb-3">
-                Family Content Summary &amp; Recommendations
-              </h2>
-              {summaryBulletsVisible && summaryBulletsVisible.length > 0 ? (
-                <ul className="list-disc pl-5 space-y-2 text-sm">
-                  {summaryBulletsVisible.map((b, idx) => (
-                    <li key={idx} className="line-clamp-2" dangerouslySetInnerHTML={{ __html: b }} />
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  {familySummary && "message" in (familySummary as any) && (familySummary as any)?.message
-                    ? (familySummary as any).message
-                    : "No summary available yet. Weekly reports appear after at least one week of family activity."}
-                </p>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Row 3, Col 1: Devotional */}
-          <Card aria-labelledby="devo-heading" className="h-full xl:col-start-1 xl:row-start-3 overflow-hidden">
-            <CardContent className="p-4 h-full flex flex-col">
-              <div className="flex justify-between items-center mb-1">
-                <h2 id="devo-heading" className="text-lg font-bold flex items-center">
-                  <BookOpen className="h-5 w-5 mr-2 text-purple-600" />
-                  Today&apos;s Devotional
-                </h2>
-                <div className="flex items-center gap-2">
-                  <Badge aria-label="AI generated content" variant="secondary" className="text-xs">AI Generated</Badge>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={refreshDevotional}
-                    disabled={refreshingDevo}
-                    aria-label="Generate a new devotional"
-                  >
-                    <RefreshCcw className="h-4 w-4 mr-1" />
-                    {refreshingDevo ? "Refreshing…" : "Refresh"}
-                  </Button>
-                </div>
-              </div>
-              <div className={`flex-1 ${devoExpanded ? "" : "max-h-[140px]"} overflow-hidden pr-1`}>
-                {devotional ? (
+                {votdExpanded && (
                   <>
-                    {!!devotional.title && <div className="font-semibold mb-2">{devotional.title}</div>}
-                    <div
-                      className="text-sm leading-relaxed text-foreground"
-                      dangerouslySetInnerHTML={{
-                        __html: /<\/?[a-z][\s\S]*>/i.test(devotional.content)
-                          ? devotional.content
-                          : toSafeHtml(devotional.content),
-                      }}
-                    />
-                    {!!devotional.prayer && (
+                    {!!verseOfDay?.reflection && (
+                      <div className="text-sm text-muted-foreground mt-3 italic line-clamp-3">
+                        {verseOfDay.reflection}
+                      </div>
+                    )}
+                    {!!verseOfDay?.prayer && (
                       <div className="text-sm mt-3">
                         <span className="font-medium">Prayer:</span>{" "}
-                        <span className="text-muted-foreground">{devotional.prayer}</span>
+                        <span className="text-muted-foreground">{verseOfDay.prayer}</span>
                       </div>
                     )}
                   </>
+                )}
+              </CardContent>
+            </Card>
+{/* Family Summary: make taller */}
+            <Card aria-labelledby="summary-heading" className="flex-[1.7] overflow-hidden">
+              <CardContent className="p-4 h-full flex flex-col">
+                <h2 id="summary-heading" className="font-bold mb-3">
+                  Family Content Summary &amp; Recommendations
+                </h2>
+                {summaryBulletsVisible && summaryBulletsVisible.length > 0 ? (
+                  <ul className="list-disc pl-5 space-y-2 text-sm">
+                    {summaryBulletsVisible.map((b, idx) => (
+                      <li key={idx} className="line-clamp-2" dangerouslySetInnerHTML={{ __html: b }} />
+                    ))}
+                  </ul>
                 ) : (
-                  <div className="text-sm text-muted-foreground">
-                    Click Refresh to generate today&apos;s family devotional…
+                  <p className="text-sm text-muted-foreground">
+                    {familySummary && "message" in (familySummary as any) && (familySummary as any)?.message
+                      ? (familySummary as any).message
+                      : "No summary available yet. Weekly reports appear after at least one week of family activity."}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+            
+          </div>
+
+          {/* RIGHT COLUMN */}
+          <div className="flex flex-col gap-4 h-full min-h-0">
+            {/* Recent Alerts */}
+            <Card aria-labelledby="alerts-heading" className="flex-1 overflow-hidden">
+              <CardContent className="p-4 h-full flex flex-col">
+                <h2 id="alerts-heading" className="font-bold mb-3">Recent Alerts</h2>
+                {alertsVisible.length > 0 ? (
+                  <div className="space-y-2 text-sm overflow-auto">
+                    {alertsVisible.map((a, idx) => (
+                      <div key={idx} className="border rounded p-2">
+                        <div className="font-medium">{a.content_name ?? a.title ?? "Content"}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {a.flag_reason || a.guidance_notes || a.reason || "Needs review"}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6">
+                    <Check className="mx-auto h-8 w-8 text-green-500 mb-2" aria-hidden="true" />
+                    <p className="text-sm text-muted-foreground">No flagged content.</p>
                   </div>
                 )}
-              </div>
-              <div className="mt-3">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  onClick={() => setDevoExpanded((v) => !v)}
-                  aria-expanded={devoExpanded}
-                  aria-controls="devo-content"
-                >
-                  {devoExpanded ? "Collapse Devotional" : "Read Full Devotional"}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          {/* Row 3, Col 2: Assistant */}
-          <Card aria-labelledby="chat-heading" className="h-full xl:col-start-2 xl:row-start-3 overflow-hidden">
-            <CardContent className="p-4 h-full flex flex-col">
-              <h2 id="chat-heading" className="text-lg font-bold mb-2">Assistant</h2>
-              <div
-                className="flex-1 border rounded-sm p-2 bg-white overflow-hidden"
-                role="log"
-                aria-live="polite"
-              >
-                {/* Show only the last few messages to avoid overflow */}
-                {messagesVisible.map((m, i) => (
-                  <div
-                    key={i}
-                    className={`mb-2 text-sm ${m.sender === "bot" ? "text-blue-700" : "text-foreground"}`}
-                  >
-                    {m.text}
+           {/* Devotional: make taller */}
+            <Card aria-labelledby="devo-heading" className="flex-[2] overflow-hidden">
+              <CardContent className="p-4 h-full flex flex-col">
+                <div className="flex justify-between items-center mb-1">
+                  <h2 id="devo-heading" className="text-lg font-bold flex items-center">
+                    <BookOpen className="h-5 w-5 mr-2 text-purple-600" />
+                    Today&apos;s Devotional
+                  </h2>
+                  <div className="flex items-center gap-2">
+                    <Badge aria-label="AI generated content" variant="secondary" className="text-xs">AI Generated</Badge>
                   </div>
-                ))}
-              </div>
-              <div className="mt-2 flex">
-                <input
-                  className="flex-1 border rounded px-2 py-1 text-sm"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder="Type your message…"
-                  aria-label="Type your message"
-                  disabled={sending}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleSend();
-                  }}
-                />
-                <Button size="sm" onClick={handleSend} className="ml-2" disabled={sending}>
-                  {sending ? "Sending…" : "Send"}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+                </div>
+                <div className="flex-1 overflow-auto pr-1 overscroll-contain">
+                  {devotional ? (
+                    <>
+                      {!!devotional.title && <div className="font-semibold mb-2">{devotional.title}</div>}
+                      <div
+                        className="text-sm leading-relaxed text-foreground"
+                        dangerouslySetInnerHTML={{
+                          __html: /<\/?[a-z][\s\S]*>/i.test(devotional.content)
+                            ? devotional.content
+                            : toSafeHtml(devotional.content),
+                        }}
+                      />
+                      {!!devotional.prayer && (
+                        <div className="text-sm mt-3">
+                          <span className="font-medium">Prayer:</span>{" "}
+                          <span className="text-muted-foreground">{devotional.prayer}</span>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="text-sm text-muted-foreground">
+                      Click Refresh to generate today&apos;s family devotional…
+                    </div>
+                  )}
+                </div>
+                {/* Removed expand/collapse button */}
+              </CardContent>
+            </Card>
+
+            {/* Assistant: taller to fill space */}
+            <Card aria-labelledby="chat-heading" className="flex-[3] overflow-hidden">
+              <CardContent className="p-4 h-full flex flex-col min-h-0">
+                <h2 id="chat-heading" className="text-lg font-bold mb-2">Assistant</h2>
+                <div
+                  className="flex-1 border rounded-sm p-2 bg-white overflow-auto overscroll-contain"
+                  role="log"
+                  aria-live="polite"
+                >
+                  {/* Show only the last few messages to avoid overflow */}
+                  {messagesVisible.map((m, i) => (
+                    <div
+                      key={i}
+                      className={`mb-2 text-sm ${m.sender === "bot" ? "text-blue-700" : "text-foreground"}`}
+                    >
+                      {m.text}
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2 flex">
+                  <input
+                    className="flex-1 border rounded px-2 py-1 text-sm"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder="Type your message…"
+                    aria-label="Type your message"
+                    disabled={sending}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleSend();
+                    }}
+                  />
+                  <Button size="sm" onClick={handleSend} className="ml-2" disabled={sending}>
+                    {sending ? "Sending…" : "Send"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       )}
     </ParentLayout>
