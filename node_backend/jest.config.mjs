@@ -13,6 +13,7 @@ export default {
     'src/**/*.ts',
     '!src/**/*.d.ts',
   ],
+  setupFiles: ['dotenv/config'],
   setupFilesAfterEnv: ['<rootDir>/src/test/setup.ts'],
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',

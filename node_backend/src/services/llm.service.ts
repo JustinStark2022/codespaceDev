@@ -3,7 +3,7 @@ import axios, { AxiosError } from "axios";
 import logger from "../utils/logger";
 // Add DB + drizzle tag
 import { db } from "@/db/db";
-import { sql as dsql } from "drizzle-orm";
+// import { sql as dsql } from "drizzle-orm";
 
 /** ---------- Request/Response models your app uses ---------- */
 interface LLMRequest {
@@ -318,18 +318,18 @@ class LlmService {
     const tok = Number.isFinite(tokensUsed as any) ? Number(tokensUsed) : null;
     const genMs = Number.isFinite(generationTimeMs as any) ? Number(generationTimeMs) : null;
 
-    try {
-      await db.execute(dsql`
-        INSERT INTO llm_generated_content
-          (content_type, prompt, system_prompt, generated_content, user_id, child_id, context, tokens_used, generation_time_ms)
-        VALUES
-          (${ct}, ${prmpt}, ${sys}, ${gen}, ${uid}, ${cid}, ${ctx}, ${tok}, ${genMs})
-      `);
-      logger.debug("[LLM] Persisted llm_generated_content", { contentType: ct });
-    } catch (e) {
-      // Never throw; just log
-      logger.warn("[LLM] Failed to persist llm_generated_content", (e as Error)?.message);
-    }
+    // try {
+    //   await db.execute(dsql`
+    //     INSERT INTO llm_generated_content
+    //       (content_type, prompt, system_prompt, generated_content, user_id, child_id, context, tokens_used, generation_time_ms)
+    //     VALUES
+    //       (${ct}, ${prmpt}, ${sys}, ${gen}, ${uid}, ${cid}, ${ctx}, ${tok}, ${genMs})
+    //   `);
+    //   logger.debug("[LLM] Persisted llm_generated_content", { contentType: ct });
+    // } catch (e) {
+    //   // Never throw; just log
+    //   logger.warn("[LLM] Failed to persist llm_generated_content", (e as Error)?.message);
+    // }
   }
 
   /**
@@ -754,19 +754,38 @@ class LlmService {
       prayer?: string;
     }>(
       schema,
-      `Provide a family-friendly Bible Verse of the Day (ESV or NIV) with a two-sentence reflection and a one-sentence prayer. Return MINIFIED JSON only.`,
-      { maxTokens: 900, temperature: 0.15 }
+      `Provide a family-friendly Bible Verse of the Day (ESV or NIV) with a two-sentence reflection and a one-sentence prayer. Return MINIFIED JSON only. Your response must be in the format: {"verse": "...", "reference": "...", "reflection": "...", "prayer": "..."}`,
+      { maxTokens: 900, temperature: 0.7 }
     );
 
+    const fallbackVerses = [
+      {
+        verse: "Trust in the Lord with all your heart and lean not on your own understanding.",
+        reference: "Proverbs 3:5",
+        reflection: "God's wisdom guides us even when the way forward seems unclear.",
+        prayer: "Lord, help us trust You fully today. Amen.",
+      },
+      {
+        verse: "For I know the plans I have for you, declares the Lord, plans for welfare and not for evil, to give you a future and a hope.",
+        reference: "Jeremiah 29:11",
+        reflection: "God has a beautiful plan for your life, filled with hope and purpose.",
+        prayer: "Lord, thank you for your plans for me. Help me to trust in your timing. Amen.",
+      },
+      {
+        verse: "I can do all things through him who strengthens me.",
+        reference: "Philippians 4:13",
+        reflection: "With Christ, you have the strength to overcome any challenge.",
+        prayer: "Lord, thank you for your strength. Help me to rely on you. Amen.",
+      },
+    ];
+
+    const randomFallback = fallbackVerses[Math.floor(Math.random() * fallbackVerses.length)];
+
     const result = {
-      verse:
-        out.verse ||
-        "Trust in the Lord with all your heart and lean not on your own understanding.",
-      reference: out.reference || "Proverbs 3:5",
-      reflection:
-        out.reflection ||
-        "God's wisdom guides us even when the way forward seems unclear.",
-      prayer: out.prayer || "Lord, help us trust You fully today. Amen.",
+      verse: out.verse || randomFallback.verse,
+      reference: out.reference || randomFallback.reference,
+      reflection: out.reflection || randomFallback.reflection,
+      prayer: out.prayer || randomFallback.prayer,
     };
 
     // Persist
@@ -911,4 +930,5 @@ Include JSON keys exactly as in the schema. Keep items concise.`;
   }
 }
 
+export { LlmService };
 export const llmService = new LlmService();
