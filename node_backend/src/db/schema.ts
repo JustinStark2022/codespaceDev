@@ -1,5 +1,4 @@
 // src/db/schema.ts
-
 import {
   pgTable,
   serial,
@@ -9,34 +8,33 @@ import {
   timestamp,
   date,
   boolean,
-  AnyPgColumn,
   time,
+  AnyPgColumn,
 } from "drizzle-orm/pg-core";
-import { InferModel } from "drizzle-orm";
+import { InferSelectModel, InferInsertModel } from "drizzle-orm";
 
-// ─── Users ──────────────────────────────────────────────────────────────────────
+/* ─── Users ─────────────────────────────────────────────────────────────────── */
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: varchar("username", { length: 255 }).notNull().unique(),
   email: varchar("email", { length: 255 }).unique(),
   password: varchar("password", { length: 255 }).notNull(),
-  display_name: varchar("display_name", { length: 255 }).notNull(),
   role: text("role").notNull().default("child"),
-  parent_id: integer("parent_id").references(
-    (): AnyPgColumn => users.id,
-    { onDelete: "cascade" }
-  ),
+  parent_id: integer("parent_id").references((): AnyPgColumn => users.id, {
+    onDelete: "cascade",
+  }),
 
   // legacy columns that exist in your DB and should be kept
   age: integer("age"),
   profile_picture: text("profile_picture"),
+  
 
   first_name: varchar("first_name", { length: 255 }).notNull().default(""),
   last_name: varchar("last_name", { length: 255 }).notNull().default(""),
   created_at: timestamp("created_at").notNull().defaultNow(),
 });
 
-// ─── Devotionals ───────────────────────────────────────────────────────────────
+/* ─── Devotionals ───────────────────────────────────────────────────────────── */
 export const devotionals = pgTable("devotionals", {
   id: serial("id").primaryKey(),
   title: varchar("title", { length: 255 }).notNull(),
@@ -48,7 +46,7 @@ export const devotionals = pgTable("devotionals", {
   created_at: timestamp("created_at").notNull().defaultNow(),
 });
 
-// ─── Lessons ───────────────────────────────────────────────────────────────────
+/* ─── Lessons ───────────────────────────────────────────────────────────────── */
 export const lessons = pgTable("lessons", {
   id: serial("id").primaryKey(),
   title: varchar("title", { length: 255 }).notNull(),
@@ -59,25 +57,25 @@ export const lessons = pgTable("lessons", {
   created_at: timestamp("created_at").notNull().defaultNow(),
 });
 
-// ─── Lesson Progress ──────────────────────────────────────────────────────────
+/* ─── Lesson Progress ───────────────────────────────────────────────────────── */
 export const lesson_progress = pgTable("lesson_progress", {
   id: serial("id").primaryKey(),
   user_id: integer("user_id")
     .notNull()
-    .references((): AnyPgColumn => users.id, { onDelete: "cascade" }),
+    .references(() => users.id, { onDelete: "cascade" }),
   lesson_id: integer("lesson_id")
     .notNull()
-    .references((): AnyPgColumn => lessons.id, { onDelete: "cascade" }),
+    .references(() => lessons.id, { onDelete: "cascade" }),
   completed: boolean("completed").notNull().default(false),
   completed_at: timestamp("completed_at"),
 });
 
-// ─── Screen Time (keep legacy cols + your new ones) ────────────────────────────
+/* ─── Screen Time (keep legacy cols + your new ones) ────────────────────────── */
 export const screen_time = pgTable("screen_time", {
   id: serial("id").primaryKey(),
   user_id: integer("user_id")
     .notNull()
-    .references((): AnyPgColumn => users.id, { onDelete: "cascade" }),
+    .references(() => users.id, { onDelete: "cascade" }),
 
   // your desired fields
   allowed_time_minutes: integer("allowed_time_minutes").notNull().default(120),
@@ -99,12 +97,12 @@ export const screen_time = pgTable("screen_time", {
   time_rewards_chores: integer("time_rewards_chores"),
 });
 
-// ─── Child Activity Logs ───────────────────────────────────────────────────────
+/* ─── Child Activity Logs ───────────────────────────────────────────────────── */
 export const child_activity_logs = pgTable("child_activity_logs", {
   id: serial("id").primaryKey(),
   child_id: integer("child_id")
     .notNull()
-    .references((): AnyPgColumn => users.id, { onDelete: "cascade" }),
+    .references(() => users.id, { onDelete: "cascade" }),
   activity_type: varchar("activity_type", { length: 50 }).notNull(),
   activity_name: varchar("activity_name", { length: 255 }).notNull(),
   platform: varchar("platform", { length: 50 }),
@@ -114,15 +112,16 @@ export const child_activity_logs = pgTable("child_activity_logs", {
   flagged: boolean("flagged").default(false),
   flag_reason: varchar("flag_reason", { length: 255 }),
   ai_analysis: text("ai_analysis"),
+  // Note: column name "timestamp" is allowed, but consider renaming if confusing.
   timestamp: timestamp("timestamp").defaultNow(),
 });
 
-// ─── Content Analysis ───────────────────────────────────────────────────────────
+/* ─── Content Analysis ──────────────────────────────────────────────────────── */
 export const content_analysis = pgTable("content_analysis", {
   id: serial("id").primaryKey(),
   child_id: integer("child_id")
     .notNull()
-    .references((): AnyPgColumn => users.id, { onDelete: "cascade" }),
+    .references(() => users.id, { onDelete: "cascade" }),
   content_name: varchar("content_name", { length: 255 }).notNull(),
   content_type: varchar("content_type", { length: 50 }).notNull(),
   platform: varchar("platform", { length: 50 }),
@@ -138,12 +137,12 @@ export const content_analysis = pgTable("content_analysis", {
   created_at: timestamp("created_at").defaultNow(),
 });
 
-// ─── Weekly Summaries ──────────────────────────────────────────────────────────
+/* ─── Weekly Summaries ──────────────────────────────────────────────────────── */
 export const weekly_content_summaries = pgTable("weekly_content_summaries", {
   id: serial("id").primaryKey(),
   family_id: integer("family_id")
     .notNull()
-    .references((): AnyPgColumn => users.id),
+    .references(() => users.id),
   week_start_date: date("week_start_date", { mode: "date" }).notNull(),
   week_end_date: date("week_end_date", { mode: "date" }).notNull(),
   summary_content: text("summary_content").notNull(),
@@ -159,15 +158,15 @@ export const weekly_content_summaries = pgTable("weekly_content_summaries", {
   sent_to_parent: boolean("sent_to_parent").default(false),
 });
 
-// ─── LLM Generated Content ─────────────────────────────────────────────────────
+/* ─── LLM Generated Content ─────────────────────────────────────────────────── */
 export const llm_generated_content = pgTable("llm_generated_content", {
   id: serial("id").primaryKey(),
   content_type: varchar("content_type", { length: 50 }).notNull(),
   prompt: text("prompt").notNull(),
   system_prompt: text("system_prompt"),
   generated_content: text("generated_content").notNull(),
-  user_id: integer("user_id").references((): AnyPgColumn => users.id),
-  child_id: integer("child_id").references((): AnyPgColumn => users.id),
+  user_id: integer("user_id").references(() => users.id),
+  child_id: integer("child_id").references(() => users.id),
   context: varchar("context", { length: 100 }),
   tokens_used: integer("tokens_used"),
   generation_time_ms: integer("generation_time_ms"),
@@ -178,15 +177,15 @@ export const llm_generated_content = pgTable("llm_generated_content", {
   updated_at: timestamp("updated_at").defaultNow(),
 });
 
-// ─── Content Monitoring ────────────────────────────────────────────────────────
+/* ─── Content Monitoring ────────────────────────────────────────────────────── */
 export const content_monitoring = pgTable("content_monitoring", {
   id: serial("id").primaryKey(),
   user_id: integer("user_id")
     .notNull()
-    .references((): AnyPgColumn => users.id, { onDelete: "cascade" }),
+    .references(() => users.id, { onDelete: "cascade" }),
   parent_id: integer("parent_id")
     .notNull()
-    .references((): AnyPgColumn => users.id, { onDelete: "cascade" }),
+    .references(() => users.id, { onDelete: "cascade" }),
   content_type: varchar("content_type", { length: 50 }).notNull(),
   content_source: varchar("content_source", { length: 255 }),
   content_snippet: text("content_snippet").notNull(),
@@ -196,67 +195,77 @@ export const content_monitoring = pgTable("content_monitoring", {
   created_at: timestamp("created_at").defaultNow(),
 });
 
-// ─── Blocked Apps ──────────────────────────────────────────────────────────────
+/* ─── Blocked Apps ──────────────────────────────────────────────────────────── */
 export const blocked_apps = pgTable("blocked_apps", {
   id: serial("id").primaryKey(),
   user_id: integer("user_id")
     .notNull()
-    .references((): AnyPgColumn => users.id, { onDelete: "cascade" }),
+    .references(() => users.id, { onDelete: "cascade" }),
   name: varchar("name", { length: 255 }).notNull(),
   category: text("category").notNull(),
   blocked: boolean("blocked").notNull().default(false),
-  created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  created_at: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
 
-// ─── Website History ───────────────────────────────────────────────────────────
+/* ─── Website History ───────────────────────────────────────────────────────── */
 export const website_history = pgTable("website_history", {
   id: serial("id").primaryKey(),
   user_id: integer("user_id")
     .notNull()
-    .references((): AnyPgColumn => users.id, { onDelete: "cascade" }),
+    .references(() => users.id, { onDelete: "cascade" }),
   url: text("url").notNull(),
   title: varchar("title", { length: 255 }),
-  visited_at: timestamp("visited_at", { withTimezone: true }).notNull().defaultNow(),
+  visited_at: timestamp("visited_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
 
-// ─── Video History ─────────────────────────────────────────────────────────────
+/* ─── Video History ─────────────────────────────────────────────────────────── */
 export const video_history = pgTable("video_history", {
   id: serial("id").primaryKey(),
   user_id: integer("user_id")
     .notNull()
-    .references((): AnyPgColumn => users.id, { onDelete: "cascade" }),
+    .references(() => users.id, { onDelete: "cascade" }),
   video_url: text("video_url").notNull(),
   title: varchar("title", { length: 255 }).notNull(),
-  watched_at: timestamp("watched_at", { withTimezone: true }).notNull().defaultNow(),
+  watched_at: timestamp("watched_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
 
-// ─── Games ─────────────────────────────────────────────────────────────────────
+/* ─── Games ─────────────────────────────────────────────────────────────────── */
 export const games = pgTable("games", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
   category: varchar("category", { length: 255 }),
   flagged: boolean("flagged").notNull().default(false),
-  created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  created_at: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
 
-// ─── Game History ──────────────────────────────────────────────────────────────
+/* ─── Game History ──────────────────────────────────────────────────────────── */
 export const game_history = pgTable("game_history", {
   id: serial("id").primaryKey(),
   user_id: integer("user_id")
     .notNull()
-    .references((): AnyPgColumn => users.id, { onDelete: "cascade" }),
+    .references(() => users.id, { onDelete: "cascade" }),
   game_id: integer("game_id")
     .notNull()
-    .references((): AnyPgColumn => games.id, { onDelete: "cascade" }),
-  played_at: timestamp("played_at", { withTimezone: true }).notNull().defaultNow(),
+    .references(() => games.id, { onDelete: "cascade" }),
+  played_at: timestamp("played_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
 
-// ─── Schedules ─────────────────────────────────────────────────────────────────
+/* ─── Schedules ─────────────────────────────────────────────────────────────── */
 export const schedules = pgTable("schedules", {
   id: serial("id").primaryKey(),
   user_id: integer("user_id")
     .notNull()
-    .references((): AnyPgColumn => users.id, { onDelete: "cascade" }),
+    .references(() => users.id, { onDelete: "cascade" }),
   day_of_week: varchar("day_of_week", { length: 20 }).notNull(),
   // Your DB shows TIME WITHOUT TIME ZONE, so use `time()` here
   start_time: time("start_time").notNull(),
@@ -264,36 +273,38 @@ export const schedules = pgTable("schedules", {
   enabled: boolean("enabled").notNull().default(true),
 });
 
-// ─── Content Filter Settings ───────────────────────────────────────────────────
+/* ─── Content Filter Settings ───────────────────────────────────────────────── */
 export const content_filter_settings = pgTable("content_filter_settings", {
   id: serial("id").primaryKey(),
   user_id: integer("user_id")
     .notNull()
-    .references((): AnyPgColumn => users.id, { onDelete: "cascade" }),
+    .references(() => users.id, { onDelete: "cascade" }),
   block_secular: boolean("block_secular").notNull().default(false),
   block_inappropriate: boolean("block_inappropriate").notNull().default(true),
-  updated_at: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  updated_at: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
 
-// ─── Infer Types ────────────────────────────────────────────────────────────────
-export type User = InferModel<typeof users>;
-export type NewUser = InferModel<typeof users, "insert">;
+/* ─── Infer Types ───────────────────────────────────────────────────────────── */
+export type User = InferSelectModel<typeof users>;
+export type NewUser = InferInsertModel<typeof users>;
 
-export type Devotional = InferModel<typeof devotionals>;
-export type Lesson = InferModel<typeof lessons>;
-export type LessonProgress = InferModel<typeof lesson_progress>;
+export type Devotional = InferSelectModel<typeof devotionals>;
+export type Lesson = InferSelectModel<typeof lessons>;
+export type LessonProgress = InferSelectModel<typeof lesson_progress>;
 
-export type ScreenTime = InferModel<typeof screen_time>;
-export type ActivityLog = InferModel<typeof child_activity_logs>;
-export type ContentAnalysis = InferModel<typeof content_analysis>;
-export type WeeklySummary = InferModel<typeof weekly_content_summaries>;
-export type LLMGenerated = InferModel<typeof llm_generated_content>;
-export type ContentMonitoring = InferModel<typeof content_monitoring>;
+export type ScreenTime = InferSelectModel<typeof screen_time>;
+export type ActivityLog = InferSelectModel<typeof child_activity_logs>;
+export type ContentAnalysis = InferSelectModel<typeof content_analysis>;
+export type WeeklySummary = InferSelectModel<typeof weekly_content_summaries>;
+export type LLMGenerated = InferSelectModel<typeof llm_generated_content>;
+export type ContentMonitoring = InferSelectModel<typeof content_monitoring>;
 
-export type BlockedApp = InferModel<typeof blocked_apps>;
-export type WebsiteHistory = InferModel<typeof website_history>;
-export type VideoHistory = InferModel<typeof video_history>;
-export type Game = InferModel<typeof games>;
-export type GameHistory = InferModel<typeof game_history>;
-export type Schedule = InferModel<typeof schedules>;
-export type ContentFilterSettings = InferModel<typeof content_filter_settings>;
+export type BlockedApp = InferSelectModel<typeof blocked_apps>;
+export type WebsiteHistory = InferSelectModel<typeof website_history>;
+export type VideoHistory = InferSelectModel<typeof video_history>;
+export type Game = InferSelectModel<typeof games>;
+export type GameHistory = InferSelectModel<typeof game_history>;
+export type Schedule = InferSelectModel<typeof schedules>;
+export type ContentFilterSettings = InferSelectModel<typeof content_filter_settings>;
