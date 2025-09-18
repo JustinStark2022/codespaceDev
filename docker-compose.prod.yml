@@ -1,0 +1,22 @@
+version: '3.8'
+
+# This file contains overrides for a production deployment.
+# To use it, run: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+  backend:
+    build:
+      target: production
+    ports:
+      - "3000:3000"
+    command: npm run start
+    volumes: [] # Remove source code mount for production
+
+  frontend:
+    build:
+      target: production
+    ports:
+      # Map to a different host port like 8080 for production
+      - "8080:80"
+    command: nginx -g 'daemon off;'
+    volumes: [] # Remove source code mount for production

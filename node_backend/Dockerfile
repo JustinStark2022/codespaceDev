@@ -1,42 +1,50 @@
-# Use multi-stage build to reduce image size
-FROM node:22-slim as builder
-WORKDIR /workspace/node_backend
-COPY package*.json ./
-RUN npm install
-COPY . .
-
-# Production stage
-FROM node:22-slim as production
-WORKDIR /workspace/node_backend
-COPY --from=builder /workspace/node_backend/node_modules ./node_modules
-COPY --from=builder /workspace/node_backend/dist ./dist
-COPY --from=builder /workspace/node_backend/package*.json ./
-CMD ["npm", "run", "start"]
-
-# Development stage
-FROM node:22-slim as development
-WORKDIR /workspace/node_backend
-
-# Install Python for MCP servers
-RUN apt-get update && apt-get install -y \
-    python3 \
-    python3-pip \
-    python3-venv \
-    git \
-    && rm -rf /var/lib/apt/lists/*
-
-# Create symlink for python command
-RUN ln -s /usr/bin/python3 /usr/bin/python
-
+# ===================================================
+# ==                 BASE STAGE                    ==
+# ===================================================
+# This stage installs all dependencies.
+# It's used as a base for both development and the production build.
+FROM node:20-slim as base
+WORKDIR /app
 COPY package*.json ./
 RUN npm install
 
-# Install MCP server dependencies
-RUN python3 -m pip install --break-system-packages mcp-server-git
-
+# ===================================================
+# ==               DEVELOPMENT STAGE               ==
+# ===================================================
+# This is the stage used for local development.
+# It includes dev dependencies and uses tsx for hot-reloading.
+FROM base as development
+WORKDIR /app
+# Copy the rest of the application code
 COPY . .
-
-# Expose port
-EXPOSE 3001
-
+# Expose the port the app runs on
+EXPOSE 3000
+# The command is specified in docker-compose.yml to allow for easy overrides.
 CMD ["npm", "run", "dev"]
+
+# ===================================================
+# ==                  BUILD STAGE                  ==
+# ===================================================
+# This stage builds the TypeScript code into JavaScript.
+FROM base as build
+WORKDIR /app
+COPY . .
+RUN npm run build
+
+# ===================================================
+# ==                PRODUCTION STAGE               ==
+# ===================================================
+# This is the final, lean production image.
+# It only contains the built code and production dependencies.
+FROM node:20-slim as production
+WORKDIR /app
+ENV NODE_ENV=production
+# Copy production dependencies
+COPY --from=build /app/package*.json ./
+RUN npm ci --omit=dev
+# Copy the built application code
+COPY --from=build /app/dist ./dist
+# Expose the port the app runs on
+EXPOSE 3000
+# The command to run the application
+CMD ["npm", "run", "start"]

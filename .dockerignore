@@ -1,0 +1,46 @@
+# ===================================================
+# ==         DOCKERIGNORE FOR MONOREPO             ==
+# ===================================================
+#
+# This file prevents files from being sent to the Docker daemon.
+# It helps speed up builds and avoid including sensitive information or
+# large directories that aren't needed in the final image.
+
+# Git files
+.git
+.gitignore
+.gitattributes
+
+# IDE and editor directories
+.vscode/
+.idea/
+
+# Environment files - should be passed in via compose, not built into image
+.env
+.env.*
+!/.env.example
+
+# Node.js dependencies - these should be installed inside the container
+node_modules/
+*/node_modules/
+npm-debug.log*
+yarn-error.log
+
+# Build artifacts (if any are stored locally)
+dist/
+build/
+*/dist/
+*/build/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Log files
+*.log
+logs
+*[-.]log
+
+# Test reports
+coverage/
+.nyc_output/
