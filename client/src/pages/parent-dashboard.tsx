@@ -306,7 +306,7 @@ export default function ParentDashboard() {
         <div className="p-6 text-sm text-muted-foreground">Loading dashboard…</div>
       ) : (
         // Two columns that fill the viewport height; each column manages its own vertical layout.
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 xl:h-[calc(100vh-30px)]">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 h-full">
           {/* LEFT COLUMN */}
           <div className="flex flex-col gap-4 h-full min-h-0">
             {/* Children card: taller and no internal scroll */}
