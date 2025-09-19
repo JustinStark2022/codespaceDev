@@ -1,217 +1,88 @@
-# Kingdom Kids Development Environment
+# Monorepo Development Environment with Docker and Neon
 
-A comprehensive development environment for the Kingdom Kids project with Docker, MCP (Model Context Protocol) integration, and AI-powered task management.
+This repository contains a complete development and production setup for a TypeScript monorepo, orchestrated with Docker Compose and connected to a Neon-hosted PostgreSQL database.
 
-## 🚀 Quick Start
+## 🚀 Quick Start (Development)
+
+These instructions will get you a copy of the project up and running on your local machine for development and testing purposes.
 
 ### Prerequisites
-- Docker & Docker Compose
-- Node.js 18+ (for local development)
-- Python 3.8+ (for MCP servers)
-- Git
+- **Docker & Docker Compose**: [Install Docker Desktop](https://www.docker.com/products/docker-desktop/)
+- **Git**: For cloning the repository.
+- **A Neon Account**: [Create a free Neon project](https://neon.tech/) to get your database URLs.
 
-### Setup
-1. **Clone and Setup**
-   ```bash
-   git clone <repository-url>
-   cd codespaceDev
-   ```
-
-2. **Run Setup Script**
-   ```bash
-   # On Unix/Linux/macOS
-   chmod +x setup.sh
-   ./setup.sh
-   
-   # On Windows
-   .\setup.ps1
-   ```
-
-3. **Configure Environment**
-   - Update `.env` with your actual API keys and configuration
-   - Review `taskmaster.config.json` for AI task management settings
-   - Check `mcp_config.json` for MCP server configuration
-
-4. **Start Development Environment**
-   ```bash
-   docker-compose up -d
-   ```
-
-## 🏗️ Architecture
-
-### Services
-- **Database**: PostgreSQL 15 with persistent storage
-- **Backend**: Node.js API server (port 5000)
-- **Client**: Frontend development server (port 5173)
-
-### File Structure
-```
-codespaceDev/
-├── .devcontainer/           # VS Code development container config
-├── client/                  # Frontend application
-├── node_backend/           # Backend API server
-├── Roo-Code/              # Additional code modules
-├── docker-compose.yml     # Docker services configuration
-├── taskmaster.config.json # AI task management configuration
-├── mcp_config.json       # MCP server configuration
-├── .env                  # Environment variables
-└── setup.sh/setup.ps1   # Setup scripts
-```
-
-## 🔧 Configuration Files
-
-### Docker Configuration
-- **docker-compose.yml**: Multi-service setup with database, backend, and frontend
-- **Dockerfiles**: Multi-stage builds for development and production
-- **.devcontainer/**: VS Code development container with extensions and settings
-
-### Environment Configuration
-- **.env**: Main environment variables
-- **.env.node_backend**: Backend-specific variables
-- **.env.client**: Frontend-specific variables
-- **.env.example**: Template for environment setup
-
-### AI & MCP Configuration
-- **taskmaster.config.json**: Comprehensive AI task management configuration
-- **mcp_config.json**: Model Context Protocol server definitions
-
-## 🐳 Docker Services
-
-### Database Service
-- **Image**: PostgreSQL 15 Alpine
-- **Port**: 5432
-- **Database**: faith_fortress_db
-- **Credentials**: user/password (configurable via .env)
-- **Volume**: Persistent data storage
-
-### Backend Service
-- **Port**: 5000 (external) → 3001 (internal)
-- **Environment**: Development with hot reload
-- **Dependencies**: Database service
-- **Features**: MCP integration, Python support
-
-### Client Service  
-- **Port**: 5173
-- **Environment**: Vite development server
-- **Dependencies**: Backend service
-- **Features**: Hot module replacement
-
-## 🤖 MCP (Model Context Protocol) Integration
-
-### Available MCP Servers
-1. **Git Server**: Git repository operations
-2. **Filesystem Server**: File system operations  
-3. **Neon Server**: Database operations (requires API key)
-4. **Taskmaster AI**: AI-powered task management
-
-### Configuration
-- API keys are now environment variables (no hardcoded secrets)
-- Servers can be enabled/disabled individually
-- Configurable through `mcp_config.json`
-
-## 🎯 Taskmaster AI Features
-
-### Task Management
-- Create, update, delete, list, and prioritize tasks
-- Intelligent scheduling and automation
-- Project analysis and code generation
-
-### File Operations
-- Multi-language support (JS, TS, Python, SQL, etc.)
-- Automatic backups
-- File size and access restrictions
-
-### Database Integration
-- Direct database operations
-- Query optimization and monitoring
-- Connection pooling
-
-### Security Features
-- API key validation
-- Command whitelisting
-- Execution time limits
-- File access restrictions
-
-## 🔍 Development Workflow
-
-### Local Development
+### 1. Clone the Repository
 ```bash
-# Start all services
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# Stop services
-docker-compose down
+git clone <your-repository-url>
+cd <repository-name>
 ```
 
-### VS Code Development Container
+### 2. Configure Environment Variables
+Copy the example environment file and fill in your details.
+
 ```bash
-# Open in VS Code
-code .
-
-# Use Command Palette: "Dev Containers: Reopen in Container"
+cp .env.example .env
 ```
+Now, open the `.env` file in your editor and add your **Neon Database URLs** and a **JWT Secret**.
 
-### Database Access
+- `DATABASE_URL`: Your Neon direct connection string.
+- `DATABASE_POOL_URL`: Your Neon pooled connection string.
+- `JWT_SECRET`: A long, random string for signing tokens.
+
+**Important**: Your Neon URLs must include `?sslmode=require`.
+
+### 3. Start the Services
+Bring up the entire stack using Docker Compose. This will build the container images and start the services in detached mode.
+
 ```bash
-# Connect to database
-docker-compose exec database psql -U user -d faith_fortress_db
+docker compose up -d --build
 ```
 
-## 📊 Port Mapping
-- **5432**: PostgreSQL Database
-- **5000**: Backend API Server
-- **5173**: Frontend Development Server
+### 4. Access the Services
+- **Backend API**: [http://localhost:3000](http://localhost:3000)
+- **Backend Health Check**: [http://localhost:3000/health](http://localhost:3000/health)
+- **Frontend App**: [http://localhost:5173](http://localhost:5173)
 
-## 🔐 Security Considerations
+## 🔧 VS Code Dev Container Workflow
+For an integrated development experience, you can use the included Dev Container configuration.
 
-### Environment Variables
-- Never commit `.env` files with real API keys
-- Use `.env.example` as a template
-- Rotate API keys regularly
+1.  **Prerequisites**: VS Code + [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers).
+2.  Open the cloned repository in VS Code.
+3.  Click the notification popup that says "Reopen in Container" or use the Command Palette (`Ctrl+Shift+P`) to find and run **"Dev Containers: Reopen in Container"**.
 
-### MCP Security
-- API keys are environment variables only
-- Command execution is whitelisted
-- File access is restricted
-- Execution timeouts prevent hanging processes
+This will attach VS Code to the `devcontainer` service, and the `post-create.sh` script will automatically install all `npm` dependencies for you.
 
-### Database Security
-- Use strong passwords in production
-- Enable SSL in production environments
-- Regular backups and monitoring
+## 🗃️ Database Migrations (Drizzle)
+Migrations are managed by Drizzle Kit and should be run against your Neon database via the `backend` service.
+
+To run pending migrations:
+```bash
+docker compose exec backend npm run migrate
+```
+
+To create a new migration from schema changes (do this locally, not in the container):
+```bash
+cd node_backend
+npm install
+npx drizzle-kit generate
+```
+
+## 🏭 Production Mode
+A production-ready compose file is provided to run the application with optimized, production-grade images.
+
+To start in production mode:
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+This will:
+- **Backend**: Run the `npm run start` command using pre-built JavaScript in `dist/`.
+- **Frontend**: Serve the static, optimized React build using a lightweight **Nginx** server.
+- **Production Frontend URL**: [http://localhost:8080](http://localhost:8080)
 
 ## 🐛 Troubleshooting
 
-### Common Issues
-1. **Port Conflicts**: Check if ports 5000, 5173, or 5432 are in use
-2. **Docker Issues**: Ensure Docker is running and has sufficient resources
-3. **Permission Issues**: Check file permissions for setup scripts
-4. **API Keys**: Verify all required API keys are set in .env
-
-### Logs
-- **Docker**: `docker-compose logs [service-name]`
-- **Taskmaster**: Check `./logs/taskmaster.log`
-- **Application**: Check individual service logs
-
-## 📝 License
-
-See LICENSE file for details.
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
-
-## 📞 Support
-
-For issues and questions:
-- Check the troubleshooting section
-- Review configuration files
-- Check Docker and service logs
-- Create an issue in the repository
+- **SSL Errors on Connection**: Ensure your `DATABASE_URL` and `DATABASE_POOL_URL` in the `.env` file both end with `?sslmode=require`.
+- **Connection Limits**: For web traffic, always use the `DATABASE_POOL_URL`. The direct `DATABASE_URL` should only be used for migrations or direct admin tasks to avoid exhausting connection limits.
+- **Port Conflicts**: If you have another service running on port `3000` or `5173`, you can change the host-side port mapping in `docker-compose.yml`. For example, change `"3000:3000"` to `"3001:3000"` to map the container's port 3000 to your host's port 3001.
+- **Windows Line Endings**: If you encounter errors with shell scripts (`.sh`), ensure they have LF line endings. You can configure Git to handle this automatically: `git config --global core.autocrlf input`.
+- **Node Memory Issues**: For very large builds, you might need to increase the memory available to Node.js. You can do this by setting an environment variable in `docker-compose.yml`: `NODE_OPTIONS=--max_old_space_size=4096`.

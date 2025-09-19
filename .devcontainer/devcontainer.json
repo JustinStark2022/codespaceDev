@@ -1,9 +1,16 @@
 {
-  "name": "Kingdom Kids Development",
-  "dockerComposeFile": "../docker-compose.yml",
-  "service": "backend",
-  "workspaceFolder": "/workspace/node_backend",
+  "name": "Monorepo Dev Environment",
+  // Points to the docker-compose.yml file that defines the services.
+  "dockerComposeFile": [
+    "../docker-compose.yml"
+  ],
+  // The service to attach VS Code to.
+  "service": "devcontainer",
+  // The folder inside the container to open VS Code in.
+  "workspaceFolder": "/workspace",
+  // The action to take when the window is closed.
   "shutdownAction": "stopCompose",
+  // VS Code customizations.
   "customizations": {
     "vscode": {
       "extensions": [
@@ -11,30 +18,19 @@
         "bradlc.vscode-tailwindcss",
         "esbenp.prettier-vscode",
         "ms-vscode.vscode-json",
-        "ms-vscode-remote.remote-containers"
+        "ms-vscode-remote.remote-containers",
+        "dbaeumer.vscode-eslint",
+        "ms-azuretools.vscode-docker"
       ],
       "settings": {
-        "typescript.preferences.importModuleSpecifier": "relative",
         "editor.formatOnSave": true,
-        "editor.defaultFormatter": "esbenp.prettier-vscode"
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "typescript.tsdk": "node_modules/typescript/lib"
       }
     }
   },
-  "forwardPorts": [3000, 5000, 5173],
-  "portsAttributes": {
-    "3000": {
-      "label": "Database",
-      "onAutoForward": "notify"
-    },
-    "5000": {
-      "label": "Backend API",
-      "onAutoForward": "notify"
-    },
-    "5173": {
-      "label": "Frontend Dev Server",
-      "onAutoForward": "notify"
-    }
-  },
-  "postCreateCommand": "npm install && cd /workspace/client && npm install",
+  // The command to run after the container is created.
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  // The user to run as inside the container.
   "remoteUser": "node"
 }
