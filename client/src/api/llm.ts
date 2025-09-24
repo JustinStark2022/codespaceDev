@@ -40,25 +40,9 @@ async function fetchJson(path: string, init?: RequestInit) {
 /* ------------------------------------------------------------------
  * DASHBOARD (LLM aggregate)
  * GET /api/ai/dashboard   (primary)
- * Fallback: compose from smaller endpoints if primary fails
  * ------------------------------------------------------------------ */
 export const getAIDashboard = async () => {
-  try {
-    return await fetchJson(`${API_BASE}/api/ai/dashboard`);
-  } catch (_err) {
-    // Fallback so the UI stays usable even if the aggregate endpoint breaks
-    const [verseOfDay, devotional] = await Promise.all([
-      fetchJson(`${API_BASE}/api/ai/verse-of-day`).catch(() => null),
-      fetchJson(`${API_BASE}/api/ai/devotional`).catch(() => null),
-    ]);
-    return {
-      verseOfDay,
-      devotional,
-      familySummary: null,
-      children: [],
-      recentAlerts: [],
-    };
-  }
+  return fetchJson(`${API_BASE}/api/ai/dashboard`);
 };
 
 /* ------------------------------------------------------------------
