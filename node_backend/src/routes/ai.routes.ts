@@ -1,6 +1,6 @@
 // src/routes/ai.routes.ts
 import { Router, type Request, type Response, type NextFunction } from "express";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db/db";
 import {
   users,
@@ -33,7 +33,7 @@ router.get(
       .select({
         id: users.id,
         username: users.username,
-        displayName: users.display_name,
+        displayName: sql<string>`coalesce(nullif(concat_ws(' ', ${users.first_name}, ${users.last_name}), ''), ${users.username})`,
         role: users.role,
         parentId: users.parent_id,
         firstName: users.first_name,

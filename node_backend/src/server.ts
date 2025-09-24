@@ -33,6 +33,11 @@ app.use("/api", authRoutes);
 app.use("/api", userRoutes);
 app.use(`${env.API_PREFIX}/ai`, aiRoutes); // <-- this mounts /api/ai/dashboard etc.
 
+// Temporary alias: keep old path working by forwarding to the new AI endpoint.
+app.get("/api/dashboard", (_req, res) => {
+  res.redirect(307, "/api/ai/dashboard");
+});
+
 // 404 Handler for unmatched routes
 app.use((_req, res) => res.status(404).json({ message: "Not found" }));
 

@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 // client/src/api/llm.ts
 import { apiRequest } from "@/lib/queryClient";
 
@@ -21,32 +22,56 @@ async function tryJson<T>(
   }
 }
 
+const API_BASE = import.meta.env.VITE_API_BASE || ""; // keep relative by default
+
+async function fetchJson(path: string, init?: RequestInit) {
+  const res = await fetch(path, {
+    credentials: "include",
+    headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
+    ...init,
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`${res.status}: ${text || res.statusText}`);
+  }
+  return res.json();
+}
+
 /* ------------------------------------------------------------------
  * DASHBOARD (LLM aggregate)
  * GET /api/ai/dashboard   (primary)
- * GET /api/dashboard      (fallback if you kept a non-/ai route)
+ * Fallback: compose from smaller endpoints if primary fails
  * ------------------------------------------------------------------ */
-export const getAIDashboard = async () =>
-  tryJson(
-    () => apiRequest("GET", "/api/ai/dashboard"),
-    () => apiRequest("GET", "/api/dashboard")
-  );
+export const getAIDashboard = async () => {
+  try {
+    return await fetchJson(`${API_BASE}/api/ai/dashboard`);
+  } catch (_err) {
+    // Fallback so the UI stays usable even if the aggregate endpoint breaks
+    const [verseOfDay, devotional] = await Promise.all([
+      fetchJson(`${API_BASE}/api/ai/verse-of-day`).catch(() => null),
+      fetchJson(`${API_BASE}/api/ai/devotional`).catch(() => null),
+    ]);
+    return {
+      verseOfDay,
+      devotional,
+      familySummary: null,
+      children: [],
+      recentAlerts: [],
+    };
+  }
+};
 
 /* ------------------------------------------------------------------
  * VERSE OF THE DAY
  * GET /api/ai/verse-of-the-day (primary)
- * GET /api/devotional/verse    (legacy fallback your app used before)
  * ------------------------------------------------------------------ */
-export const getVerseOfTheDay = async () =>
-  tryJson(
-    () => apiRequest("GET", "/api/ai/verse-of-the-day"),
-    () => apiRequest("GET", "/api/devotional/verse")
-  );
+export const getVerseOfTheDay = async () => {
+  return fetchJson(`${API_BASE}/api/ai/verse-of-day`);
+};
 
 /* ------------------------------------------------------------------
  * DEVOTIONAL
  * GET /api/ai/devotional?topic=... (primary)
- * GET /api/devotional/daily         (legacy fallback)
  * ------------------------------------------------------------------ */
 export const getDailyDevotional = async (topic?: string) =>
   tryJson(
