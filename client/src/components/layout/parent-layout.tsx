@@ -1,9 +1,19 @@
-import { useState, ReactNode } from "react";
+import { useState, ReactNode, useRef } from "react";
 import { useLocation, Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { useTheme } from "@/components/ui/theme-provider";
 import Castle from "@/components/ui/castle";
+import type { ChatMessage } from "@/types/chat";
+import { initialMessages } from "@/data/messages";
+import { sendChatMessage } from "@/api/llm";
 
 import { 
   LayoutDashboard, 
@@ -20,7 +30,8 @@ import {
   Bell, 
   Moon, 
   Sun, 
-  Users
+  Users,
+  MessageSquare
 } from "lucide-react";
 
 interface ParentLayoutProps {
@@ -34,6 +45,10 @@ export default function ParentLayout({ children, title }: ParentLayoutProps) {
   const { theme, setTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
+  const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
 
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
   const closeSidebar = () => setSidebarOpen(false);
@@ -46,6 +61,30 @@ export default function ParentLayout({ children, title }: ParentLayoutProps) {
     logout();
   };
   
+  const handleSend = async () => {
+    if (!input.trim() || sending) return;
+    const prompt = input;
+    setMessages((msgs) => [...msgs, { sender: "user", text: prompt }]);
+    setInput("");
+    setSending(true);
+    try {
+      const r = await sendChatMessage(
+        prompt,
+        "Parent dashboard: provide adult, parenting-focused guidance with Scripture-based, practical steps. No UI instructions, no greetings."
+      );
+      const reply = typeof r?.response === "string" ? r.response : r;
+      setMessages((msgs) => [...msgs, { sender: "bot", text: String(reply ?? "…") }]);
+    } catch {
+      setMessages((msgs) => [
+        ...msgs,
+        { sender: "bot", text: "I'm having trouble connecting… please try again." },
+      ]);
+    } finally {
+      setSending(false);
+      setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+    }
+  };
+
   // Navigation items
   const navItems = [
     { path: "/dashboard", label: "Dashboard", icon: <LayoutDashboard className="mr-3 h-5 w-5" /> },
@@ -151,6 +190,70 @@ export default function ParentLayout({ children, title }: ParentLayoutProps) {
           {children}
         </main>
       </div>
+
+      {/* Assistant FAB */}
+      <Dialog>
+        <DialogTrigger asChild>
+          <Button
+            className="fixed bottom-6 right-6 h-16 w-16 rounded-full shadow-lg"
+            size="icon"
+            aria-label="Open AI Assistant"
+          >
+            <MessageSquare className="h-8 w-8" />
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>AI Assistant</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col h-[60vh]">
+            <div
+              className="flex-1 border rounded-sm p-3 bg-gray-50 overflow-y-auto"
+              role="log"
+              aria-live="polite"
+            >
+              {messages.map((m, i) => (
+                <div
+                  key={i}
+                  className={`mb-2 text-sm p-2 rounded-lg ${
+                    m.sender === "bot"
+                      ? "bg-blue-100 text-blue-800"
+                      : "bg-white text-gray-800 ml-auto"
+                  }`}
+                  style={{ maxWidth: "80%" }}
+                >
+                  {m.text}
+                </div>
+              ))}
+              <div ref={chatEndRef} />
+            </div>
+            <div className="mt-3 flex">
+              <input
+                className="flex-1 border rounded-l-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Type your message…"
+                aria-label="Type your message"
+                disabled={sending}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
+              />
+              <Button
+                size="sm"
+                onClick={handleSend}
+                className="rounded-l-none"
+                disabled={sending}
+              >
+                {sending ? "..." : "Send"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

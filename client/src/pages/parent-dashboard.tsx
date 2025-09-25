@@ -14,6 +14,7 @@ import {
   getVerseOfTheDay,
   getDailyDevotional,
 } from "@/api/llm";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // ---- Types ----
 type VerseOfDay = {
@@ -166,12 +167,6 @@ const fmtMinutes = (m?: number | null): string => {
 // ---- Component ----
 export default function ParentDashboard() {
   const { user } = useAuth();
-  const chatEndRef = useRef<HTMLDivElement>(null);
-
-  // chat state
-  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
-  const [input, setInput] = useState("");
-  const [sending, setSending] = useState(false);
 
   // dashboard state
   const [loadingDashboard, setLoadingDashboard] = useState(true);
@@ -236,36 +231,10 @@ export default function ParentDashboard() {
   const childrenVisible = children; // show all children (no slicing)
   const alertsVisible = recentAlerts.slice(0, 4);
   const summaryBulletsVisible = Array.isArray(familySummary?.bullets)
-    ? familySummary!.bullets!.slice(0, 3)
+    ? familySummary!.bullets
     : null;
-  const messagesVisible = messages.slice(-6);
 
   // ---- Actions ----
-  const handleSend = async () => {
-    if (!input.trim() || sending) return;
-    const prompt = input;
-    setMessages((msgs) => [...msgs, { sender: "user", text: prompt }]);
-    setInput("");
-    setSending(true);
-    try {
-      const r = await sendChatMessage(
-        prompt,
-        // Stronger parent-focused guidance; keeps adult-facing tone while avoiding UI chatter
-        "Parent dashboard: provide adult, parenting-focused guidance with Scripture-based, practical steps. No UI instructions, no greetings."
-      );
-      const reply = typeof r?.response === "string" ? r.response : r;
-      setMessages((msgs) => [...msgs, { sender: "bot", text: String(reply ?? "…") }]);
-    } catch {
-      setMessages((msgs) => [
-        ...msgs,
-        { sender: "bot", text: "I'm having trouble connecting… please try again." },
-      ]);
-    } finally {
-      setSending(false);
-      setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
-    }
-  };
-
   const renderChildName = (c: DashboardChild) =>
     c.displayName ||
     c.name ||
@@ -301,256 +270,195 @@ export default function ParentDashboard() {
 
   // ---- UI ----
   return (
-    <ParentLayout title="My Faith Fortress Parent Dashboard">
+    <ParentLayout title="Dashboard">
       {loadingDashboard ? (
         <div className="p-6 text-sm text-muted-foreground">Loading dashboard…</div>
       ) : (
-        // Two columns that fill the viewport height; each column manages its own vertical layout.
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 h-full">
-          {/* LEFT COLUMN */}
-          <div className="flex flex-col gap-4 h-full min-h-0">
-            {/* Children card: taller and no internal scroll */}
-            <Card aria-labelledby="children-heading" className="flex-[2] overflow-hidden">
-              <CardContent className="p-4 h-full flex flex-col min-h-0">
-                <h2 id="children-heading" className="font-bold mb-3">Children</h2>
-                {childrenVisible.length > 0 ? (
-                  <div className="flex-1 overflow-visible">
-                    <table className="w-full text-sm" role="table" aria-label="Children overview">
-                      <thead className="text-muted-foreground">
-                        <tr>
-                          <th className="text-left py-2 pr-2">Child</th>
-                          <th className="text-left py-2 pr-2">Screen Time</th>
-                          <th className="text-left py-2 pr-2">Lessons</th>
-                          <th className="text-left py-2">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {childrenVisible.map((child, i) => {
-                          const used = fmtMinutes(child.totalScreenTimeUsedMinutes);
-                          const limit = fmtMinutes(child.screenTimeLimitMinutes);
-                          const lessons =
-                            child.lessonsAssignedCount == null
-                              ? "—"
-                              : String(child.lessonsAssignedCount);
-                          const isOnline = !!child.online;
-                          return (
-                            <tr key={child.id} className="align-top border-t">
-                              {/* Child avatar/name/role */}
-                              <td className="py-2 pr-2">
-                                <div className="flex items-center gap-3">
-                                  <img
-                                    src={fallbackChildImages[i % fallbackChildImages.length]}
-                                    className="w-8 h-8 rounded-full"
-                                    alt={`${renderChildName(child)} avatar`}
-                                  />
-                                  <div className="flex flex-col">
-                                    <div className="font-medium">{renderChildName(child)}</div>
-                                    {child.role ? (
-                                      <span className="text-xs text-muted-foreground capitalize">{child.role}</span>
-                                    ) : null}
-                                  </div>
-                                </div>
-                              </td>
-                              {/* Screen time */}
-                              <td className="py-2 pr-2">
-                                <span className="whitespace-nowrap">{fmtMinutes(child.totalScreenTimeUsedMinutes)}</span>
-                                <span className="text-muted-foreground"> / {fmtMinutes(child.screenTimeLimitMinutes)}</span>
-                              </td>
-                              {/* Lessons */}
-                              <td className="py-2 pr-2">
-                                {child.lessonsAssignedCount == null ? "—" : String(child.lessonsAssignedCount)}
-                              </td>
-                              {/* Status */}
-                              <td className="py-2">
+        // Single-column, scrollable layout
+        <div className="space-y-8 p-4 md:p-6 lg:p-8">
+          {/* Children Section */}
+          <Card>
+            <CardContent className="p-5">
+              <h2 id="children-heading" className="text-lg font-bold mb-4">Your Children</h2>
+              {childrenVisible.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {childrenVisible.map((child, i) => {
+                    const used = child.totalScreenTimeUsedMinutes ?? 0;
+                    const limit = child.screenTimeLimitMinutes ?? 1;
+                    const screenTimePercent = Math.min(100, (used / limit) * 100);
+                    const lessons =
+                      child.lessonsAssignedCount == null ? "—" : String(child.lessonsAssignedCount);
+                    const isOnline = !!child.online;
+                    return (
+                      <Card key={child.id} className="transform hover:scale-105 transition-transform duration-200">
+                        <CardContent className="p-4">
+                          <div className="flex items-center gap-4">
+                            <img
+                              src={fallbackChildImages[i % fallbackChildImages.length]}
+                              className="w-16 h-16 rounded-full border-2 border-white shadow-md"
+                              alt={`${renderChildName(child)} avatar`}
+                            />
+                            <div className="flex-1">
+                              <div className="font-bold text-base">{renderChildName(child)}</div>
+                              <span
+                                className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs mt-1 ${
+                                  isOnline
+                                    ? "bg-green-100 text-green-800"
+                                    : "bg-gray-100 text-gray-700"
+                                }`}
+                                aria-label={isOnline ? "Online" : "Offline"}
+                              >
                                 <span
-                                  className={`inline-flex items-center gap-2 px-2 py-0.5 rounded-full text-xs ${
-                                    isOnline
-                                      ? "bg-green-100 text-green-700"
-                                      : "bg-gray-100 text-gray-600"
+                                  className={`inline-block w-2 h-2 rounded-full ${
+                                    isOnline ? "bg-green-500" : "bg-gray-400"
                                   }`}
-                                  aria-label={isOnline ? "Online" : "Offline"}
-                                >
-                                  <span
-                                    className={`inline-block w-2 h-2 rounded-full ${
-                                      isOnline ? "bg-green-500" : "bg-gray-400"
-                                    }`}
-                                  />
-                                  {isOnline ? "Online" : "Offline"}
-                                </span>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">No children linked.</p>
-                )}
-              </CardContent>
-            </Card>
+                                />
+                                {isOnline ? "Online" : "Offline"}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="mt-4 space-y-3 text-sm">
+                            <div>
+                              <div className="flex justify-between items-center mb-1">
+                                <span className="text-muted-foreground">Screen Time</span>
+                                <span className="font-medium">{fmtMinutes(used)} / {fmtMinutes(limit)}</span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-2.5">
+                                <div className="bg-gradient-to-r from-blue-400 to-blue-600 h-2.5 rounded-full" style={{ width: `${screenTimePercent}%` }} />
+                              </div>
+                            </div>
+                            <div className="flex justify-between items-center border-t pt-2">
+                              <span className="text-muted-foreground">Lessons Assigned</span>
+                              <span className="font-bold text-base">{lessons}</span>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="p-6 text-center text-muted-foreground">
+                  No children have been linked to your account yet.
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-            {/* Verse of the Day */}
-            <Card aria-labelledby="votd-heading" className="flex-[1.2] overflow-hidden">
-              <CardContent className="p-4 h-full flex flex-col">
-                <div className="flex items-center justify-between">
-                  <h2 id="votd-heading" className="text-lg font-bold">Verse of the Day</h2>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setVotdExpanded((v) => !v)} aria-expanded={votdExpanded}>
-                      {votdExpanded ? "Hide Details" : "Read More"}
-                    </Button>
-                    
-                  </div>
-                </div>
-                <div className="font-semibold text-blue-700 mt-1 leading-relaxed">
-                  {buildVotdHeadline(verseOfDay ?? undefined) || "No verse available."}
-                </div>
-                {votdExpanded && (
-                  <>
+          {/* Today's Inspiration */}
+          <Card aria-labelledby="inspiration-heading">
+            <CardContent className="p-5">
+              <h2 id="inspiration-heading" className="text-lg font-bold mb-4">Today&apos;s Inspiration</h2>
+              <div className="border rounded-lg">
+                <Tabs defaultValue="verse">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="verse">Verse of the Day</TabsTrigger>
+                    <TabsTrigger value="devotional">Daily Devotional</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="verse" className="p-4">
+                    <blockquote className="text-lg font-semibold text-blue-800 border-l-4 border-blue-300 pl-4">
+                      {buildVotdHeadline(verseOfDay ?? undefined) || "No verse available."}
+                    </blockquote>
                     {!!verseOfDay?.reflection && (
-                      <div className="text-sm text-muted-foreground mt-3 italic line-clamp-3">
+                      <div className="text-sm text-muted-foreground mt-3 italic">
                         {verseOfDay.reflection}
                       </div>
                     )}
                     {!!verseOfDay?.prayer && (
                       <div className="text-sm mt-3">
-                        <span className="font-medium">Prayer:</span>{" "}
-                        <span className="text-muted-foreground">{verseOfDay.prayer}</span>
+                        <p className="font-medium">Prayer:</p>
+                        <p className="text-muted-foreground">{verseOfDay.prayer}</p>
                       </div>
                     )}
-                  </>
-                )}
-              </CardContent>
-            </Card>
-{/* Family Summary: make taller */}
-            <Card aria-labelledby="summary-heading" className="flex-[1.7] overflow-hidden">
-              <CardContent className="p-4 h-full flex flex-col">
-                <h2 id="summary-heading" className="font-bold mb-3">
-                  Family Content Summary &amp; Recommendations
-                </h2>
-                {summaryBulletsVisible && summaryBulletsVisible.length > 0 ? (
-                  <ul className="list-disc pl-5 space-y-2 text-sm">
+                  </TabsContent>
+                  <TabsContent value="devotional" className="p-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <h3 className="text-base font-bold flex items-center">
+                        <BookOpen className="h-5 w-5 mr-2 text-purple-600" />
+                        Today&apos;s Devotional
+                      </h3>
+                      <Button size="sm" variant="outline" onClick={refreshDevotional} disabled={refreshingDevo}>
+                        <RefreshCcw className={`h-4 w-4 ${refreshingDevo ? "animate-spin" : ""}`} />
+                      </Button>
+                    </div>
+                    {devotional ? (
+                      <div className="space-y-3">
+                        {!!devotional.title && <h4 className="font-semibold">{devotional.title}</h4>}
+                        <div
+                          className="text-sm leading-relaxed prose prose-sm max-w-none"
+                          dangerouslySetInnerHTML={{
+                            __html: /<\/?[a-z][\s\S]*>/i.test(devotional.content)
+                              ? devotional.content
+                              : toSafeHtml(devotional.content),
+                          }}
+                        />
+                        {!!devotional.prayer && (
+                          <div className="text-sm mt-3 border-t pt-3">
+                            <p className="font-medium">Prayer:</p>
+                            <p className="text-muted-foreground">{devotional.prayer}</p>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-muted-foreground py-4 text-center">
+                        Click refresh to generate today&apos;s family devotional.
+                      </div>
+                    )}
+                  </TabsContent>
+                </Tabs>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Family Summary */}
+          <Card aria-labelledby="summary-heading" className="bg-gray-50">
+            <CardContent className="p-5">
+              <h2 id="summary-heading" className="text-lg font-bold mb-3">
+                Family Content Summary &amp; Recommendations
+              </h2>
+              {summaryBulletsVisible && summaryBulletsVisible.length > 0 ? (
+                <div className="prose prose-sm max-w-none text-gray-800">
+                  <ul className="space-y-2">
                     {summaryBulletsVisible.map((b, idx) => (
-                      <li key={idx} className="line-clamp-2" dangerouslySetInnerHTML={{ __html: b }} />
+                      <li key={idx} dangerouslySetInnerHTML={{ __html: b }} />
                     ))}
                   </ul>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    {familySummary && "message" in (familySummary as any) && (familySummary as any)?.message
-                      ? (familySummary as any).message
-                      : "No summary available yet. Weekly reports appear after at least one week of family activity."}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-            
-          </div>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  {familySummary && "message" in (familySummary as any) && (familySummary as any)?.message
+                    ? (familySummary as any).message
+                    : "No summary available yet. Weekly reports appear after at least one week of family activity."}
+                </p>
+              )}
+            </CardContent>
+          </Card>
 
-          {/* RIGHT COLUMN */}
-          <div className="flex flex-col gap-4 h-full min-h-0">
-            {/* Recent Alerts */}
-            <Card aria-labelledby="alerts-heading" className="flex-1 overflow-hidden">
-              <CardContent className="p-4 h-full flex flex-col">
-                <h2 id="alerts-heading" className="font-bold mb-3">Recent Alerts</h2>
-                {alertsVisible.length > 0 ? (
-                  <div className="space-y-2 text-sm overflow-auto">
-                    {alertsVisible.map((a, idx) => (
-                      <div key={idx} className="border rounded p-2">
-                        <div className="font-medium">{a.content_name ?? a.title ?? "Content"}</div>
-                        <div className="text-xs text-muted-foreground">
+          {/* Recent Alerts */}
+          <Card>
+            <CardContent className="p-5">
+              <h2 id="alerts-heading" className="text-lg font-bold mb-4">Recent Alerts</h2>
+              {alertsVisible.length > 0 ? (
+                <div className="space-y-3">
+                  {alertsVisible.map((a, idx) => (
+                    <Card key={idx} className="border-l-4 border-red-500 bg-red-50 shadow-sm">
+                      <CardContent className="p-4">
+                        <div className="font-bold text-red-800">{a.content_name ?? a.title ?? "Content"}</div>
+                        <p className="text-sm text-red-700 mt-1">
                           {a.flag_reason || a.guidance_notes || a.reason || "Needs review"}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-6">
-                    <Check className="mx-auto h-8 w-8 text-green-500 mb-2" aria-hidden="true" />
-                    <p className="text-sm text-muted-foreground">No flagged content.</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-           {/* Devotional: make taller */}
-            <Card aria-labelledby="devo-heading" className="flex-[2] overflow-hidden">
-              <CardContent className="p-4 h-full flex flex-col">
-                <div className="flex justify-between items-center mb-1">
-                  <h2 id="devo-heading" className="text-lg font-bold flex items-center">
-                    <BookOpen className="h-5 w-5 mr-2 text-purple-600" />
-                    Today&apos;s Devotional
-                  </h2>
-                  <div className="flex items-center gap-2">
-                    <Badge aria-label="AI generated content" variant="secondary" className="text-xs">AI Generated</Badge>
-                  </div>
-                </div>
-                <div className="flex-1 overflow-auto pr-1 overscroll-contain">
-                  {devotional ? (
-                    <>
-                      {!!devotional.title && <div className="font-semibold mb-2">{devotional.title}</div>}
-                      <div
-                        className="text-sm leading-relaxed text-foreground"
-                        dangerouslySetInnerHTML={{
-                          __html: /<\/?[a-z][\s\S]*>/i.test(devotional.content)
-                            ? devotional.content
-                            : toSafeHtml(devotional.content),
-                        }}
-                      />
-                      {!!devotional.prayer && (
-                        <div className="text-sm mt-3">
-                          <span className="font-medium">Prayer:</span>{" "}
-                          <span className="text-muted-foreground">{devotional.prayer}</span>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <div className="text-sm text-muted-foreground">
-                      Click Refresh to generate today&apos;s family devotional…
-                    </div>
-                  )}
-                </div>
-                {/* Removed expand/collapse button */}
-              </CardContent>
-            </Card>
-
-            {/* Assistant: taller to fill space */}
-            <Card aria-labelledby="chat-heading" className="flex-[3] overflow-hidden">
-              <CardContent className="p-4 h-full flex flex-col min-h-0">
-                <h2 id="chat-heading" className="text-lg font-bold mb-2">Assistant</h2>
-                <div
-                  className="flex-1 border rounded-sm p-2 bg-white overflow-auto overscroll-contain"
-                  role="log"
-                  aria-live="polite"
-                >
-                  {/* Show only the last few messages to avoid overflow */}
-                  {messagesVisible.map((m, i) => (
-                    <div
-                      key={i}
-                      className={`mb-2 text-sm ${m.sender === "bot" ? "text-blue-700" : "text-foreground"}`}
-                    >
-                      {m.text}
-                    </div>
+                        </p>
+                      </CardContent>
+                    </Card>
                   ))}
                 </div>
-                <div className="mt-2 flex">
-                  <input
-                    className="flex-1 border rounded px-2 py-1 text-sm"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    placeholder="Type your message…"
-                    aria-label="Type your message"
-                    disabled={sending}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleSend();
-                    }}
-                  />
-                  <Button size="sm" onClick={handleSend} className="ml-2" disabled={sending}>
-                    {sending ? "Sending…" : "Send"}
-                  </Button>
+              ) : (
+                <div className="p-6 text-center">
+                  <Check className="mx-auto h-10 w-10 text-green-500 mb-2" aria-hidden="true" />
+                  <p className="text-sm text-muted-foreground">No flagged content to review.</p>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       )}
     </ParentLayout>
