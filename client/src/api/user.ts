@@ -1,20 +1,15 @@
 import { User } from "@/types/user";
 
-export const testAuthApi = () => "API is connected";
-
 export async function getMe(): Promise<User> {
   const res = await fetch("/api/user", {
     credentials: "include",
     headers: {
-      "Authorization": `Bearer ${localStorage.getItem("token") || ""}`,
       "Content-Type": "application/json"
     }
   });
 
   if (!res.ok) {
     if (res.status === 401) {
-      // Clear invalid token
-      localStorage.removeItem("token");
     }
     throw new Error("Failed to fetch user");
   }

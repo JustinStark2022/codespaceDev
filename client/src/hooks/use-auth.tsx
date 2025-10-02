@@ -2,9 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useLocation } from "wouter";
 import { User } from "../types/user";
-import { getMe, testAuthApi } from "../api/user";
-
-console.log(testAuthApi()); // Debug: Should print "API is connected"
+import { getMe } from "../api/user";
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
@@ -50,7 +48,6 @@ export function useAuth() {
       method: "POST",
       credentials: "include",
     }).finally(() => {
-      localStorage.removeItem("token");
       setUser(null);
       navigate("/auth");
     });
