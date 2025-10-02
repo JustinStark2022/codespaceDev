@@ -30,28 +30,21 @@ function toClientUser(row: UserRow) {
   };
 }
 
-/** GET /api/user (or /api/user/profile) */
+/** GET /api/user */
 export const getUser = async (req: AuthenticatedRequest, res: Response) => {
   const userId = req.user?.id;
   if (!userId) {
     logger.warn("getUser called without authenticated user.");
     return res.status(401).json({ message: "Unauthorized" });
   }
-
   try {
-    const rows: UserRow[] = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
-
+    const rows = await db.select().from(users).where(eq(users.id, userId)).limit(1);
     const row = rows[0];
     if (!row) {
       logger.warn("User not found in DB for getUser.", { userId });
       return res.status(404).json({ message: "User not found" });
     }
-
-    logger.debug("Successfully fetched user details for getUser.", { userId });
+    logger.debug("Successfully fetched user details.", { userId });
     return res.json(toClientUser(row));
   } catch (err: any) {
     logger.error("Error fetching user in getUser", { err, userId });
@@ -59,72 +52,43 @@ export const getUser = async (req: AuthenticatedRequest, res: Response) => {
   }
 };
 
-/** GET /api/user/children (children for the authenticated parent) */
+/** GET /api/user/children (list children accounts of a parent) */
 export const getChildren = async (req: AuthenticatedRequest, res: Response) => {
-  const parentId = req.user?.id;
-  if (!parentId) {
-    logger.warn("getChildren called without authenticated user (parent).");
-    return res.status(401).json({ message: "Unauthorized" });
+  if (req.user?.role !== "parent") {
+    logger.warn("getChildren called by non-parent user.", { userId: req.user?.id });
+    return res.status(403).json({ message: "Forbidden" });
   }
-
+  const parentId = req.user.id;  // (requireAuth guarantees req.user exists if authenticated)
   try {
-    const children: UserRow[] = await db
-      .select()
-      .from(users)
-      .where(eq(users.parent_id, parentId));
-
-    logger.info("Fetched children for parent.", {
-      parentId,
-      count: children.length,
-    });
-
-    const results = await Promise.all(
-      children.map(async (child: UserRow) => {
-        try {
-          const screenTimeRecords: ScreenTimeRow[] = await db
-            .select()
-            .from(screen_time)
-            .where(eq(screen_time.user_id, child.id));
-
-          const st = screenTimeRecords[0] ?? null;
-
-          const progress: LessonProgressRow[] = await db
-            .select()
-            .from(lesson_progress)
-            .where(eq(lesson_progress.user_id, child.id));
-
-          const completedCount = progress.filter((p) => p.completed).length;
-
-          return {
-            ...toClientUser(child),
-            screenTime: st
-              ? {
-                  allowedTimeMinutes: st.allowed_time_minutes ?? 120,
-                  usedTimeMinutes: st.used_time_minutes ?? 0,
-                  updatedAt: st.updated_at ?? null,
-                }
-              : null,
-            totalLessons: progress.length,
-            completedLessons: completedCount,
-          };
-        } catch (childErr: any) {
-          logger.warn("Error fetching child metrics, using defaults.", {
-            childId: child.id,
-            error: childErr?.message,
-          });
-          return {
-            ...toClientUser(child),
-            screenTime: null,
-            totalLessons: 0,
-            completedLessons: 0,
-          };
-        }
-      })
-    );
-
-    logger.debug("Successfully fetched children details with metrics.", {
-      parentId,
-    });
+    const children = await db.select().from(users).where(eq(users.parent_id, parentId));
+    logger.info("Fetched children for parent.", { parentId, count: children.length });
+    // Fetch additional data for each child (screen time, lesson progress)
+    const results = await Promise.all(children.map(async child => {
+      try {
+        const screenTimeRecords = await db.select().from(screen_time).where(eq(screen_time.user_id, child.id));
+        const st = screenTimeRecords[0] ?? null;
+        const progressRecords = await db.select().from(lesson_progress).where(eq(lesson_progress.user_id, child.id));
+        const completedCount = progressRecords.filter(p => p.completed).length;
+        return {
+          ...toClientUser(child),
+          screenTime: st ? {
+            allowedTimeMinutes: st.allowed_time_minutes ?? 0,
+            usedTimeMinutes: st.used_time_minutes ?? 0,
+            updatedAt: st.updated_at ?? null,
+          } : null,
+          totalLessons: progressRecords.length,
+          completedLessons: completedCount,
+        };
+      } catch (childErr: any) {
+        logger.warn("Error fetching metrics for child, using defaults.", { childId: child.id, error: childErr.message });
+        return {
+          ...toClientUser(child),
+          screenTime: null,
+          totalLessons: 0,
+          completedLessons: 0,
+        };
+      }
+    }));
     return res.json(results);
   } catch (err: any) {
     logger.error("Error fetching children for parent", { err, parentId });
@@ -132,16 +96,14 @@ export const getChildren = async (req: AuthenticatedRequest, res: Response) => {
   }
 };
 
-/** POST /api/user/children (create a child account under the authenticated parent) */
+/** POST /api/user/children (create a new child account) */
 export const createChild = async (req: AuthenticatedRequest, res: Response) => {
-  const {
-    username,
-    password,
-    email,
-    display_name,
-    first_name,
-    last_name,
-  } = req.body as {
+  if (req.user?.role !== "parent") {
+    logger.warn("createChild called by non-parent user.", { userId: req.user?.id });
+    return res.status(403).json({ message: "Forbidden" });
+  }
+  // Extract expected fields (assuming body is parsed from FormData by multer as well as JSON)
+  const { username, password, email, display_name, first_name, last_name } = req.body as {
     username?: string;
     password?: string;
     email?: string | null;
@@ -149,213 +111,114 @@ export const createChild = async (req: AuthenticatedRequest, res: Response) => {
     first_name?: string;
     last_name?: string;
   };
-
-  const parentId = req.user?.id;
-  const role = "child";
-
-  if (!parentId) {
-    logger.warn("createChild called by unauthenticated user.");
-    return res
-      .status(401)
-      .json({ message: "Unauthorized: Parent not authenticated" });
-  }
-
-  if (!username || !password || !display_name || !first_name || !last_name) {
-    logger.warn("Missing required fields for createChild.", {
-      parentId,
-      body: req.body,
-    });
+  const parentId = req.user.id;
+  if (!username || !password || !first_name || !last_name || !display_name) {
+    logger.warn("Missing required fields for createChild.", { parentId, body: req.body });
     return res.status(400).json({ message: "Missing required fields" });
   }
-
   try {
-    const existingUser: UserRow[] = await db
-      .select()
-      .from(users)
-      .where(eq(users.username, username));
-
-    if (existingUser.length) {
-      logger.warn("Attempt to create child with existing username.", {
-        parentId,
-        username,
-      });
+    // Ensure username (and email, if provided) are unique
+    const [existingByUsername] = await db.select().from(users).where(eq(users.username, username));
+    if (existingByUsername) {
+      logger.warn("Username already taken (createChild).", { parentId, username });
       return res.status(400).json({ message: "Username already taken." });
     }
-
     if (email) {
-      const existingEmail: UserRow[] = await db
-        .select()
-        .from(users)
-        .where(eq(users.email, email));
-      if (existingEmail.length) {
-        logger.warn("Attempt to create child with existing email.", {
-          parentId,
-          email,
-        });
+      const [existingByEmail] = await db.select().from(users).where(eq(users.email, email));
+      if (existingByEmail) {
+        logger.warn("Email already registered (createChild).", { parentId, email });
         return res.status(400).json({ message: "Email already registered." });
       }
     }
-
-    const hashedPassword = await bcrypt.hash(password!, 10);
-
-    const inserted = await db
-      .insert(users)
-      .values({
-        username,
-        password: hashedPassword,
-        email: email || null,
-        display_name,
-        role,
-        parent_id: parentId,
-        first_name,
-        last_name,
-      })
-      .returning();
-
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const inserted = await db.insert(users).values({
+      username,
+      password: hashedPassword,
+      email: email || null,
+      display_name,
+      role: "child",
+      parent_id: parentId,
+      first_name,
+      last_name,
+    }).returning();
     const createdChild = inserted[0];
     if (!createdChild) {
-      logger.error("Failed to insert new child user into DB.", {
-        parentId,
-        username,
-      });
+      logger.error("Failed to insert new child user.", { parentId, username });
       return res.status(500).json({ message: "Failed to create user" });
     }
-
-    logger.info("Child account created successfully.", {
-      parentId,
-      childId: createdChild.id,
-      username: createdChild.username,
-    });
-
+    logger.info("Child account created successfully.", { parentId, childId: createdChild.id, username });
     return res.status(201).json(toClientUser(createdChild));
   } catch (err: any) {
-    logger.error("Error creating child account", {
-      parentId,
-      error: err?.message,
-    });
-    return res
-      .status(500)
-      .json({ message: "Failed to create child account." });
+    logger.error("Error creating child account.", { parentId, error: err.message });
+    return res.status(500).json({ message: "Failed to create child account." });
   }
 };
 
-/** GET /api/user/children/:id (child profile owned by parent) */
-export const getChildProfile = async (
-  req: AuthenticatedRequest,
-  res: Response
-) => {
+/** GET /api/user/children/:id (get a specific child’s profile, parent only) */
+export const getChildProfile = async (req: AuthenticatedRequest, res: Response) => {
   const childId = Number(req.params.id);
   const parentId = req.user?.id;
-
   if (!parentId) {
-    logger.warn("getChildProfile called without authenticated parent.");
+    logger.warn("getChildProfile called without auth parent.");
     return res.status(401).json({ message: "Unauthorized" });
   }
-
   if (!Number.isFinite(childId)) {
     return res.status(400).json({ message: "Invalid child id" });
   }
-
   try {
-    const rows: UserRow[] = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, childId))
-      .limit(1);
-
+    const rows = await db.select().from(users).where(eq(users.id, childId)).limit(1);
     const child = rows[0];
     if (!child || child.parent_id !== parentId) {
-      logger.warn("Child not found or doesn't belong to parent.", {
-        parentId,
-        childId,
-      });
+      // Note: returning 404 to avoid revealing whether the child exists if not authorized
+      logger.warn("Child not found or not owned by parent.", { parentId, childId });
       return res.status(404).json({ message: "Child not found" });
     }
-
     logger.debug("Successfully fetched child profile.", { parentId, childId });
     return res.json(toClientUser(child));
   } catch (err: any) {
-    logger.error("Error fetching child profile", {
-      parentId,
-      childId,
-      error: err?.message,
-    });
+    logger.error("Error fetching child profile.", { parentId, childId, error: err.message });
     return res.status(500).json({ message: "Failed to fetch child profile." });
   }
 };
 
-/** PUT /api/user/children/:id (update child basic fields) */
-export const updateChildProfile = async (
-  req: AuthenticatedRequest,
-  res: Response
-) => {
+/** PUT /api/user/children/:id (update a child’s profile fields, parent only) */
+export const updateChildProfile = async (req: AuthenticatedRequest, res: Response) => {
   const childId = Number(req.params.id);
   const parentId = req.user?.id;
-
-  const {
-    first_name,
-    last_name,
-    display_name,
-    email,
-  }: Partial<UserRow> = req.body ?? {};
-
+  const { first_name, last_name, display_name, email } = req.body || {};
   if (!parentId) {
-    logger.warn("updateChildProfile called without authenticated parent.");
+    logger.warn("updateChildProfile called without auth parent.");
     return res.status(401).json({ message: "Unauthorized" });
   }
-
   if (!Number.isFinite(childId)) {
     return res.status(400).json({ message: "Invalid child id" });
   }
-
   try {
-    const rows: UserRow[] = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, childId))
-      .limit(1);
-
+    const rows = await db.select().from(users).where(eq(users.id, childId)).limit(1);
     const existingChild = rows[0];
     if (!existingChild || existingChild.parent_id !== parentId) {
-      logger.warn("Child not found or doesn't belong to parent.", {
-        parentId,
-        childId,
-      });
+      logger.warn("Child not found or not owned by parent (update).", { parentId, childId });
       return res.status(404).json({ message: "Child not found" });
     }
-
+    // Build patch object with only provided fields
     const patch: Partial<typeof users.$inferInsert> = {};
     if (typeof first_name === "string") patch.first_name = first_name;
     if (typeof last_name === "string") patch.last_name = last_name;
     if (typeof display_name === "string") patch.display_name = display_name;
     if (typeof email === "string") patch.email = email;
-
     if (Object.keys(patch).length === 0) {
       return res.status(400).json({ message: "No valid fields to update" });
     }
-
-    const updatedRows = await db
-      .update(users)
-      .set(patch)
-      .where(eq(users.id, childId))
-      .returning();
-
-    const updatedChild = updatedRows[0];
-    if (!updatedChild) {
-      logger.error("Failed to update child profile.", { parentId, childId });
-      return res
-        .status(500)
-        .json({ message: "Failed to update child profile" });
+    const updatedRows = await db.update(users).set(patch).where(eq(users.id, childId)).returning();
+    const updated = updatedRows[0];
+    if (!updated) {
+      logger.error("Failed to update child profile in DB.", { parentId, childId });
+      return res.status(500).json({ message: "Failed to update child profile." });
     }
-
     logger.info("Child profile updated successfully.", { parentId, childId });
-    return res.json(toClientUser(updatedChild));
+    return res.json(toClientUser(updated));
   } catch (err: any) {
-    logger.error("Error updating child profile", {
-      parentId,
-      childId,
-      error: err?.message,
-    });
+    logger.error("Error updating child profile.", { parentId, childId, error: err.message });
     return res.status(500).json({ message: "Failed to update child profile." });
   }
 };

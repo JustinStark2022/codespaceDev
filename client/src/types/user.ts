@@ -2,27 +2,27 @@ export interface User {
   id: number;
   username: string;
   email: string;
-  display_name: string;
+  displayName: string;
   role: "parent" | "child";
-  parent_id?: number;
-  first_name: string;
-  last_name: string;
-  created_at: string;
+  parentId?: number;
+  firstName: string;
+  lastName: string;
+  createdAt: string;
   isParent: boolean;
 }
 
 export interface Child {
   id: number;
   username: string;
-  first_name: string;
-  last_name: string;
-  display_name: string;
+  firstName: string;
+  lastName: string;
+  displayName: string;
   email: string;
-  created_at: string;
+  createdAt: string;
   role: "child";
-  parent_id: number;
+  parentId: number;
   age?: number;
-  profile_picture?: string;
+  profilePicture?: string;
   totalLessons?: number;
   completedLessons?: number;
   screenTime?: {
@@ -35,8 +35,9 @@ export interface ChildFormData {
   username: string;
   password: string;
   email: string;
-  first_name: string;
-  last_name: string;
-  display_name: string;
+  firstName: string;
+  lastName: string;
+  displayName: string;
   age: number;
+  profilePicture?: File | null;
 }
