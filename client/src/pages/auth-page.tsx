@@ -16,10 +16,10 @@ export default function AuthPage() {
   const [form, setForm] = useState({
     username: "",
     password: "",
-    display_name: "",
+    displayName: "",
     email: "",
-    first_name: "",
-    last_name: "",
+    firstName: "",
+    lastName: "",
   });
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -35,45 +35,26 @@ export default function AuthPage() {
 
     try {
       if (mode === "login") {
-        console.log("Attempting login with:", { username: form.username });
-
-        const userData = await login(form.username, form.password);
-        console.log("Login successful:", userData);
-
-
-        // Transform the response to match User interface
-        const user = {
-          id: userData.id,
-          username: userData.username,
-          email: userData.email,
-          display_name: userData.displayName,
-          role: userData.role as "parent" | "child",
-          parent_id: userData.parentId === null ? undefined : userData.parentId,
-          first_name: userData.firstName,
-          last_name: userData.lastName,
-          created_at: userData.createdAt || new Date().toISOString(),
-          isParent: userData.isParent,
-        };
-
+        const user = await login(form.username, form.password);
         setUser(user);
-
-        // Navigate based on role
         const redirectPath =
           user.role === "parent" ? "/dashboard" : "/child-dashboard";
-        console.log("Navigating to:", redirectPath);
         navigate(redirectPath);
       } else {
         // Registration
-        console.log("Attempting registration with:", {
-          ...form,
-          role: "parent",
-        });
-
         const response = await fetch("/api/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ ...form, role: "parent" }),
+          body: JSON.stringify({
+            username: form.username,
+            password: form.password,
+            email: form.email,
+            display_name: form.displayName,
+            first_name: form.firstName,
+            last_name: form.lastName,
+            role: "parent",
+          }),
         });
 
         if (!response.ok) {
@@ -83,23 +64,7 @@ export default function AuthPage() {
           throw new Error(errorData.message || "Registration failed");
         }
 
-        const userData = await response.json();
-        console.log("Registration successful:", userData);
-
-        // Transform response for registration
-        const user = {
-          id: userData.id,
-          username: userData.username || form.username,
-          email: userData.email || form.email,
-          display_name: userData.display_name || form.display_name,
-          role: "parent" as const,
-          parent_id: undefined,
-          first_name: userData.first_name || form.first_name,
-          last_name: userData.last_name || form.last_name,
-          created_at: userData.created_at || new Date().toISOString(),
-          isParent: true,
-        };
-
+        const { user } = await response.json();
         setUser(user);
         navigate("/dashboard");
       }
@@ -152,36 +117,36 @@ export default function AuthPage() {
             {mode === "register" && (
               <>
                 <div>
-                  <Label htmlFor="first_name">First Name</Label>
+                  <Label htmlFor="firstName">First Name</Label>
                   <Input
-                    id="first_name"
-                    name="first_name"
+                    id="firstName"
+                    name="firstName"
                     autoComplete="given-name"
-                    value={form.first_name}
+                    value={form.firstName}
                     onChange={handleChange}
                     required
                     disabled={isSubmitting}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="last_name">Last Name</Label>
+                  <Label htmlFor="lastName">Last Name</Label>
                   <Input
-                    id="last_name"
-                    name="last_name"
+                    id="lastName"
+                    name="lastName"
                     autoComplete="family-name"
-                    value={form.last_name}
+                    value={form.lastName}
                     onChange={handleChange}
                     required
                     disabled={isSubmitting}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="display_name">Display Name</Label>
+                  <Label htmlFor="displayName">Display Name</Label>
                   <Input
-                    id="display_name"
-                    name="display_name"
+                    id="displayName"
+                    name="displayName"
                     autoComplete="nickname"
-                    value={form.display_name}
+                    value={form.displayName}
                     onChange={handleChange}
                     required
                     disabled={isSubmitting}
