@@ -49,10 +49,10 @@ services:
     depends_on:
       - backend
 
-  # ===================================================
-  # ==             DEV CONTAINER SERVICE             ==
-  # ===================================================
-  # This is a lightweight container for VS Code to attach to.
+volumes:
+  node_modules_backend:
+  node_modules_client:
+  devcontainer_bash_history:
   # It mounts the entire workspace and has basic tools installed.
   devcontainer:
     image: alpine:3.20

@@ -4,15 +4,13 @@ import ParentLayout from "@/components/layout/parent-layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, BookOpen, RefreshCcw } from "lucide-react";
+import { Check, BookOpen } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import type { ChatMessage } from "@/types/chat";
 import { initialMessages } from "@/data/messages";
 import {
   getAIDashboard,
   sendChatMessage,
-  getVerseOfTheDay,
-  getDailyDevotional,
 } from "@/api/llm";
 
 // ---- Types ----
@@ -178,42 +176,30 @@ export default function ParentDashboard() {
   const [verseOfDay, setVerseOfDay] = useState<VerseOfDay | null>(null);
   const [devotional, setDevotional] = useState<Devotional | null>(null);
   const [votdExpanded, setVotdExpanded] = useState(false); // NEW: collapse Verse details
-  const [refreshingDevo, setRefreshingDevo] = useState(false);
   const [familySummary, setFamilySummary] = useState<FamilySummary>(null);
   const [children, setChildren] = useState<DashboardChild[]>([]);
   const [recentAlerts, setRecentAlerts] = useState<RecentAlert[]>([]);
 
-  // normalize verse text key
-  const verseText = (v: VerseOfDay | null) => (v?.verse ?? v?.verseText ?? "");
-
-  // StrictMode fetch gate and "already have LLM cache" flag
-  const effectRanRef = useRef(false);
   const hadLlmCacheRef = useRef(false);
 
   useEffect(() => {
-    if (effectRanRef.current) return; // avoid duplicate runs in React 18 StrictMode (dev)
-    effectRanRef.current = true;
-
     const uid = (user as any)?.id;
-    // 1) Load today's LLM cache immediately (freeze LLM parts)
+    if (!uid) return;
+
     const cached = loadLlmDaily(uid);
     if (cached) {
       hadLlmCacheRef.current = true;
       setVerseOfDay(cached.verseOfDay ?? null);
       setDevotional(cached.devotional ?? null);
       setFamilySummary(cached.familySummary ?? null);
+      setLoadingDashboard(false);
     }
 
-    // 2) Fetch dashboard once to populate live, non-LLM parts (children, alerts).
-    //    If no LLM cache exists yet today, also set LLM state and persist it.
     (async () => {
       try {
         const data = (await getAIDashboard()) as AIDashboardResponse;
-        // Always update live parts
         setChildren(Array.isArray(data.children) ? data.children : []);
         setRecentAlerts(Array.isArray(data.recentAlerts) ? data.recentAlerts : []);
-
-        // Only set LLM fields if we did NOT have a cache for today
         if (!hadLlmCacheRef.current) {
           const v = data.verseOfDay ?? null;
           const d = data.devotional ?? null;
@@ -224,13 +210,13 @@ export default function ParentDashboard() {
           saveLlmDaily(uid, { verseOfDay: v, devotional: d, familySummary: f });
           hadLlmCacheRef.current = true;
         }
-      } catch (err) {
-        console.error("Failed to load dashboard:", err);
+      } catch (e) {
+        console.error("Failed to load dashboard:", e);
       } finally {
         setLoadingDashboard(false);
       }
     })();
-  }, [user]); // user dependency for per-user cache
+  }, [user?.id]);
 
   // Limit items so the dashboard fits the viewport without page scroll
   const childrenVisible = children; // show all children (no slicing)
@@ -271,33 +257,6 @@ export default function ParentDashboard() {
     c.name ||
     [c.firstName, c.lastName].filter(Boolean).join(" ").trim() ||
     "Child";
-
-  const refreshVerse = async () => {
-    try {
-      const v = (await getVerseOfTheDay()) as VerseOfDay;
-      setVerseOfDay(v);
-      // Persist new verse for today so it stays fixed the rest of the day
-      const uid = (user as any)?.id;
-      saveLlmDaily(uid, { verseOfDay: v });
-    } catch (e) {
-      console.error("Failed to refresh verse", e);
-    }
-  };
-
-  const refreshDevotional = async () => {
-    try {
-      setRefreshingDevo(true);
-      const d = (await getDailyDevotional()) as Devotional;
-      setDevotional(d);
-      // setDevoExpanded(true); // removed: no expand/collapse, card is scrollable
-      const uid = (user as any)?.id;
-      saveLlmDaily(uid, { devotional: d });
-    } catch (e) {
-      console.error("Failed to refresh devotional", e);
-    } finally {
-      setRefreshingDevo(false);
-    }
-  };
 
   // ---- UI ----
   return (
@@ -396,10 +355,9 @@ export default function ParentDashboard() {
                 <div className="flex items-center justify-between">
                   <h2 id="votd-heading" className="text-lg font-bold">Verse of the Day</h2>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setVotdExpanded((v) => !v)} aria-expanded={votdExpanded}>
+                    <Button variant="outline" size="sm" onClick={() => setVotdExpanded(v => !v)} aria-expanded={votdExpanded}>
                       {votdExpanded ? "Hide Details" : "Read More"}
                     </Button>
-                    
                   </div>
                 </div>
                 <div className="font-semibold text-blue-700 mt-1 leading-relaxed">
