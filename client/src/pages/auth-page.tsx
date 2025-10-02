@@ -40,10 +40,6 @@ export default function AuthPage() {
         const userData = await login(form.username, form.password);
         console.log("Login successful:", userData);
 
-        // Store token if provided
-        if (userData.token) {
-          localStorage.setItem("token", userData.token);
-        }
 
         // Transform the response to match User interface
         const user = {
@@ -89,10 +85,6 @@ export default function AuthPage() {
 
         const userData = await response.json();
         console.log("Registration successful:", userData);
-
-        if (userData.token) {
-          localStorage.setItem("token", userData.token);
-        }
 
         // Transform response for registration
         const user = {
