@@ -5,10 +5,12 @@ services:
   backend:
     build:
       context: ./node_backend
+      # If your Dockerfile doesn't have a `development` stage,
+      # remove the next line or rename it to the correct stage.
       target: development
     container_name: backend
     ports:
-      - "3001:3001"            # was "3000:3000"
+      - "3001:3001"
     volumes:
       - ./node_backend:/app
       - node_modules_backend:/app/node_modules
@@ -16,10 +18,12 @@ services:
       - .env
     command: npm run dev
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:3001/health"]  # was 3000
+      # Use wget (available in Alpine/busybox) instead of curl
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3001/health >/dev/null 2>&1 || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 15s
     restart: unless-stopped
 
   # ===================================================
@@ -28,6 +32,8 @@ services:
   frontend:
     build:
       context: ./client
+      # If your Dockerfile doesn't have a `development` stage,
+      # remove the next line or rename it to the correct stage.
       target: development
     container_name: frontend
     ports:
@@ -37,37 +43,33 @@ services:
       - node_modules_client:/app/node_modules
     env_file:
       - .env
-    # The --host flag is crucial for Vite's HMR to work in Docker
     command: npm run dev -- --host --port 5173
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:5173"]
+      # Vite dev server root
+      test: ["CMD-SHELL", "wget -qO- http://localhost:5173 >/dev/null 2>&1 || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 15s # Give Vite time to start up
+      start_period: 15s
     restart: unless-stopped
     depends_on:
       - backend
 
-volumes:
-  node_modules_backend:
-  node_modules_client:
-  devcontainer_bash_history:
-  # It mounts the entire workspace and has basic tools installed.
+  # ===================================================
+  # ==             DEVCONTAINER (UTILITY)            ==
+  # ===================================================
   devcontainer:
     image: alpine:3.20
     container_name: devcontainer
-    # Keep the container running
     command: sleep infinity
     volumes:
-      # Mount the entire project directory
       - .:/workspace:cached
-      # Persist bash history
       - devcontainer_bash_history:/root/.bash_history
-    # Make sure the dev container stays up so backend/frontend can run
     restart: unless-stopped
 
 volumes:
   node_modules_backend:
   node_modules_client:
   devcontainer_bash_history:
+  app-data:
+    driver: local

@@ -1,5 +1,5 @@
 // client/src/components/pages/parent-dashboard.tsx
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import ParentLayout from "@/components/layout/parent-layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -164,8 +164,6 @@ const fmtMinutes = (m?: number | null): string => {
 // ---- Component ----
 export default function ParentDashboard() {
   const { user } = useAuth();
-  const chatEndRef = useRef<HTMLDivElement>(null);
-
   // chat state
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [input, setInput] = useState("");
@@ -180,7 +178,7 @@ export default function ParentDashboard() {
   const [children, setChildren] = useState<DashboardChild[]>([]);
   const [recentAlerts, setRecentAlerts] = useState<RecentAlert[]>([]);
 
-  const hadLlmCacheRef = useRef(false);
+  const hadLlmCacheRef = React.useRef(false);
 
   useEffect(() => {
     const uid = (user as any)?.id;
@@ -224,13 +222,12 @@ export default function ParentDashboard() {
   const summaryBulletsVisible = Array.isArray(familySummary?.bullets)
     ? familySummary!.bullets!.slice(0, 3)
     : null;
-  const messagesVisible = messages.slice(-6);
 
   // ---- Actions ----
   const handleSend = async () => {
     if (!input.trim() || sending) return;
     const prompt = input;
-    setMessages((msgs) => [...msgs, { sender: "user", text: prompt }]);
+    setMessages(msgs => [...msgs, { sender: "user", text: prompt }]);
     setInput("");
     setSending(true);
     try {
@@ -240,15 +237,14 @@ export default function ParentDashboard() {
         "Parent dashboard: provide adult, parenting-focused guidance with Scripture-based, practical steps. No UI instructions, no greetings."
       );
       const reply = typeof r?.response === "string" ? r.response : r;
-      setMessages((msgs) => [...msgs, { sender: "bot", text: String(reply ?? "…") }]);
+      setMessages(msgs => [...msgs, { sender: "bot", text: String(reply ?? "…") }]);
     } catch {
-      setMessages((msgs) => [
+      setMessages(msgs => [
         ...msgs,
-        { sender: "bot", text: "I'm having trouble connecting… please try again." },
+        { sender: "bot", text: "I'm having trouble connecting… please try again." }
       ]);
     } finally {
       setSending(false);
-      setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
     }
   };
 
@@ -273,7 +269,7 @@ export default function ParentDashboard() {
               <CardContent className="p-4 h-full flex flex-col min-h-0">
                 <h2 id="children-heading" className="font-bold mb-3">Children</h2>
                 {childrenVisible.length > 0 ? (
-                  <div className="flex-1 overflow-visible">
+                  <div className="flex-1">
                     <table className="w-full text-sm" role="table" aria-label="Children overview">
                       <thead className="text-muted-foreground">
                         <tr>
@@ -354,23 +350,26 @@ export default function ParentDashboard() {
               <CardContent className="p-4 h-full flex flex-col">
                 <div className="flex items-center justify-between">
                   <h2 id="votd-heading" className="text-lg font-bold">Verse of the Day</h2>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setVotdExpanded(v => !v)} aria-expanded={votdExpanded}>
-                      {votdExpanded ? "Hide Details" : "Read More"}
-                    </Button>
-                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setVotdExpanded(v => !v)}
+                    aria-expanded={votdExpanded}
+                  >
+                    {votdExpanded ? "Hide Details" : "Read More"}
+                  </Button>
                 </div>
                 <div className="font-semibold text-blue-700 mt-1 leading-relaxed">
                   {buildVotdHeadline(verseOfDay ?? undefined) || "No verse available."}
                 </div>
                 {votdExpanded && (
                   <>
-                    {!!verseOfDay?.reflection && (
+                    {verseOfDay?.reflection && (
                       <div className="text-sm text-muted-foreground mt-3 italic line-clamp-3">
                         {verseOfDay.reflection}
                       </div>
                     )}
-                    {!!verseOfDay?.prayer && (
+                    {verseOfDay?.prayer && (
                       <div className="text-sm mt-3">
                         <span className="font-medium">Prayer:</span>{" "}
                         <span className="text-muted-foreground">{verseOfDay.prayer}</span>
@@ -386,17 +385,16 @@ export default function ParentDashboard() {
                 <h2 id="summary-heading" className="font-bold mb-3">
                   Family Content Summary &amp; Recommendations
                 </h2>
-                {summaryBulletsVisible && summaryBulletsVisible.length > 0 ? (
+                {Array.isArray(familySummary?.bullets) && familySummary!.bullets!.length > 0 ? (
                   <ul className="list-disc pl-5 space-y-2 text-sm">
-                    {summaryBulletsVisible.map((b, idx) => (
+                    {familySummary!.bullets!.slice(0, 3).map((b, idx) => (
                       <li key={idx} className="line-clamp-2" dangerouslySetInnerHTML={{ __html: b }} />
                     ))}
                   </ul>
                 ) : (
                   <p className="text-sm text-muted-foreground">
-                    {familySummary && "message" in (familySummary as any) && (familySummary as any)?.message
-                      ? (familySummary as any).message
-                      : "No summary available yet. Weekly reports appear after at least one week of family activity."}
+                    {(familySummary as any)?.message ||
+                      "No summary available yet. Weekly reports appear after at least one week of family activity."}
                   </p>
                 )}
               </CardContent>
@@ -410,9 +408,9 @@ export default function ParentDashboard() {
             <Card aria-labelledby="alerts-heading" className="flex-1 overflow-hidden">
               <CardContent className="p-4 h-full flex flex-col">
                 <h2 id="alerts-heading" className="font-bold mb-3">Recent Alerts</h2>
-                {alertsVisible.length > 0 ? (
+                {recentAlerts.slice(0, 4).length > 0 ? (
                   <div className="space-y-2 text-sm overflow-auto">
-                    {alertsVisible.map((a, idx) => (
+                    {recentAlerts.slice(0, 4).map((a, idx) => (
                       <div key={idx} className="border rounded p-2">
                         <div className="font-medium">{a.content_name ?? a.title ?? "Content"}</div>
                         <div className="text-xs text-muted-foreground">
@@ -438,14 +436,16 @@ export default function ParentDashboard() {
                     <BookOpen className="h-5 w-5 mr-2 text-purple-600" />
                     Today&apos;s Devotional
                   </h2>
-                  <div className="flex items-center gap-2">
-                    <Badge aria-label="AI generated content" variant="secondary" className="text-xs">AI Generated</Badge>
-                  </div>
+                  <Badge aria-label="AI generated content" variant="secondary" className="text-xs">
+                    AI Generated
+                  </Badge>
                 </div>
                 <div className="flex-1 overflow-auto pr-1 overscroll-contain">
                   {devotional ? (
                     <>
-                      {!!devotional.title && <div className="font-semibold mb-2">{devotional.title}</div>}
+                      {devotional.title && (
+                        <div className="font-semibold mb-2">{devotional.title}</div>
+                      )}
                       <div
                         className="text-sm leading-relaxed text-foreground"
                         dangerouslySetInnerHTML={{
@@ -454,7 +454,7 @@ export default function ParentDashboard() {
                             : toSafeHtml(devotional.content),
                         }}
                       />
-                      {!!devotional.prayer && (
+                      {devotional.prayer && (
                         <div className="text-sm mt-3">
                           <span className="font-medium">Prayer:</span>{" "}
                           <span className="text-muted-foreground">{devotional.prayer}</span>
@@ -463,11 +463,10 @@ export default function ParentDashboard() {
                     </>
                   ) : (
                     <div className="text-sm text-muted-foreground">
-                      Click Refresh to generate today&apos;s family devotional…
+                      Devotional not available.
                     </div>
                   )}
                 </div>
-                {/* Removed expand/collapse button */}
               </CardContent>
             </Card>
 
@@ -480,8 +479,7 @@ export default function ParentDashboard() {
                   role="log"
                   aria-live="polite"
                 >
-                  {/* Show only the last few messages to avoid overflow */}
-                  {messagesVisible.map((m, i) => (
+                  {messages.slice(-6).map((m, i) => (
                     <div
                       key={i}
                       className={`mb-2 text-sm ${m.sender === "bot" ? "text-blue-700" : "text-foreground"}`}
@@ -494,11 +492,11 @@ export default function ParentDashboard() {
                   <input
                     className="flex-1 border rounded px-2 py-1 text-sm"
                     value={input}
-                    onChange={(e) => setInput(e.target.value)}
+                    onChange={e => setInput(e.target.value)}
                     placeholder="Type your message…"
                     aria-label="Type your message"
                     disabled={sending}
-                    onKeyDown={(e) => {
+                    onKeyDown={e => {
                       if (e.key === "Enter") handleSend();
                     }}
                   />

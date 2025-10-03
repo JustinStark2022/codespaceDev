@@ -4,7 +4,7 @@ import { apiRequest } from "@/lib/queryClient";
 
 const API_BASE = import.meta.env.VITE_API_BASE || ""; // keep relative by default
 
-async function fetchJson(path: string, init?: RequestInit) {
+async function fetchJson<T = any>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     credentials: "include",
     headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
@@ -27,7 +27,7 @@ export const getAIDashboard = async () => {
   } catch {
     // graceful minimal fallback
     const [verseOfDay, devotional] = await Promise.all([
-      fetchJson(`${API_BASE}/api/ai/verse-of-day`).catch(() => null),
+      fetchJson(`${API_BASE}/api/ai/verse-of-the-day`).catch(() => null),
       fetchJson(`${API_BASE}/api/ai/devotional`).catch(() => null),
     ]);
     return { verseOfDay, devotional, familySummary: null, children: [], recentAlerts: [] };
@@ -38,7 +38,7 @@ export const getAIDashboard = async () => {
  * VERSE OF THE DAY
  * GET /api/ai/verse-of-the-day (primary)
  * ------------------------------------------------------------------ */
-export const getVerseOfTheDay = () => fetchJson(`${API_BASE}/api/ai/verse-of-day`);
+export const getVerseOfTheDay = () => fetchJson(`${API_BASE}/api/ai/verse-of-the-day`);
 
 /* ------------------------------------------------------------------
  * DEVOTIONAL
@@ -127,23 +127,10 @@ export const generateCustomLesson = async (data: {
   return res.json();
 };
 
-// Blog (existing)
+/* ------------------------------------------------------------------
+ * BLOG (existing)
+ * ------------------------------------------------------------------ */
 export const generateParentBlog = async (data: {
-  topic?: string;
-  category?: string;
-}) => {
-  const res = await apiRequest("POST", "/api/blog/parent", data);
-  return res.json();
-};
-
-export const generateKidsBlog = async (data: {
-  topic?: string;
-  age?: number;
-  category?: string;
-}) => {
-  const res = await apiRequest("POST", "/api/blog/kids", data);
-  return res.json();
-};
   topic?: string;
   category?: string;
 }) => {
