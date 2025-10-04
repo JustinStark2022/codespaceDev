@@ -16,6 +16,10 @@ services:
       - node_modules_backend:/app/node_modules
     env_file:
       - .env
+    environment:
+      # remove secrets already in .env; keep only overrides if any
+      NODE_ENV: development
+      PORT: "3001"
     command: npm run dev
     healthcheck:
       # Use wget (available in Alpine/busybox) instead of curl
@@ -42,7 +46,10 @@ services:
       - ./client:/app
       - node_modules_client:/app/node_modules
     env_file:
-      - .env
+      - .env.client
+    environment:
+      NODE_ENV: development
+      # remove VITE_* here (now in .env.client); CHOKIDAR_* also moved
     command: npm run dev -- --host --port 5173
     healthcheck:
       # Vite dev server root
