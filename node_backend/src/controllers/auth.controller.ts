@@ -1,13 +1,11 @@
 // src/controllers/auth.controller.ts
-// src/controllers/auth.controller.ts
 import { Request, Response, type CookieOptions } from "express";
 import { db } from "@/db/db";
 import { users } from "@/db/schema";
-import { generateToken } from "@/utils/token";
+import { signAuthToken } from "@/middleware/auth.middleware";
 import logger from "@/utils/logger";
 
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 
@@ -19,7 +17,7 @@ const newUserSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
   username: z.string().min(3),
-  display_name: z.string().min(1),
+  // display_name is NOT in schema → remove from payload; we derive it later
   role: z.enum(["parent", "child"]),
   parent_id: z
     .union([z.number(), z.string()])
@@ -39,23 +37,23 @@ const loginSchema = z.object({
 
 /** ─────────────────────────────────────────────────────────
  * Cookie options
- * Make sure this matches your client + environment.
  * ───────────────────────────────────────────────────────── */
 const COOKIE_OPTS: CookieOptions = {
   httpOnly: true,
   sameSite: "lax",
-  secure: process.env.NODE_ENV === "production", // false on localhost/http
+  secure: process.env.NODE_ENV === "production",
   maxAge: 1000 * 60 * 60 * 24, // 24h
-  path: "/", // important so clearCookie matches
+  path: "/",
 };
 
-/** Helper to return a safe user payload */
+/** Return a safe user payload (derive displayName from first/last) */
 function safeUser(u: typeof users.$inferSelect) {
+  const displayName = [u.first_name, u.last_name].filter(Boolean).join(" ").trim();
   return {
     id: u.id,
     username: u.username,
     email: u.email,
-    displayName: u.display_name,
+    displayName,
     role: u.role,
     parentId: u.parent_id,
     firstName: u.first_name,
@@ -75,7 +73,6 @@ export const registerUser = async (req: Request, res: Response) => {
       username,
       password,
       email,
-      display_name,
       role,
       parent_id,
       first_name,
@@ -103,15 +100,15 @@ export const registerUser = async (req: Request, res: Response) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // NOTE: do NOT pass display_name — it doesn't exist in schema
     const inserted = (await db
       .insert(users)
       .values({
         username,
         password: hashedPassword,
         email,
-        display_name,
         role,
-        parent_id: role === "child" ? parent_id ?? null : null,
+        parent_id: role === "child" ? (parent_id ?? null) : null,
         first_name,
         last_name,
       })
@@ -123,26 +120,25 @@ export const registerUser = async (req: Request, res: Response) => {
       return res.status(500).json({ message: "Internal server error" });
     }
 
-    // Use your existing helper so token shape matches middleware
-    const token = generateToken(createdUser.id, createdUser.role);
+    const token = signAuthToken({ id: createdUser.id, role: createdUser.role });
+    res.cookie("access_token", token, COOKIE_OPTS);
+    res.clearCookie("token"); // remove legacy name if present
 
     logger.info("User registered successfully.", {
       userId: createdUser.id,
       username: createdUser.username,
     });
 
-    res.cookie("token", token, COOKIE_OPTS);
-
-    // Return token as well so client can store in localStorage
     return res.status(201).json({
       message: "Registered",
-      token,
       user: safeUser(createdUser),
     });
   } catch (err: any) {
     if (err instanceof z.ZodError) {
       logger.warn("Validation error during registration.", { issues: err.errors });
-      return res.status(400).json({ message: err.errors[0]?.message ?? "Invalid input" });
+      return res
+        .status(400)
+        .json({ message: err.errors[0]?.message ?? "Invalid input" });
     }
     logger.error(`Error during user registration: ${err.message}`, { stack: err.stack });
     return res.status(500).json({ message: "Internal server error" });
@@ -167,6 +163,7 @@ export const loginUser = async (req: Request, res: Response) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
+    // Drizzle select includes password; narrow type to include it
     const user = found[0] as typeof users.$inferSelect & { password?: string };
 
     const ok = user.password ? await bcrypt.compare(password, user.password) : false;
@@ -175,11 +172,9 @@ export const loginUser = async (req: Request, res: Response) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // Keep JWT shape consistent with middleware: at least { id, role }
-    // Use your helper for consistency with register.
-    const token = generateToken(user.id, user.role);
-
-    res.cookie("token", token, COOKIE_OPTS);
+    const token = signAuthToken({ id: user.id, role: user.role });
+    res.cookie("access_token", token, COOKIE_OPTS);
+    res.clearCookie("token"); // legacy cleanup
 
     logger.info("User logged in successfully.", {
       userId: user.id,
@@ -189,7 +184,6 @@ export const loginUser = async (req: Request, res: Response) => {
 
     return res.json({
       message: "Logged in",
-      token, // client stores this in localStorage; queryClient also sends cookie
       user: safeUser(user),
     });
   } catch (err: any) {
@@ -206,22 +200,19 @@ export const loginUser = async (req: Request, res: Response) => {
  * POST /api/logout
  * ───────────────────────────────────────────────────────── */
 export const logoutUser = (_req: Request & { user?: { id: number } }, res: Response) => {
-  // Use same cookie attributes to clear properly
-  res.clearCookie("token", { ...COOKIE_OPTS });
+  res.clearCookie("access_token", { ...COOKIE_OPTS });
+  res.clearCookie("token", { ...COOKIE_OPTS }); // legacy
   return res.json({ message: "Logged out successfully." });
 };
 
 /** ─────────────────────────────────────────────────────────
  * GET /api/user (aka getMe)
- * Make sure this route is protected by requireAuth middleware.
  * ───────────────────────────────────────────────────────── */
 export const getMe = async (req: Request & { user?: { id: number } }, res: Response) => {
   const userId = req.user?.id;
   if (!userId) {
     logger.warn("getMe called without authenticated user.");
     return res.status(401).json({ message: "Not authenticated." });
-    // If you ever want to support token in header during getMe without middleware,
-    // move verification logic here — but prefer keeping it in requireAuth.
   }
 
   try {

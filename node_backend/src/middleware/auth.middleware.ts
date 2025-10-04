@@ -40,7 +40,10 @@ export function signAuthToken(payload: AuthPayload, opts?: SignOpts) {
   return jwt.sign(claims, JWT_SECRET, options);
 }
 
-const AUTH_COOKIE_KEYS = ["access_token", "token"];
+export const TOKEN_COOKIE_CANDIDATES = ["access_token", "token"];
+const AUTH_COOKIE_KEYS = TOKEN_COOKIE_CANDIDATES;
+
+// Removed bearer/Authorization header support (cookie-only, intentional)
 
 function readCookieToken(req: Request): string | null {
   const cookies = (req as any).cookies;
@@ -52,19 +55,21 @@ function readCookieToken(req: Request): string | null {
 }
 
 export function requireAuth(req: AuthedRequest, res: Response, next: NextFunction) {
+  // HttpOnly cookie-only auth: cookie-parser must have populated req.cookies
   if (!(req as any).cookies) {
     logger.error("cookie-parser not registered before requireAuth");
     if (process.env.NODE_ENV !== "production") res.setHeader("X-Auth-Debug", "missing_cookie_parser");
     return res.status(500).json({ message: "Server misconfiguration" });
   }
   try {
-    const token = readCookieToken(req);
+    const token = readCookieToken(req); // cookie only
     if (!token) {
       if (process.env.NODE_ENV !== "production") res.setHeader("X-Auth-Debug", "missing_cookie_token");
       return res.status(401).json({ message: "Unauthorized" });
     }
-    const decoded = jwt.verify(token, JWT_SECRET) as jwt.JwtPayload & TokenClaims;
-    const id = Number(decoded.sub);
+    const decoded = jwt.verify(token, JWT_SECRET) as (jwt.JwtPayload & Partial<TokenClaims> & { id?: string | number });
+    const rawId = (decoded as any).sub ?? (decoded as any).id;
+    const id = Number(rawId);
     if (!Number.isFinite(id)) {
       if (process.env.NODE_ENV !== "production") res.setHeader("X-Auth-Debug", "invalid_id");
       return res.status(401).json({ message: "Unauthorized" });
@@ -77,12 +82,4 @@ export function requireAuth(req: AuthedRequest, res: Response, next: NextFunctio
     if (process.env.NODE_ENV !== "production") res.setHeader("X-Auth-Debug", code);
     return res.status(401).json({ message: "Unauthorized" });
   }
-}
-
-export function requireRole(...roles: string[]) {
-  return (req: AuthedRequest, res: Response, next: NextFunction) => {
-    const r = req.user?.role;
-    if (!r || !roles.includes(r)) return res.status(403).json({ message: "Forbidden" });
-    next();
-  };
 }

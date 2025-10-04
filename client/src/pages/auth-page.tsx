@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { useLocation } from "wouter";
 import Logo from "@/components/ui/logo";
 
+const API_BASE = import.meta.env.VITE_API_URL || "";
+
 export default function AuthPage() {
   const { setUser } = useAuth();
   const [, navigate] = useLocation();
@@ -42,7 +44,7 @@ export default function AuthPage() {
         navigate(redirectPath);
       } else {
         // Registration
-        const response = await fetch("/api/register", {
+        const response = await fetch(`${API_BASE}/api/register`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",

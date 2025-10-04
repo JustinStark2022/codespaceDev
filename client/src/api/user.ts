@@ -1,7 +1,9 @@
 import { User } from "@/types/user";
 
+const API_BASE = import.meta.env.VITE_API_URL || "";
+
 export async function getMe(): Promise<User> {
-  const res = await fetch("/api/user", {
+  const res = await fetch(`${API_BASE}/api/user`, {
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
@@ -22,7 +24,7 @@ export async function getMe(): Promise<User> {
 }
 
 export async function login(username: string, password: string): Promise<User> {
-  const response = await fetch("/api/login", {
+  const response = await fetch(`${API_BASE}/api/login`, {
     method: "POST",
     credentials: "include",
     headers: {
