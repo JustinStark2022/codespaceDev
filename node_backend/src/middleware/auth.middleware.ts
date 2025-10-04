@@ -1,3 +1,4 @@
+// node_backend/src/middleware/auth.middleware.ts
 import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import logger from "@/utils/logger";
@@ -7,10 +8,11 @@ const requireEnv = (k: string) => {
   if (!v) throw new Error(`${k} missing`);
   return v;
 };
-const JWT_SECRET = requireEnv("JWT_SECRET");
 
-// Optional: centralize expiration (frontend should know only for refresh timing, not decode secret)
-const JWT_EXPIRES = process.env.JWT_EXPIRES || "15m";
+// Make TS happy with jsonwebtoken overloads
+const JWT_SECRET: jwt.Secret = requireEnv("JWT_SECRET");
+const JWT_EXPIRES: jwt.SignOptions["expiresIn"] =
+  (process.env.JWT_EXPIRES ?? "7d") as jwt.SignOptions["expiresIn"];
 
 export interface AuthPayload {
   id: number;
@@ -21,22 +23,28 @@ export interface AuthedRequest extends Request {
   user?: AuthPayload;
 }
 
-// Helper used by login route (keep payload minimal)
-export function signAuthToken(payload: AuthPayload, opts?: { expiresIn?: string | number }) {
-  return jwt.sign(
-    { sub: payload.id, role: payload.role },
-    JWT_SECRET,
-    { expiresIn: opts?.expiresIn ?? JWT_EXPIRES }
-  );
+interface TokenClaims {
+  sub: string;
+  role?: string;
 }
 
-// Cookie-only auth (httpOnly). Frontend must send credentials: 'include'.
+// Narrow the opts type to only the field we use, with the exact type expected
+type SignOpts = { expiresIn?: jwt.SignOptions["expiresIn"] };
+
+export function signAuthToken(payload: AuthPayload, opts?: SignOpts) {
+  const claims: TokenClaims = { sub: String(payload.id), role: payload.role };
+  // Explicitly annotate the options object so the correct overload is selected
+  const options: jwt.SignOptions = {
+    expiresIn: opts?.expiresIn ?? JWT_EXPIRES,
+  };
+  return jwt.sign(claims, JWT_SECRET, options);
+}
+
 const AUTH_COOKIE_KEYS = ["access_token", "token"];
 
-// Only support secure HTTPOnly cookies. No Authorization header fallback (intentional).
 function readCookieToken(req: Request): string | null {
   const cookies = (req as any).cookies;
-  if (!cookies) return null; // cookie-parser not mounted
+  if (!cookies) return null;
   for (const k of AUTH_COOKIE_KEYS) {
     if (cookies[k]) return cookies[k];
   }
@@ -44,27 +52,25 @@ function readCookieToken(req: Request): string | null {
 }
 
 export function requireAuth(req: AuthedRequest, res: Response, next: NextFunction) {
-  // Detect missing cookie-parser early (must be: app.use(cookieParser()); before routes)
   if (!(req as any).cookies) {
-    logger.error("cookie-parser middleware not registered before requireAuth");
+    logger.error("cookie-parser not registered before requireAuth");
     if (process.env.NODE_ENV !== "production") res.setHeader("X-Auth-Debug", "missing_cookie_parser");
     return res.status(500).json({ message: "Server misconfiguration" });
   }
   try {
-    const token = readCookieToken(req); // cookie only
+    const token = readCookieToken(req);
     if (!token) {
       if (process.env.NODE_ENV !== "production") res.setHeader("X-Auth-Debug", "missing_cookie_token");
       return res.status(401).json({ message: "Unauthorized" });
     }
-    const decoded = jwt.verify(token, JWT_SECRET) as { sub?: string | number; id?: number; role?: string };
-    const rawId = decoded.sub ?? decoded.id;
-    const id = typeof rawId === "string" ? Number(rawId) : rawId;
+    const decoded = jwt.verify(token, JWT_SECRET) as jwt.JwtPayload & TokenClaims;
+    const id = Number(decoded.sub);
     if (!Number.isFinite(id)) {
       if (process.env.NODE_ENV !== "production") res.setHeader("X-Auth-Debug", "invalid_id");
       return res.status(401).json({ message: "Unauthorized" });
     }
-    req.user = { id: Number(id), role: decoded.role };
-    return next();
+    req.user = { id, role: decoded.role };
+    next();
   } catch (err: any) {
     const code = err?.name === "TokenExpiredError" ? "expired" : "verify_failed";
     logger.warn("Auth verify failed", { error: err?.message, code });
@@ -80,7 +86,3 @@ export function requireRole(...roles: string[]) {
     next();
   };
 }
-
-// Frontend removal instructions:
-// Search & remove Authorization: Bearer usage in frontend code.
-// Only HTTPOnly cookies are used for authentication.
