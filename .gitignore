@@ -82,6 +82,7 @@ temp/
 # Logs
 logs
 *.log
+backend_test.log
 
 # Database
 *.sqlite
