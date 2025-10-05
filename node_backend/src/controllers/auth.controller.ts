@@ -1,9 +1,10 @@
 // src/controllers/auth.controller.ts
 import { Request, Response, type CookieOptions } from "express";
 import { db } from "@/db/db";
-import { users } from "@/db/schema";
+import { users, dailyVerses } from "@/db/schema";
 import { signAuthToken } from "@/middleware/auth.middleware";
 import logger from "@/utils/logger";
+import { llmService } from "@/services/llm.service";
 
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
@@ -17,7 +18,7 @@ const newUserSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
   username: z.string().min(3),
-  // display_name is NOT in schema → remove from payload; we derive it later
+  display_name: z.string().min(1),  // accept from client to match DB column
   role: z.enum(["parent", "child"]),
   parent_id: z
     .union([z.number(), z.string()])
@@ -48,20 +49,25 @@ const COOKIE_OPTS: CookieOptions = {
 
 /** Return a safe user payload (derive displayName from first/last) */
 function safeUser(u: typeof users.$inferSelect) {
-  const displayName = [u.first_name, u.last_name].filter(Boolean).join(" ").trim();
   return {
     id: u.id,
     username: u.username,
     email: u.email,
-    displayName,
+    displayName: u.display_name,     // map DB -> camelCase
     role: u.role,
     parentId: u.parent_id,
     firstName: u.first_name,
     lastName: u.last_name,
     createdAt: u.created_at,
+    age: u.age ?? null,
+    profilePicture: u.profile_picture ?? null,
     isParent: u.role === "parent",
   };
 }
+
+// Singleton per-day generation state (non-blocking)
+let verseGenDate = "";
+let verseGenPromise: Promise<void> | null = null;
 
 /** ─────────────────────────────────────────────────────────
  * POST /api/register
@@ -77,6 +83,7 @@ export const registerUser = async (req: Request, res: Response) => {
       parent_id,
       first_name,
       last_name,
+      display_name, // now parsed directly
     } = parsed;
 
     // Uniqueness checks
@@ -100,13 +107,13 @@ export const registerUser = async (req: Request, res: Response) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // NOTE: do NOT pass display_name — it doesn't exist in schema
     const inserted = (await db
       .insert(users)
       .values({
         username,
         password: hashedPassword,
         email,
+        display_name,  // use provided value
         role,
         parent_id: role === "child" ? (parent_id ?? null) : null,
         first_name,
@@ -163,7 +170,6 @@ export const loginUser = async (req: Request, res: Response) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // Drizzle select includes password; narrow type to include it
     const user = found[0] as typeof users.$inferSelect & { password?: string };
 
     const ok = user.password ? await bcrypt.compare(password, user.password) : false;
@@ -206,7 +212,7 @@ export const logoutUser = (_req: Request & { user?: { id: number } }, res: Respo
 };
 
 /** ─────────────────────────────────────────────────────────
- * GET /api/user (aka getMe)
+ * GET /api/user (aka getMe) - returns { user, children, verseOfDay }
  * ───────────────────────────────────────────────────────── */
 export const getMe = async (req: Request & { user?: { id: number } }, res: Response) => {
   const userId = req.user?.id;
@@ -222,10 +228,128 @@ export const getMe = async (req: Request & { user?: { id: number } }, res: Respo
       return res.status(404).json({ message: "User not found." });
     }
 
-    logger.debug("Successfully fetched user details for getMe.", { userId });
-    return res.json(safeUser(found));
+    // Children (role=child, parent_id = userId)
+    const childRows = await db.select().from(users).where(eq(users.parent_id, userId));
+    const children = childRows
+      .filter((c) => c.role === "child")
+      .map(safeUser);
+
+    // Optionally include a verse of the day for parents (using LLM + cache table)
+    let verseOfDay:
+      | { reference: string; verseText: string; reflection?: string; prayer?: string }
+      | null = null;
+    let isVerseGenerating = false;
+
+    if (found.role === "parent" && process.env.RUNPOD_API_KEY) {
+      const todayKey = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
+      // Try existing cached daily verse
+      let [row] = await db
+        .select()
+        .from(dailyVerses)
+        .where(eq(dailyVerses.date, todayKey))
+        .limit(1);
+
+      if (!row) {
+        // Kick off background generation (do NOT await)
+        startDailyVerseGeneration(todayKey, userId);
+        isVerseGenerating = true;
+      } else {
+        verseOfDay = {
+          reference: row.reference,
+          verseText: row.verseText,
+          ...(row.reflection ? { reflection: row.reflection } : {}),
+          ...(row.prayer ? { prayer: row.prayer } : {}),
+        };
+      }
+    }
+
+    logger.debug("Successfully fetched user details for getMe.", {
+      userId,
+      childrenCount: children.length,
+      hasVerse: !!verseOfDay,
+      isVerseGenerating,
+    });
+
+    return res.json({
+      user: safeUser(found),
+      children,
+      verseOfDay,
+      isVerseGenerating,
+    });
   } catch (err: any) {
     logger.error(`Error in getMe: ${err.message}`, { userId, stack: err.stack });
     return res.status(500).json({ message: "Failed to fetch user details." });
   }
 };
+
+// Parse labeled raw LLM text into structured fields
+function parseDailyVerse(raw: string) {
+  const grab = (label: string) => {
+    const re = new RegExp(`${label}:\\s*([\\s\\S]*?)(?=\\n(?:Reference|Verse|Reflection|Prayer):|$)`, "i");
+    return raw.match(re)?.[1]?.trim() || "";
+  };
+  const reference = grab("Reference");
+  const verse = grab("Verse");
+  const reflection = grab("Reflection");
+  const prayer = grab("Prayer");
+  if (!reference || !verse) return null;
+  return {
+    reference,
+    verseText: verse,
+    reflection: reflection || null,
+    prayer: prayer || null,
+    raw,
+  };
+}
+
+// Start background generation (if not already running for date)
+function startDailyVerseGeneration(dateKey: string, userId: number) {
+  if (verseGenDate === dateKey && verseGenPromise) return;
+  verseGenDate = dateKey;
+  verseGenPromise = (async () => {
+    try {
+      const raw = await generateWithTimeout(
+        async () =>
+          llmService.generateChatResponse(
+            "Provide today's Bible Verse of the Day for a Christian family.",
+            "Return as plain text with sections labeled exactly:\nReference:\nVerse:\nReflection:\nPrayer:\nNo markdown, no bullets, no extra headers."
+          ),
+        15000
+      );
+      const parsed = raw ? parseDailyVerse(raw) : null;
+      if (parsed) {
+        await db
+          .insert(dailyVerses)
+          .values({
+            date: dateKey,
+            reference: parsed.reference,
+            verseText: parsed.verseText,
+            reflection: parsed.reflection,
+            prayer: parsed.prayer,
+            rawResponse: parsed.raw,
+            generatedByUserId: userId,
+          })
+          .onConflictDoNothing();
+      } else {
+        logger.warn("Verse generation produced unusable output", { dateKey });
+      }
+    } catch (e: any) {
+      logger.warn("Background verse generation failed", { dateKey, error: e?.message });
+    } finally {
+      verseGenPromise = null;
+    }
+  })();
+}
+
+// Promise timeout wrapper
+async function generateWithTimeout<T>(fn: () => Promise<T>, ms: number): Promise<T | null> {
+  let timer: NodeJS.Timeout;
+  return Promise.race([
+    fn().catch(() => null),
+    new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), ms);
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
+   

@@ -2,25 +2,25 @@ import { User } from "@/types/user";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
-export async function getMe(): Promise<User> {
+export interface MeResponse {
+  user: User;
+  children: User[];
+  verseOfDay?: {
+    reference: string;
+    verseText: string;
+    reflection?: string;
+    prayer?: string;
+  } | null;
+  isVerseGenerating?: boolean; // new flag
+}
+
+export async function getMe(): Promise<MeResponse> {
   const res = await fetch(`${API_BASE}/api/user`, {
     credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
   });
-
-  if (!res.ok) {
-    if (res.status === 401) {
-      // Not strictly necessary to handle here, as caller should handle promise rejection
-    }
-    throw new Error("Failed to fetch user");
-  }
-
-  const data = await res.json();
-
-  // Backend response is now aligned with frontend User type (camelCase)
-  return data;
+  if (!res.ok) throw new Error(res.status === 401 ? "Unauthorized" : "Failed to fetch user");
+  return res.json();
 }
 
 export async function login(username: string, password: string): Promise<User> {
@@ -42,11 +42,7 @@ export async function login(username: string, password: string): Promise<User> {
 
   const data = await response.json();
 
-  // Backend returns { user, token }, we rely on HttpOnly cookie for auth
-  // and use the user object to set the auth context.
-  if (!data.user) {
-    throw new Error("Login response did not include user data.");
-  }
-
+  // Adjust expectation (token removed) - backend now returns { message, user }
+  if (!data.user) throw new Error("Login response did not include user data.");
   return data.user;
 }

@@ -110,23 +110,6 @@ const saveLlmDaily = (
   } catch {}
 };
 
-// ---- Helpers (safe formatting for plaintext -> HTML) ----
-const escapeHtml = (s: string) =>
-  s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-
-const toSafeHtml = (s: string) => {
-  const text = (s || "").trim();
-  if (!text) return "";
-  // Normalize newlines into paragraphs, preserve single newlines as <br/>
-  const blocks = text
-    .split(/\n{2,}/)
-    .map((p) => `<p>${escapeHtml(p).replace(/\n/g, "<br/>")}</p>`);
-  return blocks.join("");
-};
-
 // New: pick the scripture inside quotes if the LLM added extra narration
 const extractQuotedVerse = (s: string) => {
   const t = (s || "").trim();
@@ -446,14 +429,9 @@ export default function ParentDashboard() {
                       {devotional.title && (
                         <div className="font-semibold mb-2">{devotional.title}</div>
                       )}
-                      <div
-                        className="text-sm leading-relaxed text-foreground"
-                        dangerouslySetInnerHTML={{
-                          __html: /<\/?[a-z][\s\S]*>/i.test(devotional.content)
-                            ? devotional.content
-                            : toSafeHtml(devotional.content),
-                        }}
-                      />
+                      <div className="text-sm leading-relaxed text-foreground whitespace-pre-line">
+                        {devotional?.content || "Click Refresh to generate today's family devotional…"}
+                      </div>
                       {devotional.prayer && (
                         <div className="text-sm mt-3">
                           <span className="font-medium">Prayer:</span>{" "}

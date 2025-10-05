@@ -17,8 +17,9 @@ import { InferSelectModel, InferInsertModel } from "drizzle-orm";
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: varchar("username", { length: 255 }).notNull().unique(),
-  email: varchar("email", { length: 255 }).unique(),
+  email: varchar("email", { length: 255 }).notNull().unique(),        // now NOT NULL
   password: varchar("password", { length: 255 }).notNull(),
+  display_name: varchar("display_name", { length: 255 }).notNull(),   // added to match schema
   role: text("role").notNull().default("child"),
   parent_id: integer("parent_id").references((): AnyPgColumn => users.id, {
     onDelete: "cascade",
@@ -286,6 +287,21 @@ export const content_filter_settings = pgTable("content_filter_settings", {
     .defaultNow(),
 });
 
+/* ─── Daily Verses ──────────────────────────────────────────────────────────── */
+export const dailyVerses = pgTable("daily_verses", {
+  id: serial("id").primaryKey(),
+  date: date("date").notNull().unique(),          // YYYY-MM-DD (UTC)
+  reference: text("reference").notNull(),
+  verseText: text("verse_text").notNull(),
+  reflection: text("reflection"),
+  prayer: text("prayer"),
+  rawResponse: text("raw_response"),
+  tokensUsed: integer("tokens_used"),
+  generatedAt: timestamp("generated_at", { withTimezone: true }).defaultNow().notNull(),
+
+  generatedByUserId: integer("generated_by_user_id").references(() => users.id)
+});
+
 /* ─── Infer Types ───────────────────────────────────────────────────────────── */
 export type User = InferSelectModel<typeof users>;
 export type NewUser = InferInsertModel<typeof users>;
@@ -308,3 +324,4 @@ export type Game = InferSelectModel<typeof games>;
 export type GameHistory = InferSelectModel<typeof game_history>;
 export type Schedule = InferSelectModel<typeof schedules>;
 export type ContentFilterSettings = InferSelectModel<typeof content_filter_settings>;
+export type DailyVerse = InferSelectModel<typeof dailyVerses>;
