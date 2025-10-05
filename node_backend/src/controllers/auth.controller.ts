@@ -18,7 +18,7 @@ const newUserSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
   username: z.string().min(3),
-  display_name: z.string().min(1),  // accept from client to match DB column
+  display_name: z.string().min(1), // if your DB truly has this column
   role: z.enum(["parent", "child"]),
   parent_id: z
     .union([z.number(), z.string()])
@@ -47,20 +47,23 @@ const COOKIE_OPTS: CookieOptions = {
   path: "/",
 };
 
-/** Return a safe user payload (derive displayName from first/last) */
+/** Return a safe user payload */
 function safeUser(u: typeof users.$inferSelect) {
   return {
     id: u.id,
     username: u.username,
     email: u.email,
-    displayName: u.display_name,     // map DB -> camelCase
+    displayName:
+      (u as any).display_name ||
+      [u.first_name, u.last_name].filter(Boolean).join(" ").trim() ||
+      u.username,
     role: u.role,
     parentId: u.parent_id,
     firstName: u.first_name,
     lastName: u.last_name,
     createdAt: u.created_at,
-    age: u.age ?? null,
-    profilePicture: u.profile_picture ?? null,
+    age: (u as any).age ?? null,
+    profilePicture: (u as any).profile_picture ?? null,
     isParent: u.role === "parent",
   };
 }
@@ -83,7 +86,7 @@ export const registerUser = async (req: Request, res: Response) => {
       parent_id,
       first_name,
       last_name,
-      display_name, // now parsed directly
+      display_name, // REQUIRED by your DB schema
     } = parsed;
 
     // Uniqueness checks
@@ -107,18 +110,24 @@ export const registerUser = async (req: Request, res: Response) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // 👇 Type the payload to EXACTLY match the table's insert shape
+    type UsersInsert = typeof users.$inferInsert;
+    const toInsert: UsersInsert = {
+      username,
+      email,
+      password: hashedPassword,
+      role,
+      parent_id: role === "child" ? (parent_id ?? null) : null,
+      first_name,
+      last_name,
+      display_name,               // include unconditionally; NOT NULL in schema
+      // include other NOT NULL columns here if your schema has them
+      // e.g., created_at: new Date(),
+    };
+
     const inserted = (await db
       .insert(users)
-      .values({
-        username,
-        password: hashedPassword,
-        email,
-        display_name,  // use provided value
-        role,
-        parent_id: role === "child" ? (parent_id ?? null) : null,
-        first_name,
-        last_name,
-      })
+      .values(toInsert)
       .returning()) as Array<typeof users.$inferSelect>;
 
     const createdUser = inserted[0];
@@ -129,7 +138,7 @@ export const registerUser = async (req: Request, res: Response) => {
 
     const token = signAuthToken({ id: createdUser.id, role: createdUser.role });
     res.cookie("access_token", token, COOKIE_OPTS);
-    res.clearCookie("token"); // remove legacy name if present
+    res.clearCookie("token");
 
     logger.info("User registered successfully.", {
       userId: createdUser.id,
@@ -211,8 +220,48 @@ export const logoutUser = (_req: Request & { user?: { id: number } }, res: Respo
   return res.json({ message: "Logged out successfully." });
 };
 
+/** Helper: run a simple per-child query and merge results */
+async function selectLatestScreenTimeForChild(childId: number) {
+  // Adjust table/column names as they exist in your DB
+  const result = await db.execute<{
+    used: number;
+    allowed: number;
+  }>(/* sql */ `
+    SELECT used_time_minutes AS used, allowed_time_minutes AS allowed
+    FROM screen_time
+    WHERE user_id = ${childId}
+    ORDER BY updated_at DESC
+    LIMIT 1
+  ` as any);
+  return result.rows?.[0] ?? null;
+}
+
+async function selectRecentActivityForChild(childId: number, limit = 15) {
+  const result = await db.execute<any>(/* sql */ `
+    SELECT id, child_id, activity_type, activity_name, platform, duration_minutes,
+           content_category, content_rating, flagged, flag_reason, timestamp
+    FROM child_activity_logs
+    WHERE child_id = ${childId}
+    ORDER BY flagged DESC, timestamp DESC
+    LIMIT ${limit}
+  ` as any);
+  return result.rows ?? [];
+}
+
+async function selectRecentContentAnalysisForChild(childId: number, limit = 15) {
+  const result = await db.execute<any>(/* sql */ `
+    SELECT id, child_id, content_name, content_type, platform, safety_score,
+           parent_guidance_needed, reviewed_by_parent, created_at
+    FROM content_analysis
+    WHERE child_id = ${childId}
+    ORDER BY parent_guidance_needed DESC, created_at DESC
+    LIMIT ${limit}
+  ` as any);
+  return result.rows ?? [];
+}
+
 /** ─────────────────────────────────────────────────────────
- * GET /api/user (aka getMe) - returns { user, children, verseOfDay }
+ * GET /api/user (aka getMe) - returns enriched dashboard data
  * ───────────────────────────────────────────────────────── */
 export const getMe = async (req: Request & { user?: { id: number } }, res: Response) => {
   const userId = req.user?.id;
@@ -230,34 +279,85 @@ export const getMe = async (req: Request & { user?: { id: number } }, res: Respo
 
     // Children (role=child, parent_id = userId)
     const childRows = await db.select().from(users).where(eq(users.parent_id, userId));
-    const children = childRows
-      .filter((c) => c.role === "child")
-      .map(safeUser);
+    const children = childRows.filter((c) => c.role === "child").map(safeUser);
 
-    // Optionally include a verse of the day for parents (using LLM + cache table)
+    // --- Additional dashboard aggregates (parent only) ---
+    let parentScreenTime: { used: number; allowed: number } | null = null;
+    let childrenScreenTime: Array<{ childId: number; username: string; allowed: number; used: number }> = [];
+    let recentActivityLogs: any[] = [];
+    let recentContentAnalysis: any[] = [];
+    let latestWeeklySummary: any = null;
+
+    if (found.role === "parent") {
+      // Latest parent screen time
+      const parentSt = await db.execute<{ used: number; allowed: number }>(/* sql */ `
+        SELECT used_time_minutes AS used, allowed_time_minutes AS allowed
+        FROM screen_time
+        WHERE user_id = ${userId}
+        ORDER BY updated_at DESC
+        LIMIT 1
+      ` as any);
+      if (Array.isArray(parentSt.rows) && parentSt.rows[0]) parentScreenTime = parentSt.rows[0];
+
+      // Per-child screen time (latest row for each)
+      if (children.length) {
+        const promises = children.map(async (c) => {
+          const st = await selectLatestScreenTimeForChild(c.id);
+          if (st) {
+            return { childId: c.id, username: c.username, allowed: st.allowed, used: st.used };
+          }
+          return { childId: c.id, username: c.username, allowed: 0, used: 0 };
+        });
+        childrenScreenTime = await Promise.all(promises);
+      }
+
+      // Per-child recent activity logs (merge + trim)
+      if (children.length) {
+        const actLists = await Promise.all(children.map((c) => selectRecentActivityForChild(c.id, 5)));
+        recentActivityLogs = actLists.flat().sort((a, b) => Number(b.flagged) - Number(a.flagged) || new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 15);
+      }
+
+      // Per-child recent content analysis (merge + trim)
+      if (children.length) {
+        const caLists = await Promise.all(children.map((c) => selectRecentContentAnalysisForChild(c.id, 5)));
+        recentContentAnalysis = caLists.flat().sort((a, b) => Number(b.parent_guidance_needed) - Number(a.parent_guidance_needed) || new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 15);
+      }
+
+      // Latest weekly summary (example: family_id = userId)
+      const ws = await db.execute<any>(/* sql */ `
+        SELECT id, week_start_date, week_end_date, summary_content, parental_advice,
+               discussion_topics, spiritual_guidance, generated_at
+        FROM weekly_content_summaries
+        WHERE family_id = ${userId}
+        ORDER BY generated_at DESC
+        LIMIT 1
+      ` as any);
+      if (Array.isArray(ws.rows) && ws.rows[0]) {
+        latestWeeklySummary = ws.rows[0];
+      }
+    }
+
+    // --- Verse of the Day (background cached) ---
     let verseOfDay:
-      | { reference: string; verseText: string; reflection?: string; prayer?: string }
+      | { reference: string; verseText: string; verse?: string; reflection?: string; prayer?: string }
       | null = null;
     let isVerseGenerating = false;
 
     if (found.role === "parent" && process.env.RUNPOD_API_KEY) {
-      const todayKey = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-
-      // Try existing cached daily verse
+      const todayKey = new Date().toISOString().slice(0, 10);
       let [row] = await db
         .select()
         .from(dailyVerses)
         .where(eq(dailyVerses.date, todayKey))
         .limit(1);
-
       if (!row) {
-        // Kick off background generation (do NOT await)
         startDailyVerseGeneration(todayKey, userId);
         isVerseGenerating = true;
       } else {
         verseOfDay = {
           reference: row.reference,
           verseText: row.verseText,
+          verse: row.verseText,
           ...(row.reflection ? { reflection: row.reflection } : {}),
           ...(row.prayer ? { prayer: row.prayer } : {}),
         };
@@ -274,8 +374,14 @@ export const getMe = async (req: Request & { user?: { id: number } }, res: Respo
     return res.json({
       user: safeUser(found),
       children,
+      childrenCount: children.length,
       verseOfDay,
       isVerseGenerating,
+      parentScreenTime,
+      childrenScreenTime,
+      recentActivityLogs,
+      recentContentAnalysis,
+      latestWeeklySummary,
     });
   } catch (err: any) {
     logger.error(`Error in getMe: ${err.message}`, { userId, stack: err.stack });
@@ -350,6 +456,5 @@ async function generateWithTimeout<T>(fn: () => Promise<T>, ms: number): Promise
     new Promise<null>((resolve) => {
       timer = setTimeout(() => resolve(null), ms);
     }),
-  ]).finally(() => clearTimeout(timer));
+  ]).finally(() => clearTimeout(timer!));
 }
-   

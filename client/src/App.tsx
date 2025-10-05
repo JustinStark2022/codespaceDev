@@ -15,6 +15,8 @@ import { ProtectedRoute }  from "@/lib/protected-route";
 import { useAuth } from "@/hooks/use-auth";
 import ParentalControlCenter from "@/pages/parental-control-center";
 import ErrorBoundary from './components/ErrorBoundary';
+import { useEffect } from "react";
+import { useLocation } from "wouter";
 
 function Router() {
   const { user } = useAuth();
@@ -48,7 +50,10 @@ function Router() {
 }
 
 function Redirect({ to }: { to: string }) {
-  window.location.href = to;
+  const [, setLocation] = useLocation();
+  useEffect(() => {
+    setLocation(to);           // client-side route change (no reload)
+  }, [to, setLocation]);
   return null;
 }
 

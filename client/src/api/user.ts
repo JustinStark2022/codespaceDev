@@ -5,13 +5,21 @@ const API_BASE = import.meta.env.VITE_API_URL || "";
 export interface MeResponse {
   user: User;
   children: User[];
+  childrenCount?: number;
   verseOfDay?: {
     reference: string;
     verseText: string;
+    verse?: string;          // alias
     reflection?: string;
     prayer?: string;
   } | null;
   isVerseGenerating?: boolean; // new flag
+  parentScreenTime?: { used: number; allowed: number } | null;
+  childrenScreenTime?: Array<{ childId: number; username: string; allowed: number; used: number }>;
+
+  recentActivityLogs?: Array<any>;
+  recentContentAnalysis?: Array<any>;
+  latestWeeklySummary?: any;
 }
 
 export async function getMe(): Promise<MeResponse> {

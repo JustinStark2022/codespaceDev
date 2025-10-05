@@ -12,6 +12,12 @@ export function useAuth() {
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
   const [location, navigate] = useLocation();
+  const [childrenCount, setChildrenCount] = useState<number>(0);
+  const [parentScreenTime, setParentScreenTime] = useState<{ used: number; allowed: number } | null>(null);
+  const [childrenScreenTime, setChildrenScreenTime] = useState<Array<{ childId: number; username: string; allowed: number; used: number }>>([]);
+  const [recentActivityLogs, setRecentActivityLogs] = useState<any[]>([]);
+  const [recentContentAnalysis, setRecentContentAnalysis] = useState<any[]>([]);
+  const [latestWeeklySummary, setLatestWeeklySummary] = useState<any | null>(null);
 
   const hasFetchedRef = useRef(false);
   const inFlightRef = useRef<Promise<void> | null>(null);
@@ -27,6 +33,12 @@ export function useAuth() {
         setVerseOfDay(meResp.verseOfDay ?? null);
         setVerseGenerating(!!meResp.isVerseGenerating);
         setIsError(false);
+        setChildrenCount(meResp.childrenCount ?? (meResp.children?.length || 0));
+        setParentScreenTime(meResp.parentScreenTime ?? null);
+        setChildrenScreenTime(meResp.childrenScreenTime ?? []);
+        setRecentActivityLogs(meResp.recentActivityLogs ?? []);
+        setRecentContentAnalysis(meResp.recentContentAnalysis ?? []);
+        setLatestWeeklySummary(meResp.latestWeeklySummary ?? null);
         // ✅ Redirect if user is on /auth after successful login
         if (location === "/auth") {
           if (meResp.user.role === "parent") navigate("/dashboard");
@@ -39,6 +51,12 @@ export function useAuth() {
         setChildren([]);
         setVerseOfDay(null);
         setVerseGenerating(false);
+        setChildrenCount(0);
+        setParentScreenTime(null);
+        setChildrenScreenTime([]);
+        setRecentActivityLogs([]);
+        setRecentContentAnalysis([]);
+        setLatestWeeklySummary(null);
 
         // ⛔️ Prevent redirect loop if already on auth page
         if (location !== "/auth") navigate("/auth");
@@ -57,6 +75,15 @@ export function useAuth() {
     fetchUser();
   }, [fetchUser]);
 
+  useEffect(() => {
+    if (verseGenerating && !verseOfDay) {
+      const t = setTimeout(() => {
+        fetchUser();
+      }, 3500); // re-check after background generation window
+      return () => clearTimeout(t);
+    }
+  }, [verseGenerating, verseOfDay, fetchUser]);
+
   const logout = () => {
     fetch("/api/logout", {
       method: "POST",
@@ -70,8 +97,14 @@ export function useAuth() {
   return {
     user,
     children,
+    childrenCount,
     verseOfDay,
-    verseGenerating, // expose flag
+    verseGenerating,
+    parentScreenTime,
+    childrenScreenTime,
+    recentActivityLogs,
+    recentContentAnalysis,
+    latestWeeklySummary,
     isLoading,
     isError,
     fetchUser,
