@@ -114,10 +114,10 @@ export default function ParentLayout({ children, title }: ParentLayoutProps) {
           
           <div className="px-4 mt-6">
             <Button
-              className="w-full justify-center bg-primary-500 hover:bg-primary-600 text-white text-base py-3 rounded-lg shadow"
+              className="w-full justify-center text-base py-3 rounded-lg shadow"
               onClick={handleLogout}
             >
-              LogOut
+              Log Out
             </Button>
           </div>
         </div>
