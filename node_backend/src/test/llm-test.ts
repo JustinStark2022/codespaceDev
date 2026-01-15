@@ -3,7 +3,7 @@ import * as dotenv from 'dotenv';
 import path from 'path';
 
 // Load environment variables
-dotenv.config({ path: path.join(__dirname, '../../.env.node_backend') });
+dotenv.config({ path: path.join(__dirname, '../../.env') });
 
 async function testLLMConnection() {
   console.log('🚀 Testing LLM Connection...\n');

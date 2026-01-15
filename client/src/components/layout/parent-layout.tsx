@@ -82,13 +82,13 @@ export default function ParentLayout({ children, title }: ParentLayoutProps) {
                 <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-200 border-2 border-white shadow flex items-center justify-center">
                   <img
                     src={parentProfileImage}
-                    alt={`${user?.first_name} ${user?.last_name} Profile`}
+                    alt={`${user?.firstName} ${user?.lastName} Profile`}
                     className="w-full h-full object-cover"
                   />
                 </div>
               </div>
               <div>
-                <div className="font-small text-base">{user?.first_name} {user?.last_name}</div>
+                <div className="font-small text-base">{user?.firstName} {user?.lastName}</div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">Parent Account</div>
               </div>
             </div>
@@ -118,7 +118,7 @@ export default function ParentLayout({ children, title }: ParentLayoutProps) {
               onClick={handleLogout}
             >
               <LogOut className="mr-3 text-black h-5 w-5" />
-              Logout
+              Log Out
             </Button>
           </div>
         </div>
