@@ -26,11 +26,18 @@ export const getAIDashboard = async () => {
     return await fetchJson(`${API_BASE}/api/ai/dashboard`);
   } catch {
     // graceful minimal fallback
-    const [verseOfDay, devotional] = await Promise.all([
+    const [verseOfDay, devotional, me] = await Promise.all([
       fetchJson(`${API_BASE}/api/ai/verse-of-the-day`).catch(() => null),
       fetchJson(`${API_BASE}/api/ai/devotional`).catch(() => null),
+      fetchJson(`${API_BASE}/api/user`).catch(() => null),
     ]);
-    return { verseOfDay, devotional, familySummary: null, children: [], recentAlerts: [] };
+    return {
+      verseOfDay,
+      devotional,
+      familySummary: null,
+      children: me?.children ?? [],
+      recentAlerts: [],
+    };
   }
 };
 
