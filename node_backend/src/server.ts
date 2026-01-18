@@ -6,6 +6,7 @@ import morgan from "morgan";
 import userRoutes from "@/routes/user.routes";
 import authRoutes from "./routes/auth.routes";
 import aiRoutes from "@/routes/ai.routes";
+import bibleRoutes from "@/routes/bible.routes";
 import { env } from "@/utils/env-check";
 import logger from "./utils/logger";
 import { connectWithRetry } from "./db/db";
@@ -31,6 +32,10 @@ app.get("/health", (_req, res) => res.status(200).send("ok"));
 // API Routes
 app.use("/api", authRoutes);
 app.use("/api", userRoutes);
+
+// ✅ Bible Reader routes
+app.use("/api/bible", bibleRoutes);
+
 app.use(`${env.API_PREFIX}/ai`, aiRoutes); // <-- this mounts /api/ai/dashboard etc.
 
 // Temporary alias: keep old path working by forwarding to the new AI endpoint.

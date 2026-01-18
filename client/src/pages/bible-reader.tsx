@@ -1,14 +1,9 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import ParentLayout from "@/components/layout/parent-layout";
 import ChildLayout from "@/components/layout/child-layout";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -17,19 +12,18 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import { 
-  BookOpen, 
-  Volume2, 
-  VolumeX, 
-  Loader2, 
-  ChevronLeft, 
+import {
+  BookOpen,
+  Volume2,
+  VolumeX,
+  Loader2,
+  ChevronLeft,
   ChevronRight,
   Settings,
-  Heart,
-  Share2,
-  Bookmark
+  Bookmark,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { allBooks } from "@/lib/booklist";
 
 interface Bible {
   id: string;
@@ -39,23 +33,23 @@ interface Bible {
   language: any;
 }
 
-interface Book {
-  id: string;
+interface ApiBook {
+  id: string; // API.Bible bookId
   bibleId: string;
   abbreviation: string;
   name: string;
   nameLong: string;
 }
 
-interface Chapter {
-  id: string;
+interface ApiChapter {
+  id: string; // API.Bible chapterId
   bibleId: string;
   bookId: string;
-  number: string;
-  reference: string;
+  number: string; // "1"
+  reference: string; // "Genesis 1"
 }
 
-interface Verse {
+interface ApiVerse {
   id: string;
   orgId: string;
   bibleId: string;
@@ -64,10 +58,10 @@ interface Verse {
   reference: string;
 }
 
-interface ChapterContent {
+interface ScriptureContent {
   id: string;
   bibleId: string;
-  bookId: string;
+  bookId?: string;
   reference: string;
   content: string;
 }
@@ -78,15 +72,40 @@ export default function BibleReader() {
   const Layout = isChild ? ChildLayout : ParentLayout;
 
   const [selectedBible, setSelectedBible] = useState<string>("");
-  const [selectedBook, setSelectedBook] = useState<string>("");
-  const [selectedChapter, setSelectedChapter] = useState<string>("");
-  const [selectedVerse, setSelectedVerse] = useState<string>("");
+
+  // ✅ Book selection
+  const [selectedBookId, setSelectedBookId] = useState<string>(""); // API bookId
+  const [selectedBookName, setSelectedBookName] = useState<string>(""); // for matching local list
+
+  // ✅ Chapter selection uses a NUMBER dropdown (1..N), and we map to chapterId
+  const [selectedChapterNumber, setSelectedChapterNumber] = useState<number | null>(null);
+  const [selectedChapterId, setSelectedChapterId] = useState<string>(""); // API chapterId
+
+  // Verse selection stays API verseId
+  const [selectedVerseId, setSelectedVerseId] = useState<string>(""); // empty = entire chapter
+
   const [fontSize, setFontSize] = useState(16);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [highlightIndex, setHighlightIndex] = useState<number | null>(null);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
-  // Fetch Bibles
+  // --- helpers ---
+  const stripHtml = (html: string) => html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+
+  const bookMeta = useMemo(() => {
+    if (!selectedBookName) return null;
+    // Match local list by name (loose match for safety)
+    const exact = allBooks.find((b) => b.name.toLowerCase() === selectedBookName.toLowerCase());
+    if (exact) return exact;
+
+    // fallback: some APIs might return “Psalms” vs “Psalm”
+    const normalized = selectedBookName.toLowerCase().replace(/\s+/g, " ").trim();
+    return allBooks.find((b) => b.name.toLowerCase().includes(normalized) || normalized.includes(b.name.toLowerCase())) || null;
+  }, [selectedBookName]);
+
+  // -------------------------
+  // Queries
+  // -------------------------
+
   const { data: bibles = [] } = useQuery<Bible[]>({
     queryKey: ["bibles"],
     queryFn: async () => {
@@ -96,8 +115,7 @@ export default function BibleReader() {
     },
   });
 
-  // Fetch Books when Bible is selected
-  const { data: books = [] } = useQuery<Book[]>({
+  const { data: books = [] } = useQuery<ApiBook[]>({
     queryKey: ["books", selectedBible],
     enabled: !!selectedBible,
     queryFn: async () => {
@@ -107,72 +125,123 @@ export default function BibleReader() {
     },
   });
 
-  // Fetch Chapters when Book is selected
-  const { data: chapters = [] } = useQuery<Chapter[]>({
-    queryKey: ["chapters", selectedBible, selectedBook],
-    enabled: !!selectedBible && !!selectedBook,
+  const { data: apiChapters = [] } = useQuery<ApiChapter[]>({
+    queryKey: ["chapters", selectedBible, selectedBookId],
+    enabled: !!selectedBible && !!selectedBookId,
     queryFn: async () => {
-      const res = await apiRequest("GET", `/api/bible/bibles/${selectedBible}/books/${selectedBook}/chapters`);
+      const res = await apiRequest(
+        "GET",
+        `/api/bible/bibles/${selectedBible}/books/${selectedBookId}/chapters`
+      );
+      const json = await res.json();
+      // API.Bible returns a few non-number "intro" chapter entries sometimes — filter to numeric only
+      const list: ApiChapter[] = (json.data || []).filter((c: any) => /^\d+$/.test(String(c.number)));
+      return list;
+    },
+  });
+
+  const { data: verses = [] } = useQuery<ApiVerse[]>({
+    queryKey: ["verses", selectedBible, selectedChapterId],
+    enabled: !!selectedBible && !!selectedChapterId,
+    queryFn: async () => {
+      const res = await apiRequest(
+        "GET",
+        `/api/bible/bibles/${selectedBible}/chapters/${selectedChapterId}/verses`
+      );
       const json = await res.json();
       return json.data || [];
     },
   });
 
-  // Fetch Verses when Chapter is selected
-  const { data: verses = [] } = useQuery<Verse[]>({
-    queryKey: ["verses", selectedBible, selectedChapter],
-    enabled: !!selectedBible && !!selectedChapter,
+  // Entire chapter content
+  const { data: chapterContent, isLoading: chapterLoading } = useQuery<ScriptureContent>({
+    queryKey: ["chapterContent", selectedBible, selectedChapterId],
+    enabled: !!selectedBible && !!selectedChapterId && !selectedVerseId,
     queryFn: async () => {
-      const res = await apiRequest("GET", `/api/bible/bibles/${selectedBible}/chapters/${selectedChapter}/verses`);
-      const json = await res.json();
-      return json.data || [];
-    },
-  });
-
-  // Fetch Chapter Content
-  const { data: chapterContent, isLoading: contentLoading } = useQuery<ChapterContent>({
-    queryKey: ["chapterContent", selectedBible, selectedChapter],
-    enabled: !!selectedBible && !!selectedChapter,
-    queryFn: async () => {
-      const res = await apiRequest("GET", `/api/bible/bibles/${selectedBible}/chapters/${selectedChapter}?content-type=html`);
+      const res = await apiRequest(
+        "GET",
+        `/api/bible/bibles/${selectedBible}/chapters/${selectedChapterId}?content-type=html`
+      );
       return res.json();
     },
   });
 
-  // Reset dependent selections when parent changes
+  // Single verse content
+  const { data: verseContent, isLoading: verseLoading } = useQuery<ScriptureContent>({
+    queryKey: ["verseContent", selectedBible, selectedVerseId],
+    enabled: !!selectedBible && !!selectedVerseId,
+    queryFn: async () => {
+      const res = await apiRequest(
+        "GET",
+        `/api/bible/bibles/${selectedBible}/verses/${selectedVerseId}?content-type=html`
+      );
+      return res.json();
+    },
+  });
+
+  const activeContent = useMemo(() => (selectedVerseId ? verseContent : chapterContent), [
+    selectedVerseId,
+    verseContent,
+    chapterContent,
+  ]);
+
+  const isLoadingContent = chapterLoading || verseLoading;
+
+  // -------------------------
+  // Reset logic
+  // -------------------------
+
   useEffect(() => {
-    setSelectedBook("");
-    setSelectedChapter("");
-    setSelectedVerse("");
+    setSelectedBookId("");
+    setSelectedBookName("");
+    setSelectedChapterId("");
+    setSelectedChapterNumber(null);
+    setSelectedVerseId("");
   }, [selectedBible]);
 
   useEffect(() => {
-    setSelectedChapter("");
-    setSelectedVerse("");
-  }, [selectedBook]);
+    setSelectedChapterId("");
+    setSelectedChapterNumber(null);
+    setSelectedVerseId("");
+  }, [selectedBookId]);
 
   useEffect(() => {
-    setSelectedVerse("");
-  }, [selectedChapter]);
+    setSelectedVerseId("");
+  }, [selectedChapterId]);
 
-  // Auto-select first Bible if none selected
   useEffect(() => {
-    if (!selectedBible && bibles.length > 0) {
-      setSelectedBible(bibles[0].id);
-    }
+    if (!selectedBible && bibles.length > 0) setSelectedBible(bibles[0].id);
   }, [bibles, selectedBible]);
 
+  // -------------------------
+  // Chapter number -> chapterId mapping
+  // -------------------------
+
+  useEffect(() => {
+    if (!selectedChapterNumber) {
+      setSelectedChapterId("");
+      return;
+    }
+
+    const match = apiChapters.find((c) => Number(c.number) === selectedChapterNumber);
+    setSelectedChapterId(match?.id || "");
+  }, [selectedChapterNumber, apiChapters]);
+
+  // -------------------------
+  // TTS
+  // -------------------------
+
   const playTTS = () => {
-    if (!chapterContent?.content) return;
-    
-    const utterance = new SpeechSynthesisUtterance(chapterContent.content.replace(/<[^>]*>/g, ''));
-    utterance.rate = 0.8;
+    if (!activeContent?.content) return;
+
+    const utterance = new SpeechSynthesisUtterance(stripHtml(activeContent.content));
+    utterance.rate = 0.9;
     utterance.pitch = 1;
     utterance.volume = 1;
-    
+
     utterance.onend = () => setIsPlaying(false);
     utterance.onerror = () => setIsPlaying(false);
-    
+
     utteranceRef.current = utterance;
     setIsPlaying(true);
     window.speechSynthesis.speak(utterance);
@@ -183,41 +252,33 @@ export default function BibleReader() {
     window.speechSynthesis.cancel();
   };
 
-  const getCurrentChapterIndex = () => {
-    return chapters.findIndex((ch: Chapter) => ch.id === selectedChapter);
-  };
+  // -------------------------
+  // Chapter nav (prev/next) using local count
+  // -------------------------
+
+  const maxChapters = bookMeta?.chapters ?? apiChapters.length ?? 0;
 
   const goToPreviousChapter = () => {
-    const currentIndex = getCurrentChapterIndex();
-    if (currentIndex > 0) {
-      setSelectedChapter(chapters[currentIndex - 1].id);
-    }
+    if (!selectedChapterNumber) return;
+    if (selectedChapterNumber <= 1) return;
+    setSelectedChapterNumber(selectedChapterNumber - 1);
   };
 
   const goToNextChapter = () => {
-    const currentIndex = getCurrentChapterIndex();
-    if (currentIndex < chapters.length - 1) {
-      setSelectedChapter(chapters[currentIndex + 1].id);
-    }
+    if (!selectedChapterNumber) return;
+    if (maxChapters && selectedChapterNumber >= maxChapters) return;
+    setSelectedChapterNumber(selectedChapterNumber + 1);
   };
 
-  const getSelectedBookName = () => {
-    const book = books.find((b: Book) => b.id === selectedBook);
-    return book ? book.name : "";
-  };
+  const currentBibleAbbr = bibles.find((b) => b.id === selectedBible)?.abbreviation || "Bible";
 
   return (
     <Layout title="My Faith Fortress Bible Reader">
       <div className="h-full flex flex-col max-w-6xl mx-auto overflow-hidden">
-        {/* Page Header with Favorite and Share */}
-        <div className="flex items-center justify-between mb-4 flex-shrink-0">
-        </div>
-
-        {/* Compact Navigation Controls */}
         <Card className="bg-white border-gray-200 flex-shrink-0">
           <CardContent className="py-2 px-4">
-            {/* Bible Navigation - Very Compact */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+              {/* Version */}
               <div className="space-y-1">
                 <label className="text-xs font-medium text-gray-700">Version</label>
                 <Select value={selectedBible} onValueChange={setSelectedBible}>
@@ -225,7 +286,7 @@ export default function BibleReader() {
                     <SelectValue placeholder="Select Version" />
                   </SelectTrigger>
                   <SelectContent>
-                    {bibles.map((bible: Bible) => (
+                    {bibles.map((bible) => (
                       <SelectItem key={bible.id} value={bible.id}>
                         <span className="font-medium text-sm">{bible.name}</span>
                       </SelectItem>
@@ -234,18 +295,23 @@ export default function BibleReader() {
                 </Select>
               </div>
 
+              {/* Book */}
               <div className="space-y-1">
                 <label className="text-xs font-medium text-gray-700">Book</label>
-                <Select 
-                  value={selectedBook} 
-                  onValueChange={setSelectedBook}
+                <Select
+                  value={selectedBookId}
+                  onValueChange={(bookId) => {
+                    setSelectedBookId(bookId);
+                    const found = books.find((b) => b.id === bookId);
+                    setSelectedBookName(found?.name || "");
+                  }}
                   disabled={!selectedBible || books.length === 0}
                 >
                   <SelectTrigger className="bg-white border-gray-300 focus:border-blue-500 h-7 text-sm">
                     <SelectValue placeholder={!selectedBible ? "Select Version First" : "Select Book"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {books.map((book: Book) => (
+                    {books.map((book) => (
                       <SelectItem key={book.id} value={book.id}>
                         {book.name}
                       </SelectItem>
@@ -254,41 +320,46 @@ export default function BibleReader() {
                 </Select>
               </div>
 
+              {/* Chapter number 1..N */}
               <div className="space-y-1">
                 <label className="text-xs font-medium text-gray-700">Chapter</label>
-                <Select 
-                  value={selectedChapter} 
-                  onValueChange={setSelectedChapter}
-                  disabled={!selectedBook || chapters.length === 0}
+                <Select
+                  value={selectedChapterNumber ? String(selectedChapterNumber) : ""}
+                  onValueChange={(val) => setSelectedChapterNumber(Number(val))}
+                  disabled={!selectedBookId || (!bookMeta && apiChapters.length === 0)}
                 >
                   <SelectTrigger className="bg-white border-gray-300 focus:border-blue-500 h-7 text-sm">
-                    <SelectValue placeholder={!selectedBook ? "Select Book First" : "Select Chapter"} />
+                    <SelectValue placeholder={!selectedBookId ? "Select Book First" : "Select Chapter"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {chapters.map((chapter: Chapter) => (
-                      <SelectItem key={chapter.id} value={chapter.id}>
-                        Chapter {chapter.number}
+                    {Array.from({ length: maxChapters || 0 }, (_, i) => i + 1).map((n) => (
+                      <SelectItem key={n} value={String(n)}>
+                        Chapter {n}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {bookMeta && (
+                  <p className="text-[10px] text-gray-500">Chapters in {bookMeta.name}: {bookMeta.chapters}</p>
+                )}
               </div>
 
+              {/* Verse */}
               <div className="space-y-1">
                 <label className="text-xs font-medium text-gray-700">Verse</label>
-                <Select 
-                  value={selectedVerse || "all"} 
-                  onValueChange={(val) => setSelectedVerse(val === "all" ? "" : val)}
-                  disabled={!selectedChapter || verses.length === 0}
+                <Select
+                  value={selectedVerseId || "all"}
+                  onValueChange={(val) => setSelectedVerseId(val === "all" ? "" : val)}
+                  disabled={!selectedChapterId || verses.length === 0}
                 >
                   <SelectTrigger className="bg-white border-gray-300 focus:border-blue-500 h-7 text-sm">
-                    <SelectValue placeholder={!selectedChapter ? "Select Chapter First" : "All Verses"} />
+                    <SelectValue placeholder={!selectedChapterId ? "Select Chapter First" : "Entire Chapter"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Verses</SelectItem>
-                    {verses.map((verse: Verse) => (
+                    <SelectItem value="all">Entire Chapter</SelectItem>
+                    {verses.map((verse) => (
                       <SelectItem key={verse.id} value={verse.id}>
-                        Verse {verse.reference.split('.').pop()}
+                        {verse.reference}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -296,13 +367,12 @@ export default function BibleReader() {
               </div>
             </div>
 
-            {/* Controls - Super Compact */}
-            {selectedChapter && (
+            {selectedChapterId && (
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Button 
-                    onClick={isPlaying ? stopTTS : playTTS} 
-                    disabled={!chapterContent}
+                  <Button
+                    onClick={isPlaying ? stopTTS : playTTS}
+                    disabled={!activeContent}
                     className="bg-blue-600 hover:bg-blue-700 text-white h-7 text-xs px-3"
                     size="sm"
                   >
@@ -318,22 +388,22 @@ export default function BibleReader() {
                       </>
                     )}
                   </Button>
-                  
+
                   <div className="flex items-center gap-1">
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="sm"
                       onClick={goToPreviousChapter}
-                      disabled={getCurrentChapterIndex() <= 0}
+                      disabled={!selectedChapterNumber || selectedChapterNumber <= 1}
                       className="h-7 w-7 p-0"
                     >
                       <ChevronLeft className="w-3 h-3" />
                     </Button>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="sm"
                       onClick={goToNextChapter}
-                      disabled={getCurrentChapterIndex() >= chapters.length - 1}
+                      disabled={!selectedChapterNumber || (!!maxChapters && selectedChapterNumber >= maxChapters)}
                       className="h-7 w-7 p-0"
                     >
                       <ChevronRight className="w-3 h-3" />
@@ -358,7 +428,7 @@ export default function BibleReader() {
                       </SelectContent>
                     </Select>
                   </div>
-                  
+
                   <Button variant="outline" size="sm" className="h-6 text-xs px-2">
                     <Bookmark className="w-3 h-3 mr-1" />
                     Save
@@ -369,7 +439,6 @@ export default function BibleReader() {
           </CardContent>
         </Card>
 
-        {/* Content Display - Maximum Space */}
         <Card className="flex-1 flex flex-col min-h-0 mt-3">
           <CardContent className="p-6 flex-1 overflow-y-auto">
             {!selectedBible ? (
@@ -378,94 +447,44 @@ export default function BibleReader() {
                 <h3 className="text-lg font-semibold text-gray-600 mb-2">Welcome to Bible Reader</h3>
                 <p className="text-gray-500">Please select a Bible version to begin reading God's Word.</p>
               </div>
-            ) : !selectedBook ? (
+            ) : !selectedBookId ? (
               <div className="text-center py-12">
-                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <BookOpen className="w-6 h-6 text-blue-600" />
-                </div>
                 <h3 className="text-lg font-semibold text-gray-600 mb-2">Choose a Book</h3>
                 <p className="text-gray-500">Select a book from the Bible to continue reading.</p>
               </div>
-            ) : !selectedChapter ? (
+            ) : !selectedChapterNumber ? (
               <div className="text-center py-12">
-                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <BookOpen className="w-6 h-6 text-green-600" />
-                </div>
                 <h3 className="text-lg font-semibold text-gray-600 mb-2">Select a Chapter</h3>
-                <p className="text-gray-500">Choose a chapter from {getSelectedBookName()} to read.</p>
+                <p className="text-gray-500">Choose a chapter from {selectedBookName || "this book"} to read.</p>
               </div>
-            ) : contentLoading ? (
+            ) : isLoadingContent ? (
               <div className="text-center py-12">
                 <Loader2 className="w-6 h-6 animate-spin text-blue-600 mx-auto mb-3" />
                 <h3 className="text-lg font-semibold text-gray-600 mb-2">Loading Scripture</h3>
                 <p className="text-gray-500">Please wait while we prepare God's Word for you...</p>
               </div>
-            ) : chapterContent ? (
+            ) : activeContent ? (
               <div className="max-w-4xl mx-auto">
-                {/* Chapter Header - Compact */}
                 <div className="mb-6 pb-4 border-b border-gray-200">
-                  <h1 className="text-2xl font-bold text-gray-800 mb-2">
-                    {chapterContent.reference}
-                  </h1>
+                  <h1 className="text-2xl font-bold text-gray-800 mb-2">{activeContent.reference}</h1>
                   <div className="flex items-center gap-3 text-sm text-gray-600">
                     <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-medium text-xs">
-                      {bibles.find((b: Bible) => b.id === selectedBible)?.abbreviation || 'Bible'}
+                      {currentBibleAbbr}
                     </span>
-                    <span>{verses.length} verses</span>
-                    {isPlaying && (
-                      <span className="flex items-center gap-1 text-blue-600">
-                        <Volume2 className="w-4 h-4" />
-                        Audio Playing
-                      </span>
-                    )}
+                    <span>{selectedVerseId ? "Single verse" : `${verses.length} verses`}</span>
                   </div>
                 </div>
 
-                {/* Scripture Content - Main Focus */}
-                <div 
+                <div
                   className="prose prose-lg max-w-none leading-relaxed text-gray-800 mb-8"
-                  style={{ fontSize: `${fontSize}px`, lineHeight: '1.8' }}
-                  dangerouslySetInnerHTML={{ __html: chapterContent.content }}
+                  style={{ fontSize: `${fontSize}px`, lineHeight: "1.8" }}
+                  dangerouslySetInnerHTML={{ __html: activeContent.content }}
                 />
-
-                {/* Chapter Navigation Footer - Compact */}
-                <div className="pt-4 border-t border-gray-200 flex justify-between items-center">
-                  <Button 
-                    variant="outline"
-                    onClick={goToPreviousChapter}
-                    disabled={getCurrentChapterIndex() <= 0}
-                    className="flex items-center gap-2 h-8"
-                    size="sm"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                    Previous
-                  </Button>
-                  
-                  <div className="text-center">
-                    <p className="text-xs text-gray-500">
-                      Chapter {chapters.find((ch: Chapter) => ch.id === selectedChapter)?.number} of {chapters.length}
-                    </p>
-                  </div>
-                  
-                  <Button 
-                    variant="outline"
-                    onClick={goToNextChapter}
-                    disabled={getCurrentChapterIndex() >= chapters.length - 1}
-                    className="flex items-center gap-2 h-8"
-                    size="sm"
-                  >
-                    Next
-                    <ChevronRight className="w-4 h-4" />
-                  </Button>
-                </div>
               </div>
             ) : (
               <div className="text-center py-12">
-                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <BookOpen className="w-6 h-6 text-red-600" />
-                </div>
                 <h3 className="text-lg font-semibold text-gray-600 mb-2">Content Not Available</h3>
-                <p className="text-gray-500">This chapter content is currently unavailable. Please try another chapter.</p>
+                <p className="text-gray-500">This scripture content is unavailable. Please try another selection.</p>
               </div>
             )}
           </CardContent>
