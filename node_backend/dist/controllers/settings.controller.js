@@ -1,22 +1,27 @@
-import { db } from "../db/db";
-import { user_settings, content_filters, screen_time_settings, monitoring_settings, trusted_websites } from "../db/schema";
-import { eq, and } from "drizzle-orm";
-// ─── General Settings ──────────────────────────────────────────────────────
-export const getUserSettings = async (req, res) => {
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.removeTrustedWebsite = exports.addTrustedWebsite = exports.getTrustedWebsites = exports.updateMonitoringSettings = exports.getMonitoringSettings = exports.updateScreenTimeSettings = exports.getScreenTimeSettings = exports.updateContentFilters = exports.getContentFilters = exports.updateUserSettings = exports.getUserSettings = void 0;
+const db_1 = require("../db/db");
+const schema_1 = require("../db/schema");
+const drizzle_orm_1 = require("drizzle-orm");
+const logger_1 = __importDefault(require("../utils/logger"));
+const getUserSettings = async (req, res) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
             return res.status(401).json({ error: "Unauthorized" });
         }
-        const settings = await db
+        const settings = await db_1.db
             .select()
-            .from(user_settings)
-            .where(eq(user_settings.user_id, userId))
+            .from(schema_1.user_settings)
+            .where((0, drizzle_orm_1.eq)(schema_1.user_settings.user_id, userId))
             .limit(1);
         if (settings.length === 0) {
-            // Create default settings if none exist
-            const defaultSettings = await db
-                .insert(user_settings)
+            const defaultSettings = await db_1.db
+                .insert(schema_1.user_settings)
                 .values({ user_id: userId })
                 .returning();
             return res.json(defaultSettings[0]);
@@ -24,19 +29,20 @@ export const getUserSettings = async (req, res) => {
         res.json(settings[0]);
     }
     catch (error) {
-        console.error("Error fetching user settings:", error);
+        logger_1.default.error("Error fetching user settings:", error);
         res.status(500).json({ error: "Failed to fetch settings" });
     }
 };
-export const updateUserSettings = async (req, res) => {
+exports.getUserSettings = getUserSettings;
+const updateUserSettings = async (req, res) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
             return res.status(401).json({ error: "Unauthorized" });
         }
         const { content_alerts, screentime_alerts, lesson_completions, device_usage, bible_plan, default_translation, reading_plan, daily_reminders, theme_mode, language, sound_effects } = req.body;
-        const updatedSettings = await db
-            .update(user_settings)
+        const updatedSettings = await db_1.db
+            .update(schema_1.user_settings)
             .set({
             content_alerts,
             screentime_alerts,
@@ -51,12 +57,11 @@ export const updateUserSettings = async (req, res) => {
             sound_effects,
             updated_at: new Date()
         })
-            .where(eq(user_settings.user_id, userId))
+            .where((0, drizzle_orm_1.eq)(schema_1.user_settings.user_id, userId))
             .returning();
         if (updatedSettings.length === 0) {
-            // Create new settings if update failed (no existing record)
-            const newSettings = await db
-                .insert(user_settings)
+            const newSettings = await db_1.db
+                .insert(schema_1.user_settings)
                 .values({
                 user_id: userId,
                 content_alerts,
@@ -77,29 +82,28 @@ export const updateUserSettings = async (req, res) => {
         res.json(updatedSettings[0]);
     }
     catch (error) {
-        console.error("Error updating user settings:", error);
+        logger_1.default.error("Error updating user settings:", error);
         res.status(500).json({ error: "Failed to update settings" });
     }
 };
-// ─── Content Filter Settings ───────────────────────────────────────────────
-export const getContentFilters = async (req, res) => {
+exports.updateUserSettings = updateUserSettings;
+const getContentFilters = async (req, res) => {
     try {
         const userId = req.user?.id;
         const childId = req.query.childId ? parseInt(req.query.childId) : null;
         if (!userId) {
             return res.status(401).json({ error: "Unauthorized" });
         }
-        const filters = await db
+        const filters = await db_1.db
             .select()
-            .from(content_filters)
+            .from(schema_1.content_filters)
             .where(childId
-            ? and(eq(content_filters.user_id, userId), eq(content_filters.child_id, childId))
-            : eq(content_filters.user_id, userId))
+            ? (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.content_filters.user_id, userId), (0, drizzle_orm_1.eq)(schema_1.content_filters.child_id, childId))
+            : (0, drizzle_orm_1.eq)(schema_1.content_filters.user_id, userId))
             .limit(1);
         if (filters.length === 0) {
-            // Create default filters if none exist
-            const defaultFilters = await db
-                .insert(content_filters)
+            const defaultFilters = await db_1.db
+                .insert(schema_1.content_filters)
                 .values({
                 user_id: userId,
                 child_id: childId
@@ -110,11 +114,12 @@ export const getContentFilters = async (req, res) => {
         res.json(filters[0]);
     }
     catch (error) {
-        console.error("Error fetching content filters:", error);
+        logger_1.default.error("Error fetching content filters:", error);
         res.status(500).json({ error: "Failed to fetch content filters" });
     }
 };
-export const updateContentFilters = async (req, res) => {
+exports.getContentFilters = getContentFilters;
+const updateContentFilters = async (req, res) => {
     try {
         const userId = req.user?.id;
         const childId = req.body.childId ? parseInt(req.body.childId) : null;
@@ -123,10 +128,10 @@ export const updateContentFilters = async (req, res) => {
         }
         const { block_violence, block_language, block_occult, block_bullying, block_sexual, block_blasphemy, filter_sensitivity, ai_detection_mode, realtime_scanning } = req.body;
         const whereClause = childId
-            ? and(eq(content_filters.user_id, userId), eq(content_filters.child_id, childId))
-            : eq(content_filters.user_id, userId);
-        const updatedFilters = await db
-            .update(content_filters)
+            ? (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.content_filters.user_id, userId), (0, drizzle_orm_1.eq)(schema_1.content_filters.child_id, childId))
+            : (0, drizzle_orm_1.eq)(schema_1.content_filters.user_id, userId);
+        const updatedFilters = await db_1.db
+            .update(schema_1.content_filters)
             .set({
             block_violence,
             block_language,
@@ -142,9 +147,8 @@ export const updateContentFilters = async (req, res) => {
             .where(whereClause)
             .returning();
         if (updatedFilters.length === 0) {
-            // Create new filters if update failed
-            const newFilters = await db
-                .insert(content_filters)
+            const newFilters = await db_1.db
+                .insert(schema_1.content_filters)
                 .values({
                 user_id: userId,
                 child_id: childId,
@@ -164,29 +168,28 @@ export const updateContentFilters = async (req, res) => {
         res.json(updatedFilters[0]);
     }
     catch (error) {
-        console.error("Error updating content filters:", error);
+        logger_1.default.error("Error updating content filters:", error);
         res.status(500).json({ error: "Failed to update content filters" });
     }
 };
-// ─── Screen Time Settings ──────────────────────────────────────────────────
-export const getScreenTimeSettings = async (req, res) => {
+exports.updateContentFilters = updateContentFilters;
+const getScreenTimeSettings = async (req, res) => {
     try {
         const userId = req.user?.id;
         const childId = req.query.childId ? parseInt(req.query.childId) : null;
         if (!userId) {
             return res.status(401).json({ error: "Unauthorized" });
         }
-        const settings = await db
+        const settings = await db_1.db
             .select()
-            .from(screen_time_settings)
+            .from(schema_1.screen_time_settings)
             .where(childId
-            ? and(eq(screen_time_settings.user_id, userId), eq(screen_time_settings.child_id, childId))
-            : eq(screen_time_settings.user_id, userId))
+            ? (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.screen_time_settings.user_id, userId), (0, drizzle_orm_1.eq)(schema_1.screen_time_settings.child_id, childId))
+            : (0, drizzle_orm_1.eq)(schema_1.screen_time_settings.user_id, userId))
             .limit(1);
         if (settings.length === 0) {
-            // Create default settings if none exist
-            const defaultSettings = await db
-                .insert(screen_time_settings)
+            const defaultSettings = await db_1.db
+                .insert(schema_1.screen_time_settings)
                 .values({
                 user_id: userId,
                 child_id: childId
@@ -197,11 +200,12 @@ export const getScreenTimeSettings = async (req, res) => {
         res.json(settings[0]);
     }
     catch (error) {
-        console.error("Error fetching screen time settings:", error);
+        logger_1.default.error("Error fetching screen time settings:", error);
         res.status(500).json({ error: "Failed to fetch screen time settings" });
     }
 };
-export const updateScreenTimeSettings = async (req, res) => {
+exports.getScreenTimeSettings = getScreenTimeSettings;
+const updateScreenTimeSettings = async (req, res) => {
     try {
         const userId = req.user?.id;
         const childId = req.body.childId ? parseInt(req.body.childId) : null;
@@ -210,10 +214,10 @@ export const updateScreenTimeSettings = async (req, res) => {
         }
         const { weekday_limit, weekend_limit, sleep_time, wake_time, break_interval, break_duration, lock_after_bedtime, pause_during_bedtime, location_based_rules, emergency_override, allow_rewards, max_reward_time, reward_per_lesson, weekend_bonus } = req.body;
         const whereClause = childId
-            ? and(eq(screen_time_settings.user_id, userId), eq(screen_time_settings.child_id, childId))
-            : eq(screen_time_settings.user_id, userId);
-        const updatedSettings = await db
-            .update(screen_time_settings)
+            ? (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.screen_time_settings.user_id, userId), (0, drizzle_orm_1.eq)(schema_1.screen_time_settings.child_id, childId))
+            : (0, drizzle_orm_1.eq)(schema_1.screen_time_settings.user_id, userId);
+        const updatedSettings = await db_1.db
+            .update(schema_1.screen_time_settings)
             .set({
             weekday_limit,
             weekend_limit,
@@ -234,9 +238,8 @@ export const updateScreenTimeSettings = async (req, res) => {
             .where(whereClause)
             .returning();
         if (updatedSettings.length === 0) {
-            // Create new settings if update failed
-            const newSettings = await db
-                .insert(screen_time_settings)
+            const newSettings = await db_1.db
+                .insert(schema_1.screen_time_settings)
                 .values({
                 user_id: userId,
                 child_id: childId,
@@ -261,26 +264,25 @@ export const updateScreenTimeSettings = async (req, res) => {
         res.json(updatedSettings[0]);
     }
     catch (error) {
-        console.error("Error updating screen time settings:", error);
+        logger_1.default.error("Error updating screen time settings:", error);
         res.status(500).json({ error: "Failed to update screen time settings" });
     }
 };
-// ─── Monitoring Settings ───────────────────────────────────────────────────
-export const getMonitoringSettings = async (req, res) => {
+exports.updateScreenTimeSettings = updateScreenTimeSettings;
+const getMonitoringSettings = async (req, res) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
             return res.status(401).json({ error: "Unauthorized" });
         }
-        const settings = await db
+        const settings = await db_1.db
             .select()
-            .from(monitoring_settings)
-            .where(eq(monitoring_settings.user_id, userId))
+            .from(schema_1.monitoring_settings)
+            .where((0, drizzle_orm_1.eq)(schema_1.monitoring_settings.user_id, userId))
             .limit(1);
         if (settings.length === 0) {
-            // Create default settings if none exist
-            const defaultSettings = await db
-                .insert(monitoring_settings)
+            const defaultSettings = await db_1.db
+                .insert(schema_1.monitoring_settings)
                 .values({ user_id: userId })
                 .returning();
             return res.json(defaultSettings[0]);
@@ -288,19 +290,20 @@ export const getMonitoringSettings = async (req, res) => {
         res.json(settings[0]);
     }
     catch (error) {
-        console.error("Error fetching monitoring settings:", error);
+        logger_1.default.error("Error fetching monitoring settings:", error);
         res.status(500).json({ error: "Failed to fetch monitoring settings" });
     }
 };
-export const updateMonitoringSettings = async (req, res) => {
+exports.getMonitoringSettings = getMonitoringSettings;
+const updateMonitoringSettings = async (req, res) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
             return res.status(401).json({ error: "Unauthorized" });
         }
         const { live_activity_feed, screenshot_monitoring, keystroke_logging, monitoring_frequency, instant_alerts, daily_summary, weekly_reports, alert_threshold, data_retention, anonymous_analytics } = req.body;
-        const updatedSettings = await db
-            .update(monitoring_settings)
+        const updatedSettings = await db_1.db
+            .update(schema_1.monitoring_settings)
             .set({
             live_activity_feed,
             screenshot_monitoring,
@@ -314,12 +317,11 @@ export const updateMonitoringSettings = async (req, res) => {
             anonymous_analytics,
             updated_at: new Date()
         })
-            .where(eq(monitoring_settings.user_id, userId))
+            .where((0, drizzle_orm_1.eq)(schema_1.monitoring_settings.user_id, userId))
             .returning();
         if (updatedSettings.length === 0) {
-            // Create new settings if update failed
-            const newSettings = await db
-                .insert(monitoring_settings)
+            const newSettings = await db_1.db
+                .insert(schema_1.monitoring_settings)
                 .values({
                 user_id: userId,
                 live_activity_feed,
@@ -339,40 +341,41 @@ export const updateMonitoringSettings = async (req, res) => {
         res.json(updatedSettings[0]);
     }
     catch (error) {
-        console.error("Error updating monitoring settings:", error);
+        logger_1.default.error("Error updating monitoring settings:", error);
         res.status(500).json({ error: "Failed to update monitoring settings" });
     }
 };
-// ─── Trusted Websites ──────────────────────────────────────────────────────
-export const getTrustedWebsites = async (req, res) => {
+exports.updateMonitoringSettings = updateMonitoringSettings;
+const getTrustedWebsites = async (req, res) => {
     try {
         const userId = req.user?.id;
         const childId = req.query.childId ? parseInt(req.query.childId) : null;
         if (!userId) {
             return res.status(401).json({ error: "Unauthorized" });
         }
-        const websites = await db
+        const websites = await db_1.db
             .select()
-            .from(trusted_websites)
+            .from(schema_1.trusted_websites)
             .where(childId
-            ? and(eq(trusted_websites.user_id, userId), eq(trusted_websites.child_id, childId))
-            : eq(trusted_websites.user_id, userId));
+            ? (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.trusted_websites.user_id, userId), (0, drizzle_orm_1.eq)(schema_1.trusted_websites.child_id, childId))
+            : (0, drizzle_orm_1.eq)(schema_1.trusted_websites.user_id, userId));
         res.json(websites);
     }
     catch (error) {
-        console.error("Error fetching trusted websites:", error);
+        logger_1.default.error("Error fetching trusted websites:", error);
         res.status(500).json({ error: "Failed to fetch trusted websites" });
     }
 };
-export const addTrustedWebsite = async (req, res) => {
+exports.getTrustedWebsites = getTrustedWebsites;
+const addTrustedWebsite = async (req, res) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
             return res.status(401).json({ error: "Unauthorized" });
         }
         const { url, name, childId } = req.body;
-        const newWebsite = await db
-            .insert(trusted_websites)
+        const newWebsite = await db_1.db
+            .insert(schema_1.trusted_websites)
             .values({
             user_id: userId,
             child_id: childId || null,
@@ -383,20 +386,21 @@ export const addTrustedWebsite = async (req, res) => {
         res.json(newWebsite[0]);
     }
     catch (error) {
-        console.error("Error adding trusted website:", error);
+        logger_1.default.error("Error adding trusted website:", error);
         res.status(500).json({ error: "Failed to add trusted website" });
     }
 };
-export const removeTrustedWebsite = async (req, res) => {
+exports.addTrustedWebsite = addTrustedWebsite;
+const removeTrustedWebsite = async (req, res) => {
     try {
         const userId = req.user?.id;
         const websiteId = parseInt(req.params.id);
         if (!userId) {
             return res.status(401).json({ error: "Unauthorized" });
         }
-        const deletedWebsite = await db
-            .delete(trusted_websites)
-            .where(and(eq(trusted_websites.id, websiteId), eq(trusted_websites.user_id, userId)))
+        const deletedWebsite = await db_1.db
+            .delete(schema_1.trusted_websites)
+            .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.trusted_websites.id, websiteId), (0, drizzle_orm_1.eq)(schema_1.trusted_websites.user_id, userId)))
             .returning();
         if (deletedWebsite.length === 0) {
             return res.status(404).json({ error: "Website not found" });
@@ -404,7 +408,9 @@ export const removeTrustedWebsite = async (req, res) => {
         res.json({ message: "Website removed successfully" });
     }
     catch (error) {
-        console.error("Error removing trusted website:", error);
+        logger_1.default.error("Error removing trusted website:", error);
         res.status(500).json({ error: "Failed to remove trusted website" });
     }
 };
+exports.removeTrustedWebsite = removeTrustedWebsite;
+//# sourceMappingURL=settings.controller.js.map

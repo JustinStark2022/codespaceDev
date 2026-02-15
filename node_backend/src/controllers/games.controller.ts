@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { db } from "../db/db";
 import { games } from "../db/schema";
 import { eq, and, desc } from "drizzle-orm";
+import logger from "../utils/logger";
 
 interface AuthenticatedRequest extends Request {
   user?: {
@@ -83,7 +84,7 @@ export const getFlaggedGames = async (req: AuthenticatedRequest, res: Response) 
 
     res.json(flaggedGames);
   } catch (err) {
-    console.error("Error fetching flagged games:", err);
+    logger.error("Error fetching flagged games:", err);
     res.status(500).json({ message: "Failed to fetch flagged games", error: err });
   }
 };
@@ -103,7 +104,7 @@ export const getAllGames = async (req: AuthenticatedRequest, res: Response) => {
 
     res.json(allGames);
   } catch (err) {
-    console.error("Error fetching games:", err);
+    logger.error("Error fetching games:", err);
     res.status(500).json({ message: "Failed to fetch games", error: err });
   }
 };
@@ -130,7 +131,7 @@ export const createGame = async (req: AuthenticatedRequest, res: Response) => {
 
     res.status(201).json(game);
   } catch (err) {
-    console.error("Error creating game:", err);
+    logger.error("Error creating game:", err);
     res.status(500).json({ message: "Failed to create game", error: err });
   }
 };
@@ -163,7 +164,7 @@ export const flagGame = async (req: AuthenticatedRequest, res: Response) => {
     if (!updated) return res.status(404).json({ message: "Game not found" });
     res.json(updated);
   } catch (err) {
-    console.error("Error flagging game:", err);
+    logger.error("Error flagging game:", err);
     res.status(500).json({ message: "Failed to flag game", error: err });
   }
 };
@@ -195,7 +196,7 @@ export const approveGame = async (req: AuthenticatedRequest, res: Response) => {
     if (!updated) return res.status(404).json({ message: "Game not found" });
     res.json(updated);
   } catch (err) {
-    console.error("Error approving game:", err);
+    logger.error("Error approving game:", err);
     res.status(500).json({ message: "Failed to approve game", error: err });
   }
 };

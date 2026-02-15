@@ -268,7 +268,7 @@ export const generateWeeklyReport = async (req: AuthenticatedRequest, res: Respo
 
     res.json(report);
   } catch (error) {
-    console.error("Error generating weekly report:", error);
+    logger.error("Error generating weekly report:", error);
     res.status(500).json({ error: "Failed to generate weekly report" });
   }
 };
@@ -317,7 +317,7 @@ export const generateContentSafetySummary = async (req: AuthenticatedRequest, re
 
     res.json(summary);
   } catch (error) {
-    console.error("Error generating content safety summary:", error);
+    logger.error("Error generating content safety summary:", error);
     res.status(500).json({ error: "Failed to generate content safety summary" });
   }
 };

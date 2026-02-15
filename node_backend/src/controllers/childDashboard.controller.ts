@@ -75,7 +75,7 @@ export const getChildDashboardData = async (req: AuthenticatedRequest, res: Resp
     });
 
   } catch (error) {
-    console.error("Error fetching child dashboard data:", error);
+    logger.error("Error fetching child dashboard data:", error);
     return res.status(500).json({ message: "Failed to fetch dashboard data" });
   }
 };

@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { db } from "../db/db";
 import { screen_time as screenTimeTable } from "../db/schema";
 import { eq, and } from "drizzle-orm";
+import logger from "../utils/logger";
 
 interface AuthenticatedRequest extends Request {
   user?: {
@@ -119,7 +120,7 @@ export const getScreenTimeForUser = async (req: AuthenticatedRequest, res: Respo
       });
     }
   } catch (error) {
-    console.error("Error fetching screen time:", error);
+    logger.error("Error fetching screen time:", error);
     res.status(500).json({ message: "Failed to fetch screen time data" });
   }
 };
@@ -254,7 +255,7 @@ export const updateScreenTime = async (req: AuthenticatedRequest, res: Response)
       });
     }
   } catch (error) {
-    console.error("Error updating screen time:", error);
+    logger.error("Error updating screen time:", error);
     res.status(500).json({ message: "Failed to update screen time" });
   }
 };
@@ -353,7 +354,7 @@ export const updateScreenTimeUsage = async (req: AuthenticatedRequest, res: Resp
     });
 
   } catch (error) {
-    console.error("Error updating screen time usage:", error);
+    logger.error("Error updating screen time usage:", error);
     res.status(500).json({ message: "Failed to update screen time usage" });
   }
 };

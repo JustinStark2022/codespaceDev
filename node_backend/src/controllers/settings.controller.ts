@@ -9,6 +9,7 @@ import {
   users
 } from "../db/schema";
 import { eq, and } from "drizzle-orm";
+import logger from "../utils/logger";
 
 interface AuthenticatedRequest extends Request {
   user?: {
@@ -44,7 +45,7 @@ export const getUserSettings = async (req: AuthenticatedRequest, res: Response) 
 
     res.json(settings[0]);
   } catch (error) {
-    console.error("Error fetching user settings:", error);
+    logger.error("Error fetching user settings:", error);
     res.status(500).json({ error: "Failed to fetch settings" });
   }
 };
@@ -114,7 +115,7 @@ export const updateUserSettings = async (req: AuthenticatedRequest, res: Respons
 
     res.json(updatedSettings[0]);
   } catch (error) {
-    console.error("Error updating user settings:", error);
+    logger.error("Error updating user settings:", error);
     res.status(500).json({ error: "Failed to update settings" });
   }
 };
@@ -155,7 +156,7 @@ export const getContentFilters = async (req: AuthenticatedRequest, res: Response
 
     res.json(filters[0]);
   } catch (error) {
-    console.error("Error fetching content filters:", error);
+    logger.error("Error fetching content filters:", error);
     res.status(500).json({ error: "Failed to fetch content filters" });
   }
 };
@@ -226,7 +227,7 @@ export const updateContentFilters = async (req: AuthenticatedRequest, res: Respo
 
     res.json(updatedFilters[0]);
   } catch (error) {
-    console.error("Error updating content filters:", error);
+    logger.error("Error updating content filters:", error);
     res.status(500).json({ error: "Failed to update content filters" });
   }
 };
@@ -267,7 +268,7 @@ export const getScreenTimeSettings = async (req: AuthenticatedRequest, res: Resp
 
     res.json(settings[0]);
   } catch (error) {
-    console.error("Error fetching screen time settings:", error);
+    logger.error("Error fetching screen time settings:", error);
     res.status(500).json({ error: "Failed to fetch screen time settings" });
   }
 };
@@ -353,7 +354,7 @@ export const updateScreenTimeSettings = async (req: AuthenticatedRequest, res: R
 
     res.json(updatedSettings[0]);
   } catch (error) {
-    console.error("Error updating screen time settings:", error);
+    logger.error("Error updating screen time settings:", error);
     res.status(500).json({ error: "Failed to update screen time settings" });
   }
 };
@@ -385,7 +386,7 @@ export const getMonitoringSettings = async (req: AuthenticatedRequest, res: Resp
 
     res.json(settings[0]);
   } catch (error) {
-    console.error("Error fetching monitoring settings:", error);
+    logger.error("Error fetching monitoring settings:", error);
     res.status(500).json({ error: "Failed to fetch monitoring settings" });
   }
 };
@@ -452,7 +453,7 @@ export const updateMonitoringSettings = async (req: AuthenticatedRequest, res: R
 
     res.json(updatedSettings[0]);
   } catch (error) {
-    console.error("Error updating monitoring settings:", error);
+    logger.error("Error updating monitoring settings:", error);
     res.status(500).json({ error: "Failed to update monitoring settings" });
   }
 };
@@ -479,7 +480,7 @@ export const getTrustedWebsites = async (req: AuthenticatedRequest, res: Respons
 
     res.json(websites);
   } catch (error) {
-    console.error("Error fetching trusted websites:", error);
+    logger.error("Error fetching trusted websites:", error);
     res.status(500).json({ error: "Failed to fetch trusted websites" });
   }
 };
@@ -505,7 +506,7 @@ export const addTrustedWebsite = async (req: AuthenticatedRequest, res: Response
 
     res.json(newWebsite[0]);
   } catch (error) {
-    console.error("Error adding trusted website:", error);
+    logger.error("Error adding trusted website:", error);
     res.status(500).json({ error: "Failed to add trusted website" });
   }
 };
@@ -535,7 +536,7 @@ export const removeTrustedWebsite = async (req: AuthenticatedRequest, res: Respo
 
     res.json({ message: "Website removed successfully" });
   } catch (error) {
-    console.error("Error removing trusted website:", error);
+    logger.error("Error removing trusted website:", error);
     res.status(500).json({ error: "Failed to remove trusted website" });
   }
 };
