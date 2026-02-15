@@ -3,6 +3,7 @@ import type { Request, Response } from "express";
 import { desc, eq, ilike } from "drizzle-orm";
 import { db } from "../db/db";
 import { lessons } from "../db/schema";
+import logger from "../utils/logger";
 
 // Strongly-typed row
 type Lesson = typeof lessons.$inferSelect;
@@ -23,7 +24,7 @@ export async function getRecentLessons(req: Request, res: Response) {
 
     return res.json(rows);
   } catch (err) {
-    console.error("getRecentLessons failed:", err);
+    logger.error("getRecentLessons failed:", err);
     return res.status(500).json({ message: "Failed to fetch lessons." });
   }
 }
@@ -47,7 +48,7 @@ export async function getLessonById(req: Request, res: Response) {
 
     return res.json(lesson);
   } catch (err) {
-    console.error("getLessonById failed:", err);
+    logger.error("getLessonById failed:", err);
     return res.status(500).json({ message: "Failed to fetch lesson." });
   }
 }
@@ -78,7 +79,7 @@ export async function searchLessons(req: Request, res: Response) {
 
     return res.json(results);
   } catch (err) {
-    console.error("searchLessons failed:", err);
+    logger.error("searchLessons failed:", err);
     return res.status(500).json({ message: "Failed to search lessons." });
   }
 }

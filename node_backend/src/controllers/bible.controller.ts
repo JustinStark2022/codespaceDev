@@ -118,7 +118,7 @@ export const getBibles = async (_req: Request, res: Response) => {
       
     res.json({ data: bibles });
   } catch (err) {
-    console.error("Bible API Error:", err);
+    logger.error("Bible API Error:", err);
     res.status(500).json({ message: "Failed to fetch Bibles", error: err });
   }
 };
@@ -149,7 +149,7 @@ export const getBooks = async (req: Request, res: Response) => {
     
     res.json({ data: books });
   } catch (err) {
-    console.error("Books API Error:", err);
+    logger.error("Books API Error:", err);
     res.status(500).json({ message: "Failed to fetch books", error: err });
   }
 };
@@ -180,7 +180,7 @@ export const getChapters = async (req: Request, res: Response) => {
     
     res.json({ data: chapters });
   } catch (err) {
-    console.error("Chapters API Error:", err);
+    logger.error("Chapters API Error:", err);
     res.status(500).json({ message: "Failed to fetch chapters", error: err });
   }
 };
@@ -207,7 +207,7 @@ export const getChapterContent = async (req: Request, res: Response) => {
     const json: any = await response.json();
     res.json(json.data);
   } catch (err) {
-    console.error("Chapter Content API Error:", err);
+    logger.error("Chapter Content API Error:", err);
     res.status(500).json({ message: "Failed to fetch chapter content", error: err });
   }
 };
@@ -239,7 +239,7 @@ export const getVerses = async (req: Request, res: Response) => {
     
     res.json({ data: verses });
   } catch (err) {
-    console.error("Verses API Error:", err);
+    logger.error("Verses API Error:", err);
     res.status(500).json({ message: "Failed to fetch verses list", error: err });
   }
 };
@@ -266,7 +266,7 @@ export const getVerse = async (req: Request, res: Response) => {
     const json: any = await response.json();
     res.json(json.data);
   } catch (err) {
-    console.error("Verse API Error:", err);
+    logger.error("Verse API Error:", err);
     res.status(500).json({ message: "Failed to fetch verse", error: err });
   }
 };
@@ -293,7 +293,7 @@ export const getBiblePassage = async (req: Request, res: Response) => {
     const json: any = await response.json();
     res.json(json);
   } catch (err) {
-    console.error("Passage API Error:", err);
+    logger.error("Passage API Error:", err);
     res.status(500).json({ error: "Failed to fetch passage", details: err });
   }
 };
@@ -320,7 +320,7 @@ export const searchBible = async (req: Request, res: Response) => {
     const json: any = await response.json();
     res.json(json);
   } catch (err) {
-    console.error("Search API Error:", err);
+    logger.error("Search API Error:", err);
     res.status(500).json({ error: "Failed to search Bible", details: err });
   }
 };
