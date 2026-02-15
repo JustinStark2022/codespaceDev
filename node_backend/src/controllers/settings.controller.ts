@@ -10,7 +10,6 @@ import {
 } from "../db/schema";
 import { eq, and } from "drizzle-orm";
 import logger from "../utils/logger";
-import { eq, and } from "drizzle-orm";
 
 interface AuthenticatedRequest extends Request {
   user?: {
