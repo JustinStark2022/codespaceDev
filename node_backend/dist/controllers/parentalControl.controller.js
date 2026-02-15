@@ -1,9 +1,14 @@
-import { db } from "../db/db";
-import { screen_time, games, trusted_websites } from "../db/schema";
-import { eq, and, desc, gte } from "drizzle-orm";
-import logger from "../utils/logger";
-// ─── Overview Data ─────────────────────────────────────────────────────────
-export const getOverviewData = async (req, res) => {
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.generateContentSafetySummary = exports.generateWeeklyReport = exports.syncContentRules = exports.blockNewApp = exports.addTrustedWebsiteQuick = exports.blockContent = exports.approveContent = exports.getFlaggedContent = exports.getOverviewData = void 0;
+const db_1 = require("../db/db");
+const schema_1 = require("../db/schema");
+const drizzle_orm_1 = require("drizzle-orm");
+const logger_1 = __importDefault(require("../utils/logger"));
+const getOverviewData = async (req, res) => {
     try {
         const userId = req.user?.id;
         const childId = req.query.childId ? parseInt(req.query.childId) : null;
@@ -12,18 +17,15 @@ export const getOverviewData = async (req, res) => {
             return res.status(401).json({ error: "Unauthorized" });
         }
         const targetUserId = childId || userId;
-        // Get screen time data for the date
-        const screenTimeData = await db
+        const screenTimeData = await db_1.db
             .select()
-            .from(screen_time)
-            .where(and(eq(screen_time.user_id, targetUserId), eq(screen_time.date, date)))
+            .from(schema_1.screen_time)
+            .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.screen_time.user_id, targetUserId), (0, drizzle_orm_1.eq)(schema_1.screen_time.date, date)))
             .limit(1);
-        // Get flagged content count
-        const flaggedContentCount = await db
+        const flaggedContentCount = await db_1.db
             .select()
-            .from(games)
-            .where(eq(games.flagged, true));
-        // Mock recent activity and alerts for now
+            .from(schema_1.games)
+            .where((0, drizzle_orm_1.eq)(schema_1.games.flagged, true));
         const overviewData = {
             screenTime: screenTimeData.length > 0 ? {
                 allowedTimeMinutes: screenTimeData[0].allowed_time_minutes || 120,
@@ -44,81 +46,88 @@ export const getOverviewData = async (req, res) => {
         res.json(overviewData);
     }
     catch (error) {
-        logger.error(error, "Error fetching overview data");
+        logger_1.default.error(error, "Error fetching overview data");
         res.status(500).json({ error: "Failed to fetch overview data" });
     }
 };
-export const getFlaggedContent = async (req, res) => {
+exports.getOverviewData = getOverviewData;
+const getFlaggedContent = async (req, res) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
             return res.status(401).json({ error: "Unauthorized" });
         }
-        const flaggedGames = await db
+        const flaggedGames = await db_1.db
             .select()
-            .from(games)
-            .where(eq(games.flagged, true));
+            .from(schema_1.games)
+            .where((0, drizzle_orm_1.eq)(schema_1.games.flagged, true));
         res.json(flaggedGames);
     }
     catch (error) {
-        logger.error(error, "Error fetching flagged content");
+        logger_1.default.error(error, "Error fetching flagged content");
         res.status(500).json({ error: "Failed to fetch flagged content" });
     }
 };
-export const approveContent = async (req, res) => {
+exports.getFlaggedContent = getFlaggedContent;
+const approveContent = async (req, res) => {
     try {
         const contentId = parseInt(req.params.id);
         const userId = req.user?.id;
         if (!userId) {
             return res.status(401).json({ error: "Unauthorized" });
         }
-        const updatedContent = await db
-            .update(games)
+        const updatedContent = await db_1.db
+            .update(schema_1.games)
             .set({
             flagged: false,
             approved: true
         })
-            .where(eq(games.id, contentId))
+            .where((0, drizzle_orm_1.eq)(schema_1.games.id, contentId))
             .returning();
         res.json({ message: "Content approved successfully", content: updatedContent[0] || null });
     }
     catch (error) {
-        logger.error(error, "Error approving content");
+        logger_1.default.error(error, "Error approving content");
         res.status(500).json({ error: "Failed to approve content" });
     }
 };
-export const blockContent = async (req, res) => {
+exports.approveContent = approveContent;
+const blockContent = async (req, res) => {
     try {
         const contentId = parseInt(req.params.id);
         const userId = req.user?.id;
         if (!userId) {
             return res.status(401).json({ error: "Unauthorized" });
         }
-        const updatedContent = await db
-            .update(games)
+        const updatedContent = await db_1.db
+            .update(schema_1.games)
             .set({
             flagged: true,
             approved: false,
             flag_reason: "Blocked by parent"
         })
-            .where(eq(games.id, contentId))
+            .where((0, drizzle_orm_1.eq)(schema_1.games.id, contentId))
             .returning();
         res.json({ message: "Content blocked successfully", content: updatedContent[0] || null });
     }
     catch (error) {
-        logger.error(error, "Error blocking content");
+        logger_1.default.error(error, "Error blocking content");
         res.status(500).json({ error: "Failed to block content" });
     }
 };
-export const addTrustedWebsiteQuick = async (req, res) => {
+exports.blockContent = blockContent;
+const addTrustedWebsiteQuick = async (req, res) => {
     try {
         const userId = req.user?.id;
         const { url, name, childId } = req.body;
         if (!userId) {
             return res.status(401).json({ error: "Unauthorized" });
         }
-        const website = await db
-            .insert(trusted_websites)
+        if (!url) {
+            return res.status(400).json({ error: "URL is required" });
+        }
+        const website = await db_1.db
+            .insert(schema_1.trusted_websites)
             .values({
             user_id: userId,
             child_id: childId || null,
@@ -129,32 +138,38 @@ export const addTrustedWebsiteQuick = async (req, res) => {
         res.json({ message: "Trusted website added successfully", website: website[0] });
     }
     catch (error) {
-        logger.error(error, "Error adding trusted website");
+        logger_1.default.error(error, "Error adding trusted website");
         res.status(500).json({ error: "Failed to add trusted website" });
     }
 };
-export const blockNewApp = async (req, res) => {
+exports.addTrustedWebsiteQuick = addTrustedWebsiteQuick;
+const blockNewApp = async (req, res) => {
     try {
         const userId = req.user?.id;
         const { name, platform, childId } = req.body;
         if (!userId) {
             return res.status(401).json({ error: "Unauthorized" });
         }
-        // Mock response for now
-        res.json({ message: "App blocked successfully", app: { name, platform } });
+        if (!name) {
+            return res.status(400).json({ error: "App name is required" });
+        }
+        res.json({
+            message: "App blocked successfully",
+            app: { name, platform: platform || "unknown" }
+        });
     }
     catch (error) {
-        logger.error(error, "Error blocking app");
+        logger_1.default.error(error, "Error blocking app");
         res.status(500).json({ error: "Failed to block app" });
     }
 };
-export const syncContentRules = async (req, res) => {
+exports.blockNewApp = blockNewApp;
+const syncContentRules = async (req, res) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
             return res.status(401).json({ error: "Unauthorized" });
         }
-        // Mock sync operation
         res.json({
             message: "Content rules synced successfully",
             syncedAt: new Date().toISOString(),
@@ -162,13 +177,12 @@ export const syncContentRules = async (req, res) => {
         });
     }
     catch (error) {
-        logger.error(error, "Error syncing content rules");
+        logger_1.default.error(error, "Error syncing content rules");
         res.status(500).json({ error: "Failed to sync content rules" });
     }
 };
-/* Removed duplicate generateWeeklyReport and generateContentSafetySummary implementations to resolve redeclaration errors. */
-// ─── Reports ───────────────────────────────────────────────────────────────
-export const generateWeeklyReport = async (req, res) => {
+exports.syncContentRules = syncContentRules;
+const generateWeeklyReport = async (req, res) => {
     try {
         const userId = req.user?.id;
         const childId = req.query.childId ? parseInt(req.query.childId) : null;
@@ -177,11 +191,11 @@ export const generateWeeklyReport = async (req, res) => {
         }
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        const weeklyData = await db
+        const weeklyData = await db_1.db
             .select()
-            .from(screen_time)
-            .where(and(eq(screen_time.user_id, childId || userId), gte(screen_time.date, sevenDaysAgo.toISOString().split('T')[0])))
-            .orderBy(desc(screen_time.date));
+            .from(schema_1.screen_time)
+            .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.screen_time.user_id, childId || userId), (0, drizzle_orm_1.gte)(schema_1.screen_time.date, sevenDaysAgo.toISOString().split('T')[0])))
+            .orderBy((0, drizzle_orm_1.desc)(schema_1.screen_time.date));
         const report = {
             period: {
                 start: sevenDaysAgo.toISOString().split('T')[0],
@@ -201,25 +215,26 @@ export const generateWeeklyReport = async (req, res) => {
         res.json(report);
     }
     catch (error) {
-        console.error("Error generating weekly report:", error);
+        logger_1.default.error("Error generating weekly report:", error);
         res.status(500).json({ error: "Failed to generate weekly report" });
     }
 };
-export const generateContentSafetySummary = async (req, res) => {
+exports.generateWeeklyReport = generateWeeklyReport;
+const generateContentSafetySummary = async (req, res) => {
     try {
         const userId = req.user?.id;
         const childId = req.query.childId ? parseInt(req.query.childId) : null;
         if (!userId) {
             return res.status(401).json({ error: "Unauthorized" });
         }
-        const flaggedContent = await db
+        const flaggedContent = await db_1.db
             .select()
-            .from(games)
-            .where(and(eq(games.user_id, childId || userId), eq(games.flagged, true)));
-        const approvedContent = await db
+            .from(schema_1.games)
+            .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.games.user_id, childId || userId), (0, drizzle_orm_1.eq)(schema_1.games.flagged, true)));
+        const approvedContent = await db_1.db
             .select()
-            .from(games)
-            .where(and(eq(games.user_id, childId || userId), eq(games.approved, true)));
+            .from(schema_1.games)
+            .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.games.user_id, childId || userId), (0, drizzle_orm_1.eq)(schema_1.games.approved, true)));
         const summary = {
             flaggedItems: flaggedContent.length,
             approvedItems: approvedContent.length,
@@ -235,7 +250,9 @@ export const generateContentSafetySummary = async (req, res) => {
         res.json(summary);
     }
     catch (error) {
-        console.error("Error generating content safety summary:", error);
+        logger_1.default.error("Error generating content safety summary:", error);
         res.status(500).json({ error: "Failed to generate content safety summary" });
     }
 };
+exports.generateContentSafetySummary = generateContentSafetySummary;
+//# sourceMappingURL=parentalControl.controller.js.map
